@@ -1,24 +1,8 @@
-import { Bricolage_Grotesque, Hanken_Grotesk } from "next/font/google";
 import "./globals.css";
-
-const display = Bricolage_Grotesque({
-  subsets: ["latin"],
-  weight: ["400", "600", "700", "800"],
-  variable: "--font-display",
-  display: "swap",
-});
-
-const body = Hanken_Grotesk({
-  subsets: ["latin"],
-  weight: ["400", "500", "600", "700"],
-  variable: "--font-body",
-  display: "swap",
-});
 
 export const metadata = {
   title: "Blackbird Dart Scoring System",
-  description:
-    "Score 501/301/701 and Cricket, track players, and predict matchups.",
+  description: "Score 501/301/701 and Cricket, track players, and predict matchups.",
 };
 
 export const viewport = {
@@ -30,7 +14,15 @@ export const viewport = {
 export default function RootLayout({ children }) {
   return (
     <html lang="en">
-      <body className={`${display.variable} ${body.variable}`}>{children}</body>
+      <head>
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+        <link
+          href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@400;600;700;800&family=Hanken+Grotesk:wght@400;500;600;700&display=swap"
+          rel="stylesheet"
+        />
+      </head>
+      <body>{children}</body>
     </html>
   );
 }
