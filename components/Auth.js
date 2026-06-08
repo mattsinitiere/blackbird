@@ -117,7 +117,7 @@ export default function Auth() {
         </div>
 
         <p className="tag" style={{ marginTop: 16, textAlign: "center", textTransform: "none", letterSpacing: 0 }}>
-          Private to your group. Everyone who signs in shares the same players and stats.
+          © 2026 Sinitiere Technology
         </p>
       </div>
     </main>

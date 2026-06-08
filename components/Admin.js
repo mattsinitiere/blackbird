@@ -234,34 +234,46 @@ export default function Admin({ stats, back, refreshData }) {
               const busyHere = busy === u.id;
               return (
                 <div className="card" key={u.id}>
-                  <div className="tag" style={{ marginBottom: 6 }}>Display name</div>
-                  <input
-                    className="input"
-                    value={e.displayName}
-                    onChange={(ev) => setEdit(u.id, "displayName", ev.target.value)}
-                    placeholder="display name"
-                  />
-                  <div className="tag" style={{ margin: "12px 0 6px" }}>Email</div>
-                  <input
-                    className="input"
-                    value={e.email}
-                    onChange={(ev) => setEdit(u.id, "email", ev.target.value)}
-                    placeholder="email"
-                    autoCapitalize="none"
-                  />
-                  <div className="tag" style={{ margin: "12px 0 6px" }}>New password</div>
-                  <input
-                    className="input"
-                    type="text"
-                    value={e.password}
-                    onChange={(ev) => setEdit(u.id, "password", ev.target.value)}
-                    placeholder="leave blank to keep current"
-                    autoCapitalize="none"
-                  />
-                  <p className="tag" style={{ textTransform: "none", letterSpacing: 0, marginTop: 10 }}>
+                  <div style={{ marginBottom: 16 }}>
+                    <div className="tag" style={{ marginBottom: 7 }}>Display name</div>
+                    <input
+                      className="input"
+                      value={e.displayName}
+                      onChange={(ev) => setEdit(u.id, "displayName", ev.target.value)}
+                      placeholder="display name"
+                    />
+                  </div>
+
+                  <div style={{ marginBottom: 16 }}>
+                    <div className="tag" style={{ marginBottom: 7 }}>Email</div>
+                    <input
+                      className="input"
+                      value={e.email}
+                      onChange={(ev) => setEdit(u.id, "email", ev.target.value)}
+                      placeholder="email"
+                      autoCapitalize="none"
+                    />
+                  </div>
+
+                  <div style={{ paddingTop: 16, borderTop: "1px solid var(--line)" }}>
+                    <div className="tag" style={{ marginBottom: 7 }}>Reset password</div>
+                    <input
+                      className="input"
+                      type="text"
+                      value={e.password}
+                      onChange={(ev) => setEdit(u.id, "password", ev.target.value)}
+                      placeholder="new password"
+                      autoCapitalize="none"
+                    />
+                    <p className="tag" style={{ textTransform: "none", letterSpacing: 0, margin: "8px 0 0" }}>
+                      Leave blank to keep their current password.
+                    </p>
+                  </div>
+
+                  <p className="tag" style={{ textTransform: "none", letterSpacing: 0, margin: "16px 0 0" }}>
                     Joined {fmtDate(u.createdAt)}
                   </p>
-                  <div className="row mt-12">
+                  <div className="row" style={{ marginTop: 16 }}>
                     <button
                       className="btn btn-primary"
                       style={{ flex: 1 }}
