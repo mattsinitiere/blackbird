@@ -1,5 +1,8 @@
 import { useState } from "react";
 import { X01_TARGETS, CRICKET_VALUE } from "@/lib/constants";
+import DartBoard from "./DartBoard";
+
+const numOf = (t) => (t === "B" ? 25 : Number(t));
 
 export default function PlayCricket({ game, onFinish, onQuit }) {
   const { players } = game;
@@ -12,6 +15,7 @@ export default function PlayCricket({ game, onFinish, onQuit }) {
         points: 0,
         markCount: 0,
         rounds: 0,
+        log: [],
       };
       return o;
     }, {});
@@ -35,7 +39,12 @@ export default function PlayCricket({ game, onFinish, onQuit }) {
   const finish = (ns, winner) => {
     const perPlayer = {};
     players.forEach((u) => {
-      perPlayer[u] = { marks: ns[u].markCount, rounds: ns[u].rounds, pointsScored: ns[u].points };
+      perPlayer[u] = {
+        marks: ns[u].markCount,
+        rounds: ns[u].rounds,
+        pointsScored: ns[u].points,
+        darts: ns[u].log,
+      };
     });
     onFinish({
       id: game.id,
@@ -58,18 +67,17 @@ export default function PlayCricket({ game, onFinish, onQuit }) {
       const after = before + dt.ring;
       me.marks[dt.target] = after;
       me.markCount += dt.ring;
+      me.log.push({ n: numOf(dt.target), mult: dt.ring });
       const scoringHits = Math.max(0, after - 3) - Math.max(0, before - 3);
       if (scoringHits > 0) {
         const value = CRICKET_VALUE[dt.target] * scoringHits;
         if (variant === "noscore") {
-          // no points in this mode
+          // no points
         } else if (variant === "cutthroat") {
-          // points go to each opponent who hasn't closed this number
           players.forEach((o) => {
             if (o !== cur && ns[o].marks[dt.target] < 3) ns[o].points += value;
           });
         } else {
-          // standard: you score if any opponent hasn't closed it
           const open = players.some((o) => o !== cur && ns[o].marks[dt.target] < 3);
           if (open) me.points += value;
         }
@@ -79,7 +87,6 @@ export default function PlayCricket({ game, onFinish, onQuit }) {
     setState(ns);
     setDarts([]);
 
-    // win conditions per variant
     if (variant === "noscore") {
       if (allClosed(ns[cur].marks)) return finish(ns, cur);
     } else if (variant === "cutthroat") {
@@ -99,12 +106,15 @@ export default function PlayCricket({ game, onFinish, onQuit }) {
   };
 
   const undo = () => {
+    if (darts.length > 0) {
+      setDarts((d) => d.slice(0, -1));
+      return;
+    }
     setHistory((h) => {
       if (!h.length) return h;
       const last = h[h.length - 1];
       setState(last.state);
       setTurn(last.turn);
-      setDarts([]);
       return h.slice(0, -1);
     });
   };
@@ -112,6 +122,10 @@ export default function PlayCricket({ game, onFinish, onQuit }) {
   const markSymbol = (n) => (n <= 0 ? "" : n === 1 ? "/" : n === 2 ? "✕" : "⊗");
   const variantLabel =
     variant === "cutthroat" ? "Cutthroat" : variant === "noscore" ? "No-score" : "Score";
+
+  // numbers the current player still needs to close
+  const openTargets = X01_TARGETS.filter((t) => state[cur].marks[t] < 3).map(numOf);
+  const boardHits = darts.map((d) => ({ n: numOf(d.target), mult: d.ring }));
 
   return (
     <div className="fade">
@@ -205,12 +219,16 @@ export default function PlayCricket({ game, onFinish, onQuit }) {
         </div>
 
         <div className="row mt-12">
-          <button className="btn" style={{ flex: 1 }} onClick={undo} disabled={!history.length}>
-            Undo turn
+          <button className="btn" style={{ flex: 1 }} onClick={undo} disabled={!darts.length && !history.length}>
+            Undo
           </button>
           <button className="btn btn-primary" style={{ flex: 2 }} onClick={endTurn}>
             End turn
           </button>
+        </div>
+
+        <div style={{ marginTop: 14 }}>
+          <DartBoard highlight={openTargets} hits={boardHits} />
         </div>
       </div>
     </div>

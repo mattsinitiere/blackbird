@@ -50,7 +50,8 @@ export default function Page() {
     if (typeof document === "undefined") return;
     const meta = (session && session.user && session.user.user_metadata) || {};
     document.documentElement.dataset.theme = meta.theme === "dark" ? "dark" : "light";
-    const accent = ACCENTS[meta.accent] || ACCENTS.green;
+    const a = meta.accent;
+    const accent = a ? (a.charAt(0) === "#" ? a : ACCENTS[a] || ACCENTS.green) : ACCENTS.green;
     document.documentElement.style.setProperty("--accent", accent);
   }, [session]);
 

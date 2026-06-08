@@ -1,116 +1,109 @@
 import { useState } from "react";
 import { Modal } from "./ui";
-import { QUICK_SCORES } from "@/lib/constants";
+import DartBoard from "./DartBoard";
+
+const dartValue = (d) => (d.n === 0 ? 0 : d.n === 25 ? 25 * d.mult : d.n * d.mult);
+const dartLabel = (d) =>
+  d.n === 0 ? "Miss" : d.n === 25 ? (d.mult === 2 ? "Bull" : "25") : `${d.mult === 1 ? "S" : d.mult === 2 ? "D" : "T"}${d.n}`;
 
 export default function PlayX01({ game, onFinish, onQuit }) {
   const { players, config } = game;
   const start = config.startScore;
 
-  const blank = () =>
-    players.reduce((o, u) => {
-      o[u] = { score: start, darts: 0, points: 0, highestTurn: 0, checkout: 0 };
-      return o;
-    }, {});
+  const blank = () => ({
+    scores: players.reduce((o, u) => ((o[u] = start), o), {}),
+    darts: players.reduce((o, u) => ((o[u] = 0), o), {}),
+    points: players.reduce((o, u) => ((o[u] = 0), o), {}),
+    highestTurn: players.reduce((o, u) => ((o[u] = 0), o), {}),
+    checkout: players.reduce((o, u) => ((o[u] = 0), o), {}),
+    log: players.reduce((o, u) => ((o[u] = []), o), {}),
+  });
 
-  const [state, setState] = useState(blank);
+  const [s, setS] = useState(blank);
   const [turn, setTurn] = useState(0);
-  const [entry, setEntry] = useState("");
-  const [history, setHistory] = useState([]);
-  const [finishAsk, setFinishAsk] = useState(null);
+  const [turnDarts, setTurnDarts] = useState([]);
+  const [mult, setMult] = useState(1);
   const [msg, setMsg] = useState("");
+  const [history, setHistory] = useState([]);
 
   const cur = players[turn % players.length];
+  const turnSum = turnDarts.reduce((a, d) => a + dartValue(d), 0);
+  const remaining = s.scores[cur] - turnSum;
 
-  const snapshot = () =>
-    setHistory((h) => [...h, { state: JSON.parse(JSON.stringify(state)), turn }]);
+  const commit = (darts, kind) => {
+    setHistory((h) => [...h, { s: JSON.parse(JSON.stringify(s)), turn }]);
+    const sum = darts.reduce((a, d) => a + dartValue(d), 0);
+    const scoreBefore = s.scores[cur];
+    const ns = JSON.parse(JSON.stringify(s));
+    ns.darts[cur] += darts.length;
+    ns.log[cur] = [...ns.log[cur], ...darts];
+    if (kind !== "bust") {
+      ns.scores[cur] = scoreBefore - sum;
+      ns.points[cur] += sum;
+      ns.highestTurn[cur] = Math.max(ns.highestTurn[cur], sum);
+    }
+    setTurnDarts([]);
+    setMult(1);
 
-  const submit = () => {
-    const val = parseInt(entry || "0", 10);
-    if (isNaN(val) || val < 0 || val > 180) {
-      setMsg("Enter 0–180");
+    if (kind === "win") {
+      ns.checkout[cur] = scoreBefore;
+      const perPlayer = {};
+      players.forEach((u) => {
+        perPlayer[u] = {
+          dartsThrown: ns.darts[u],
+          pointsScored: ns.points[u],
+          highestTurn: ns.highestTurn[u],
+          checkout: u === cur ? scoreBefore : 0,
+          finalScore: ns.scores[u],
+          darts: ns.log[u],
+        };
+      });
+      onFinish({
+        id: game.id,
+        gameType: "x01",
+        config,
+        players,
+        winner: cur,
+        perPlayer,
+        completedAt: new Date().toISOString(),
+      });
       return;
     }
-    const remaining = state[cur].score;
-    const next = remaining - val;
-    let bust = false;
-    let win = false;
-    if (next < 0) bust = true;
-    else if (next === 0) win = true;
-    else if (config.doubleOut && next === 1) bust = true;
-
-    if (win) {
-      setFinishAsk({ player: cur, entry: val });
-      return;
-    }
-
-    snapshot();
-    setState((s) => {
-      const ns = { ...s, [cur]: { ...s[cur] } };
-      ns[cur].darts += 3;
-      if (!bust) {
-        ns[cur].score = next;
-        ns[cur].points += val;
-        ns[cur].highestTurn = Math.max(ns[cur].highestTurn, val);
-      }
-      return ns;
-    });
-    setMsg(bust ? "Bust — no score" : "");
-    setEntry("");
+    setS(ns);
+    setMsg(kind === "bust" ? "Bust — no score" : "");
     setTurn((t) => t + 1);
   };
 
-  const confirmFinish = (dartsUsed) => {
-    const { player, entry: val } = finishAsk;
-    const finalState = { ...state, [player]: { ...state[player] } };
-    finalState[player].score = 0;
-    finalState[player].darts += dartsUsed;
-    finalState[player].points += val;
-    finalState[player].highestTurn = Math.max(finalState[player].highestTurn, val);
-    finalState[player].checkout = val;
-    setFinishAsk(null);
-
-    const perPlayer = {};
-    players.forEach((u) => {
-      const p = finalState[u];
-      perPlayer[u] = {
-        dartsThrown: p.darts,
-        pointsScored: p.points,
-        highestTurn: p.highestTurn,
-        checkout: u === player ? val : 0,
-        finalScore: p.score,
-      };
-    });
-
-    onFinish({
-      id: game.id,
-      gameType: "x01",
-      config,
-      players,
-      winner: player,
-      perPlayer,
-      completedAt: new Date().toISOString(),
-    });
+  const addDart = (dart) => {
+    const next = [...turnDarts, dart];
+    const rem = s.scores[cur] - next.reduce((a, d) => a + dartValue(d), 0);
+    if (rem < 0) return commit(next, "bust");
+    if (rem === 0) {
+      if (!config.doubleOut || dart.mult === 2) return commit(next, "win");
+      return commit(next, "bust");
+    }
+    if (config.doubleOut && rem === 1) return commit(next, "bust");
+    if (next.length === 3) return commit(next, "normal");
+    setMsg("");
+    setTurnDarts(next);
   };
 
   const undo = () => {
+    if (turnDarts.length > 0) {
+      setTurnDarts((d) => d.slice(0, -1));
+      return;
+    }
     setHistory((h) => {
       if (!h.length) return h;
       const last = h[h.length - 1];
-      setState(last.state);
+      setS(last.s);
       setTurn(last.turn);
       setMsg("");
-      setEntry("");
       return h.slice(0, -1);
     });
   };
 
-  const keypad = (k) => {
-    if (k === "C") setEntry("");
-    else if (k === "←") setEntry((e) => e.slice(0, -1));
-    else setEntry((e) => (e.length >= 3 ? e : e === "0" ? k : e + k));
-  };
-
-  const avg = (p) => (p.darts ? ((p.points / p.darts) * 3).toFixed(1) : "0.0");
+  const avg = (u) => (s.darts[u] ? ((s.points[u] / s.darts[u]) * 3).toFixed(1) : "0.0");
   const cols = Math.min(players.length, 2);
 
   return (
@@ -124,12 +117,10 @@ export default function PlayX01({ game, onFinish, onQuit }) {
         </button>
       </div>
 
-      <div
-        style={{ display: "grid", gridTemplateColumns: `repeat(${cols},1fr)`, gap: 10, marginBottom: 12 }}
-      >
+      <div style={{ display: "grid", gridTemplateColumns: `repeat(${cols},1fr)`, gap: 10, marginBottom: 12 }}>
         {players.map((u) => {
-          const p = state[u];
           const active = u === cur;
+          const shown = active ? remaining : s.scores[u];
           return (
             <div
               key={u}
@@ -141,21 +132,16 @@ export default function PlayX01({ game, onFinish, onQuit }) {
             >
               <div className="between">
                 <span style={{ fontWeight: 700 }}>{u}</span>
-                {active && (
-                  <span className="tag" style={{ color: "var(--accent)" }}>
-                    at the oche
-                  </span>
-                )}
+                {active && <span className="tag" style={{ color: "var(--accent)" }}>at the oche</span>}
               </div>
               <div
-                className="num pop"
-                key={p.score}
-                style={{ fontSize: 46, lineHeight: 1.05, marginTop: 2, color: p.score <= 40 ? "var(--red)" : "var(--ink)" }}
+                className="num"
+                style={{ fontSize: 44, lineHeight: 1.05, marginTop: 2, color: shown <= 40 ? "var(--red)" : "var(--ink)" }}
               >
-                {p.score}
+                {shown}
               </div>
               <div className="tag" style={{ marginTop: 4 }}>
-                avg {avg(p)} · {p.darts} darts
+                avg {avg(u)} · {s.darts[u]} darts
               </div>
             </div>
           );
@@ -164,70 +150,53 @@ export default function PlayX01({ game, onFinish, onQuit }) {
 
       <div className="card">
         <div className="between" style={{ marginBottom: 8 }}>
-          <span className="tag">{cur} — enter 3-dart total</span>
+          <span className="tag">{cur} — dart {Math.min(turnDarts.length + 1, 3)} of 3</span>
           <span style={{ minHeight: 16, color: "var(--red)", fontSize: 12, fontWeight: 600 }}>{msg}</span>
         </div>
 
-        <div
-          className="num"
-          style={{
-            fontSize: 40,
-            textAlign: "center",
-            minHeight: 50,
-            border: "1px solid var(--line)",
-            borderRadius: 10,
-            background: "var(--surface-2)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-          }}
-        >
-          {entry || "0"}
+        <div className="flex-wrap" style={{ minHeight: 34, marginBottom: 8 }}>
+          {turnDarts.length === 0 && <span className="tag">tap a multiplier, then a number</span>}
+          {turnDarts.map((d, i) => (
+            <span key={i} className="btn" style={{ padding: "5px 10px", fontSize: 13 }}>
+              {dartLabel(d)}
+            </span>
+          ))}
+        </div>
+
+        <div className="row mb-12">
+          {[1, 2, 3].map((m) => (
+            <button
+              key={m}
+              className={`btn ${mult === m ? "btn-amber" : ""}`}
+              style={{ flex: 1 }}
+              onClick={() => setMult(m)}
+            >
+              {m === 1 ? "Single" : m === 2 ? "Double" : "Triple"}
+            </button>
+          ))}
+        </div>
+
+        <div className="grid-5">
+          {Array.from({ length: 20 }, (_, i) => i + 1).map((n) => (
+            <button key={n} className="chip" style={{ fontSize: 15, padding: "12px 0" }} onClick={() => addDart({ n, mult })}>
+              {n}
+            </button>
+          ))}
         </div>
 
         <div className="grid-4 mt-12">
-          {QUICK_SCORES.map((q) => (
-            <button key={q} className="chip" style={{ fontSize: 15 }} onClick={() => setEntry(String(q))}>
-              {q}
-            </button>
-          ))}
-        </div>
-
-        <div className="grid-3" style={{ marginTop: 8 }}>
-          {["1", "2", "3", "4", "5", "6", "7", "8", "9", "C", "0", "←"].map((k) => (
-            <button key={k} className="chip" onClick={() => keypad(k)}>
-              {k}
-            </button>
-          ))}
-        </div>
-
-        <div className="row mt-12">
-          <button className="btn" style={{ flex: 1 }} onClick={undo} disabled={!history.length}>
+          <button className="chip" onClick={() => addDart({ n: 25, mult: 1 })}>25</button>
+          <button className="chip" onClick={() => addDart({ n: 25, mult: 2 })}>Bull</button>
+          <button className="chip" onClick={() => addDart({ n: 0, mult: 0 })}>Miss</button>
+          <button className="chip" onClick={undo} disabled={!turnDarts.length && !history.length}>
             Undo
           </button>
-          <button className="btn btn-primary" style={{ flex: 2 }} onClick={submit}>
-            Enter
-          </button>
+        </div>
+
+        <div style={{ marginTop: 14 }}>
+          <DartBoard hits={turnDarts} />
         </div>
       </div>
-
-      {finishAsk && (
-        <Modal>
-          <div className="display" style={{ fontSize: 19, marginBottom: 6 }}>
-            Checkout!
-          </div>
-          <p className="subtle" style={{ marginTop: 0, marginBottom: 16 }}>
-            {finishAsk.player} finished on {finishAsk.entry}. How many darts did the checkout take? (keeps the average honest)
-          </p>
-          <div className="row">
-            {[1, 2, 3].map((d) => (
-              <button key={d} className="btn btn-amber" style={{ flex: 1, fontSize: 18 }} onClick={() => confirmFinish(d)}>
-                {d}
-              </button>
-            ))}
-          </div>
-        </Modal>
-      )}
     </div>
   );
 }

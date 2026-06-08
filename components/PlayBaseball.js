@@ -1,41 +1,51 @@
 import { useState } from "react";
 import { BASEBALL_INNINGS } from "@/lib/constants";
+import DartBoard from "./DartBoard";
 
 export default function PlayBaseball({ game, onFinish, onQuit }) {
   const { players } = game;
   const n = players.length;
 
-  const blank = () => players.reduce((o, u) => ((o[u] = { innings: [], total: 0 }), o), {});
+  const blank = () =>
+    players.reduce((o, u) => ((o[u] = { innings: [], total: 0, log: [] }), o), {});
   const [state, setState] = useState(blank);
   const [turn, setTurn] = useState(0);
+  const [turnDarts, setTurnDarts] = useState([]);
   const [history, setHistory] = useState([]);
 
   const cur = players[turn % n];
   const inning = Math.floor(turn / n) + 1;
   const isExtra = inning > BASEBALL_INNINGS;
+  const target = isExtra ? 25 : inning; // extra innings aim at the bull
 
-  const submit = (runs) => {
+  const addDart = (mult) => {
+    if (turnDarts.length >= 3) return;
+    // mult 0 = miss
+    const dart = mult === 0 ? { n: 0, mult: 0 } : { n: target, mult };
+    const next = [...turnDarts, dart];
+    if (next.length === 3) commitInning(next);
+    else setTurnDarts(next);
+  };
+
+  const commitInning = (darts) => {
     setHistory((h) => [...h, { state: JSON.parse(JSON.stringify(state)), turn }]);
-    const ns = {
-      ...state,
-      [cur]: {
-        innings: [...state[cur].innings, runs],
-        total: state[cur].total + runs,
-      },
-    };
+    const runs = darts.reduce((a, d) => a + (d.n === target ? d.mult : 0), 0);
+    const ns = JSON.parse(JSON.stringify(state));
+    ns[cur].innings = [...ns[cur].innings, runs];
+    ns[cur].total += runs;
+    ns[cur].log = [...ns[cur].log, ...darts];
     setState(ns);
+    setTurnDarts([]);
 
     const newTurn = turn + 1;
     const completedInnings = Math.floor(newTurn / n);
-    const roundComplete = newTurn % n === 0;
-
-    if (roundComplete && completedInnings >= BASEBALL_INNINGS) {
+    if (newTurn % n === 0 && completedInnings >= BASEBALL_INNINGS) {
       const max = Math.max(...players.map((u) => ns[u].total));
       const leaders = players.filter((u) => ns[u].total === max);
       if (leaders.length === 1 || n === 1) {
         const winner = leaders[0] || cur;
         const perPlayer = {};
-        players.forEach((u) => (perPlayer[u] = { runs: ns[u].total }));
+        players.forEach((u) => (perPlayer[u] = { runs: ns[u].total, darts: ns[u].log }));
         onFinish({
           id: game.id,
           gameType: "baseball",
@@ -47,12 +57,15 @@ export default function PlayBaseball({ game, onFinish, onQuit }) {
         });
         return;
       }
-      // tie -> continue into extra innings
     }
     setTurn(newTurn);
   };
 
   const undo = () => {
+    if (turnDarts.length > 0) {
+      setTurnDarts((d) => d.slice(0, -1));
+      return;
+    }
     setHistory((h) => {
       if (!h.length) return h;
       const last = h[h.length - 1];
@@ -64,6 +77,7 @@ export default function PlayBaseball({ game, onFinish, onQuit }) {
 
   const colCount = Math.max(inning, BASEBALL_INNINGS);
   const cols = Array.from({ length: colCount }, (_, i) => i + 1);
+  const liveRuns = turnDarts.reduce((a, d) => a + (d.n === target ? d.mult : 0), 0);
 
   return (
     <div className="fade">
@@ -108,25 +122,37 @@ export default function PlayBaseball({ game, onFinish, onQuit }) {
       </div>
 
       <div className="card">
-        <div className="tag" style={{ marginBottom: 10 }}>
-          Inning {isExtra ? `${inning} (extra)` : inning} — {cur}, runs scored this inning
+        <div className="between" style={{ marginBottom: 10 }}>
+          <span className="tag">
+            Inning {isExtra ? `${inning} (extra · bull)` : inning} — {cur}, dart {Math.min(turnDarts.length + 1, 3)} of 3
+          </span>
+          <span className="num" style={{ color: "var(--amber)" }}>{liveRuns}</span>
         </div>
+
         <div className="grid-4">
-          {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9].map((r) => (
-            <button
-              key={r}
-              className="chip"
-              style={{ fontSize: 18, padding: "16px 0" }}
-              onClick={() => submit(r)}
-            >
-              {r}
-            </button>
+          <button className="chip" onClick={() => addDart(1)}>Single</button>
+          <button className="chip" onClick={() => addDart(2)}>Double</button>
+          <button className="chip" onClick={() => addDart(3)}>Triple</button>
+          <button className="chip" onClick={() => addDart(0)}>Miss</button>
+        </div>
+
+        <div className="flex-wrap" style={{ marginTop: 10, minHeight: 30 }}>
+          {turnDarts.length === 0 && (
+            <span className="tag">aim at {isExtra ? "the bull" : inning} — log each dart</span>
+          )}
+          {turnDarts.map((d, i) => (
+            <span key={i} className="btn" style={{ padding: "5px 10px", fontSize: 13 }}>
+              {d.n === 0 ? "Miss" : d.mult === 1 ? "Single" : d.mult === 2 ? "Double" : "Triple"}
+            </span>
           ))}
         </div>
-        <div className="row mt-12">
-          <button className="btn" style={{ width: "100%" }} onClick={undo} disabled={!history.length}>
-            Undo last inning
-          </button>
+
+        <button className="btn mt-12" style={{ width: "100%" }} onClick={undo} disabled={!turnDarts.length && !history.length}>
+          Undo
+        </button>
+
+        <div style={{ marginTop: 14 }}>
+          <DartBoard highlight={[target]} hits={turnDarts} />
         </div>
       </div>
     </div>
