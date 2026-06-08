@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { BackBar } from "./ui";
+import { CRICKET_VARIANTS } from "@/lib/constants";
 
 export default function Setup({ players, addPlayer, onStart, back }) {
   const [name, setName] = useState("");
@@ -7,6 +8,7 @@ export default function Setup({ players, addPlayer, onStart, back }) {
   const [gameType, setGameType] = useState("x01");
   const [startScore, setStartScore] = useState(501);
   const [doubleOut, setDoubleOut] = useState(true);
+  const [variant, setVariant] = useState("standard");
 
   const selectSafe = (u) =>
     setSelected((s) => (s.length < 4 && !s.includes(u) ? [...s, u] : s));
@@ -24,14 +26,18 @@ export default function Setup({ players, addPlayer, onStart, back }) {
     setName("");
   };
 
-  const canStart = selected.length >= 2;
+  const solo = selected.length === 1;
+  const canStart = selected.length >= 1;
 
   const start = () => {
+    let config = {};
+    if (gameType === "x01") config = { startScore, doubleOut };
+    else if (gameType === "cricket") config = { variant };
     onStart({
       id: Date.now().toString(36),
       gameType,
       players: selected,
-      config: gameType === "x01" ? { startScore, doubleOut } : {},
+      config,
       startedAt: new Date().toISOString(),
     });
   };
@@ -43,20 +49,20 @@ export default function Setup({ players, addPlayer, onStart, back }) {
       <div className="card mb-12">
         <div className="tag mb-12">Game type</div>
         <div className="row">
-          <button
-            className={`btn ${gameType === "x01" ? "btn-primary" : ""}`}
-            style={{ flex: 1 }}
-            onClick={() => setGameType("x01")}
-          >
-            X01
-          </button>
-          <button
-            className={`btn ${gameType === "cricket" ? "btn-primary" : ""}`}
-            style={{ flex: 1 }}
-            onClick={() => setGameType("cricket")}
-          >
-            Cricket
-          </button>
+          {[
+            ["x01", "X01"],
+            ["cricket", "Cricket"],
+            ["baseball", "Baseball"],
+          ].map(([k, l]) => (
+            <button
+              key={k}
+              className={`btn ${gameType === k ? "btn-primary" : ""}`}
+              style={{ flex: 1 }}
+              onClick={() => setGameType(k)}
+            >
+              {l}
+            </button>
+          ))}
         </div>
 
         {gameType === "x01" && (
@@ -86,10 +92,42 @@ export default function Setup({ players, addPlayer, onStart, back }) {
             </label>
           </div>
         )}
+
+        {gameType === "cricket" && (
+          <div className="mt-12">
+            <div className="tag" style={{ marginBottom: 6 }}>
+              Variant
+            </div>
+            <div className="row">
+              {CRICKET_VARIANTS.map((v) => (
+                <button
+                  key={v.id}
+                  className={`btn ${variant === v.id ? "btn-toggle-on" : ""}`}
+                  style={{ flex: 1 }}
+                  onClick={() => setVariant(v.id)}
+                >
+                  {v.label}
+                </button>
+              ))}
+            </div>
+            <p className="tag" style={{ marginTop: 8, textTransform: "none", letterSpacing: 0 }}>
+              {variant === "standard" && "Close all numbers and lead on points to win."}
+              {variant === "cutthroat" && "Points go to opponents — lowest score wins."}
+              {variant === "noscore" && "First to close all numbers wins. Points ignored."}
+            </p>
+          </div>
+        )}
+
+        {gameType === "baseball" && (
+          <p className="tag mt-12" style={{ textTransform: "none", letterSpacing: 0 }}>
+            9 innings. In inning N you aim at number N; single/double/triple = 1/2/3 runs.
+            Most runs after 9 innings wins.
+          </p>
+        )}
       </div>
 
       <div className="card mb-12">
-        <div className="tag mb-12">Players (2–4)</div>
+        <div className="tag mb-12">Players (1 = solo practice, up to 4)</div>
         <div className="row mb-12">
           <input
             className="input"
@@ -121,6 +159,11 @@ export default function Setup({ players, addPlayer, onStart, back }) {
             );
           })}
         </div>
+        {solo && (
+          <p className="tag" style={{ marginTop: 10, color: "var(--amber)", textTransform: "none", letterSpacing: 0 }}>
+            Solo practice — this game won&apos;t be saved to stats or the leaderboard.
+          </p>
+        )}
       </div>
 
       <button
@@ -129,7 +172,7 @@ export default function Setup({ players, addPlayer, onStart, back }) {
         style={{ width: "100%", fontSize: 15, padding: 15 }}
         onClick={start}
       >
-        {canStart ? "Throw first" : "Pick at least 2 players"}
+        {canStart ? (solo ? "Start practice" : "Throw first") : "Pick at least 1 player"}
       </button>
     </div>
   );

@@ -15,6 +15,13 @@ export default function Profile({ user, stats, elo, matches, back }) {
     .slice(-8)
     .reverse();
 
+  const label = (m) => {
+    if (m.gameType === "x01") return `${m.config.startScore}`;
+    if (m.gameType === "baseball") return "Baseball";
+    const v = m.config?.variant;
+    return v === "cutthroat" ? "Cricket·Cut" : v === "noscore" ? "Cricket·NS" : "Cricket";
+  };
+
   return (
     <div className="fade">
       <BackBar back={back} title={user} />
@@ -47,6 +54,15 @@ export default function Profile({ user, stats, elo, matches, back }) {
         </div>
       </div>
 
+      <div className="card mb-12">
+        <h3 className="section-title">Baseball</h3>
+        <div className="grid-3">
+          <Mini label="Avg runs" value={stats.baseball.avgRuns.toFixed(1)} />
+          <Mini label="Win %" value={stats.baseball.winPct.toFixed(0)} />
+          <Mini label="Games" value={stats.baseball.games} />
+        </div>
+      </div>
+
       <div className="card">
         <h3 className="section-title">Recent</h3>
         {recent.length === 0 && <span className="tag">none</span>}
@@ -57,8 +73,7 @@ export default function Profile({ user, stats, elo, matches, back }) {
             style={{ padding: "8px 0", borderBottom: "1px solid var(--line)", fontSize: 14 }}
           >
             <span>
-              {m.gameType === "x01" ? `${m.config.startScore}` : "Cricket"} vs{" "}
-              {m.players.filter((p) => p !== user).join(", ")}
+              {label(m)} vs {m.players.filter((p) => p !== user).join(", ") || "solo"}
             </span>
             <span style={{ color: m.winner === user ? "var(--accent)" : "var(--red)", fontWeight: 800 }}>
               {m.winner === user ? "W" : "L"}

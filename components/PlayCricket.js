@@ -3,6 +3,7 @@ import { X01_TARGETS, CRICKET_VALUE } from "@/lib/constants";
 
 export default function PlayCricket({ game, onFinish, onQuit }) {
   const { players } = game;
+  const variant = game.config?.variant || "standard";
 
   const blank = () =>
     players.reduce((o, u) => {
@@ -22,17 +23,30 @@ export default function PlayCricket({ game, onFinish, onQuit }) {
   const [history, setHistory] = useState([]);
 
   const cur = players[turn % players.length];
-
-  const openForSomeone = (target, thrower, snap) =>
-    players.some((u) => u !== thrower && (snap[u].marks[target] || 0) < 3);
+  const allClosed = (marks) => X01_TARGETS.every((t) => marks[t] >= 3);
 
   const addDart = (target) => {
     if (darts.length >= 3) return;
     const maxRing = target === "B" ? 2 : 3;
     setDarts((d) => [...d, { target, ring: Math.min(ring, maxRing) }]);
   };
-
   const removeDart = (i) => setDarts((d) => d.filter((_, idx) => idx !== i));
+
+  const finish = (ns, winner) => {
+    const perPlayer = {};
+    players.forEach((u) => {
+      perPlayer[u] = { marks: ns[u].markCount, rounds: ns[u].rounds, pointsScored: ns[u].points };
+    });
+    onFinish({
+      id: game.id,
+      gameType: "cricket",
+      config: { variant },
+      players,
+      winner,
+      perPlayer,
+      completedAt: new Date().toISOString(),
+    });
+  };
 
   const endTurn = () => {
     setHistory((h) => [...h, { state: JSON.parse(JSON.stringify(state)), turn }]);
@@ -45,32 +59,41 @@ export default function PlayCricket({ game, onFinish, onQuit }) {
       me.marks[dt.target] = after;
       me.markCount += dt.ring;
       const scoringHits = Math.max(0, after - 3) - Math.max(0, before - 3);
-      if (scoringHits > 0 && openForSomeone(dt.target, cur, ns)) {
-        me.points += CRICKET_VALUE[dt.target] * scoringHits;
+      if (scoringHits > 0) {
+        const value = CRICKET_VALUE[dt.target] * scoringHits;
+        if (variant === "noscore") {
+          // no points in this mode
+        } else if (variant === "cutthroat") {
+          // points go to each opponent who hasn't closed this number
+          players.forEach((o) => {
+            if (o !== cur && ns[o].marks[dt.target] < 3) ns[o].points += value;
+          });
+        } else {
+          // standard: you score if any opponent hasn't closed it
+          const open = players.some((o) => o !== cur && ns[o].marks[dt.target] < 3);
+          if (open) me.points += value;
+        }
       }
     }
     me.rounds += 1;
     setState(ns);
     setDarts([]);
 
-    const allClosed = X01_TARGETS.every((t) => ns[cur].marks[t] >= 3);
-    const leadsOrTies = players.every((u) => u === cur || ns[cur].points >= ns[u].points);
-
-    if (allClosed && leadsOrTies) {
-      const perPlayer = {};
-      players.forEach((u) => {
-        perPlayer[u] = { marks: ns[u].markCount, rounds: ns[u].rounds, pointsScored: ns[u].points };
-      });
-      onFinish({
-        id: game.id,
-        gameType: "cricket",
-        config: {},
-        players,
-        winner: cur,
-        perPlayer,
-        completedAt: new Date().toISOString(),
-      });
-      return;
+    // win conditions per variant
+    if (variant === "noscore") {
+      if (allClosed(ns[cur].marks)) return finish(ns, cur);
+    } else if (variant === "cutthroat") {
+      if (players.some((u) => allClosed(ns[u].marks))) {
+        let winner = players[0];
+        players.forEach((u) => {
+          if (ns[u].points < ns[winner].points) winner = u;
+        });
+        return finish(ns, winner);
+      }
+    } else {
+      const closedAll = allClosed(ns[cur].marks);
+      const leads = players.every((u) => u === cur || ns[cur].points >= ns[u].points);
+      if (closedAll && leads) return finish(ns, cur);
     }
     setTurn((t) => t + 1);
   };
@@ -87,12 +110,14 @@ export default function PlayCricket({ game, onFinish, onQuit }) {
   };
 
   const markSymbol = (n) => (n <= 0 ? "" : n === 1 ? "/" : n === 2 ? "✕" : "⊗");
+  const variantLabel =
+    variant === "cutthroat" ? "Cutthroat" : variant === "noscore" ? "No-score" : "Score";
 
   return (
     <div className="fade">
       <div className="between mb-12">
         <div className="display" style={{ fontSize: 17 }}>
-          Cricket
+          Cricket · {variantLabel}
         </div>
         <button className="btn btn-danger" style={{ padding: "7px 12px" }} onClick={onQuit}>
           Quit
@@ -107,7 +132,7 @@ export default function PlayCricket({ game, onFinish, onQuit }) {
               {X01_TARGETS.map((t) => (
                 <th key={t}>{t}</th>
               ))}
-              <th>Pts</th>
+              {variant !== "noscore" && <th>Pts</th>}
             </tr>
           </thead>
           <tbody>
@@ -123,9 +148,11 @@ export default function PlayCricket({ game, onFinish, onQuit }) {
                     {markSymbol(Math.min(state[u].marks[t], 3))}
                   </td>
                 ))}
-                <td className="num" style={{ color: "var(--amber)" }}>
-                  {state[u].points}
-                </td>
+                {variant !== "noscore" && (
+                  <td className="num" style={{ color: "var(--amber)" }}>
+                    {state[u].points}
+                  </td>
+                )}
               </tr>
             ))}
           </tbody>

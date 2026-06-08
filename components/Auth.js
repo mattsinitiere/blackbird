@@ -1,9 +1,10 @@
 import { useState } from "react";
 import { supabase } from "@/lib/supabase";
-import { Board } from "./ui";
+import { Logo } from "./ui";
 
 export default function Auth() {
   const [mode, setMode] = useState("signin");
+  const [displayName, setDisplayName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [msg, setMsg] = useState("");
@@ -20,9 +21,12 @@ export default function Auth() {
       if (mode === "signin") {
         const { error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
-        // onAuthStateChange in the app handles the redirect into the app.
       } else {
-        const { data, error } = await supabase.auth.signUp({ email, password });
+        const { data, error } = await supabase.auth.signUp({
+          email,
+          password,
+          options: { data: { display_name: displayName.trim() } },
+        });
         if (error) throw error;
         if (!data.session) {
           setMsg("Account created — check your email to confirm, then sign in.");
@@ -40,7 +44,7 @@ export default function Auth() {
     <main className="app">
       <div className="container" style={{ maxWidth: 380, paddingTop: 70 }}>
         <div className="header" style={{ justifyContent: "center" }}>
-          <Board size={40} />
+          <Logo size={40} />
           <div>
             <div className="brand-title">Blackbird</div>
             <div className="tag" style={{ marginTop: 2 }}>
@@ -68,6 +72,15 @@ export default function Auth() {
           </div>
 
           <div className="stack-8">
+            {mode === "signup" && (
+              <input
+                className="input"
+                type="text"
+                placeholder="display name"
+                value={displayName}
+                onChange={(e) => setDisplayName(e.target.value)}
+              />
+            )}
             <input
               className="input"
               type="email"

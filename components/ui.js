@@ -1,3 +1,5 @@
+import { useState } from "react";
+
 export function Board({ size = 32 }) {
   const segs = 20;
   const r = size / 2;
@@ -28,6 +30,23 @@ export function Board({ size = 32 }) {
       <circle cx={r} cy={r} r={r * 0.16} fill="#0e8c5a" />
       <circle cx={r} cy={r} r={r * 0.07} fill="#e03a3a" />
     </svg>
+  );
+}
+
+/**
+ * Logo: shows your own image from /public/logo.png if present, otherwise
+ * falls back to the dartboard mark so the app never shows a broken image.
+ */
+export function Logo({ size = 36 }) {
+  const [failed, setFailed] = useState(false);
+  if (failed) return <Board size={size} />;
+  return (
+    <img
+      src="/logo.png"
+      alt="Blackbird"
+      onError={() => setFailed(true)}
+      style={{ height: size, width: size, objectFit: "contain", borderRadius: 8, display: "block" }}
+    />
   );
 }
 

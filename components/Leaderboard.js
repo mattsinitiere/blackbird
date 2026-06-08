@@ -7,26 +7,50 @@ export default function Leaderboard({ usernames, stats, elo, openProfile, back }
   const rows = usernames
     .map((u) => ({ u, s: stats[u], elo: elo[u] || 1500 }))
     .filter((r) => r.s)
+    .filter((r) =>
+      mode === "x01"
+        ? r.s.x01.games > 0
+        : mode === "cricket"
+        ? r.s.cricket.games > 0
+        : mode === "baseball"
+        ? r.s.baseball.games > 0
+        : true
+    )
     .sort((a, b) => {
       if (mode === "x01") return b.s.x01.threeDartAvg - a.s.x01.threeDartAvg;
       if (mode === "cricket") return b.s.cricket.mpr - a.s.cricket.mpr;
+      if (mode === "baseball") return b.s.baseball.avgRuns - a.s.baseball.avgRuns;
       return b.elo - a.elo;
     });
+
+  const sub = (s) => {
+    if (mode === "x01") return `3-dart avg ${s.x01.threeDartAvg.toFixed(1)} · ${s.x01.wins}-${s.x01.games - s.x01.wins}`;
+    if (mode === "cricket") return `MPR ${s.cricket.mpr.toFixed(2)} · ${s.cricket.wins}-${s.cricket.games - s.cricket.wins}`;
+    if (mode === "baseball") return `avg runs ${s.baseball.avgRuns.toFixed(1)} · ${s.baseball.wins}-${s.baseball.games - s.baseball.wins}`;
+    return `win% ${s.winPct.toFixed(0)} · ${s.wins}-${s.games - s.wins}`;
+  };
+  const big = (r) => {
+    if (mode === "x01") return r.s.x01.threeDartAvg.toFixed(1);
+    if (mode === "cricket") return r.s.cricket.mpr.toFixed(2);
+    if (mode === "baseball") return r.s.baseball.avgRuns.toFixed(1);
+    return Math.round(r.elo);
+  };
 
   return (
     <div className="fade">
       <BackBar back={back} title="Standings" />
 
-      <div className="row mb-12">
+      <div className="row mb-12" style={{ flexWrap: "wrap" }}>
         {[
           ["overall", "Overall"],
           ["x01", "X01"],
           ["cricket", "Cricket"],
+          ["baseball", "Baseball"],
         ].map(([k, l]) => (
           <button
             key={k}
             className={`btn ${mode === k ? "btn-primary" : ""}`}
-            style={{ flex: 1 }}
+            style={{ flex: "1 1 22%" }}
             onClick={() => setMode(k)}
           >
             {l}
@@ -34,7 +58,7 @@ export default function Leaderboard({ usernames, stats, elo, openProfile, back }
         ))}
       </div>
 
-      {rows.length === 0 && <p className="subtle">No completed games yet.</p>}
+      {rows.length === 0 && <p className="subtle">No completed games in this category yet.</p>}
 
       <div className="stack-8">
         {rows.map((r, i) => (
@@ -44,30 +68,14 @@ export default function Leaderboard({ usernames, stats, elo, openProfile, back }
             style={{ display: "flex", alignItems: "center", gap: 12 }}
             onClick={() => openProfile(r.u)}
           >
-            <div
-              className="num"
-              style={{ fontSize: 20, width: 22, color: i === 0 ? "var(--amber)" : "var(--muted)" }}
-            >
+            <div className="num" style={{ fontSize: 20, width: 22, color: i === 0 ? "var(--amber)" : "var(--muted)" }}>
               {i + 1}
             </div>
             <div style={{ flex: 1 }}>
               <div style={{ fontWeight: 700 }}>{r.u}</div>
-              <div className="tag" style={{ marginTop: 2 }}>
-                {mode === "x01" &&
-                  `3-dart avg ${r.s.x01.threeDartAvg.toFixed(1)} · ${r.s.x01.wins}-${r.s.x01.games - r.s.x01.wins}`}
-                {mode === "cricket" &&
-                  `MPR ${r.s.cricket.mpr.toFixed(2)} · ${r.s.cricket.wins}-${r.s.cricket.games - r.s.cricket.wins}`}
-                {mode === "overall" &&
-                  `win% ${r.s.winPct.toFixed(0)} · ${r.s.wins}-${r.s.games - r.s.wins}`}
-              </div>
+              <div className="tag" style={{ marginTop: 2 }}>{sub(r.s)}</div>
             </div>
-            <div className="num" style={{ fontSize: 17, color: "var(--accent)" }}>
-              {mode === "x01"
-                ? r.s.x01.threeDartAvg.toFixed(1)
-                : mode === "cricket"
-                ? r.s.cricket.mpr.toFixed(2)
-                : Math.round(r.elo)}
-            </div>
+            <div className="num" style={{ fontSize: 17, color: "var(--accent)" }}>{big(r)}</div>
           </div>
         ))}
       </div>
