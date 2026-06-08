@@ -1,20 +1,31 @@
 import { useState } from "react";
 import { BackBar } from "./ui";
 import { supabase } from "@/lib/supabase";
+import { ACCENTS } from "@/lib/constants";
 
 export default function Account({ user, players, addPlayer, signOut, back }) {
-  const current = user?.user_metadata?.display_name || "";
-  const [name, setName] = useState(current);
+  const meta = user?.user_metadata || {};
+  const [name, setName] = useState(meta.display_name || "");
+  const [theme, setTheme] = useState(meta.theme === "dark" ? "dark" : "light");
+  const [accent, setAccent] = useState(meta.accent && ACCENTS[meta.accent] ? meta.accent : "green");
   const [msg, setMsg] = useState("");
   const [good, setGood] = useState(false);
   const [busy, setBusy] = useState(false);
 
-  const save = async () => {
+  const persist = async (patch) => {
+    try {
+      await supabase.auth.updateUser({ data: { ...(user.user_metadata || {}), ...patch } });
+    } catch (e) {
+      // non-blocking; preference still applied locally
+    }
+  };
+
+  const saveName = async () => {
     setBusy(true);
     setMsg("");
     try {
       const { error } = await supabase.auth.updateUser({
-        data: { display_name: name.trim() },
+        data: { ...(user.user_metadata || {}), display_name: name.trim() },
       });
       if (error) throw error;
       setGood(true);
@@ -27,10 +38,21 @@ export default function Account({ user, players, addPlayer, signOut, back }) {
     }
   };
 
+  const applyTheme = (t) => {
+    setTheme(t);
+    if (typeof document !== "undefined") document.documentElement.dataset.theme = t;
+    persist({ theme: t });
+  };
+
+  const applyAccent = (a) => {
+    setAccent(a);
+    if (typeof document !== "undefined")
+      document.documentElement.style.setProperty("--accent", ACCENTS[a]);
+    persist({ accent: a });
+  };
+
   const trimmed = name.trim();
-  const isPlayer = players.some(
-    (p) => p.username.toLowerCase() === trimmed.toLowerCase()
-  );
+  const isPlayer = players.some((p) => p.username.toLowerCase() === trimmed.toLowerCase());
 
   const addMe = async () => {
     const ok = await addPlayer(trimmed);
@@ -57,21 +79,67 @@ export default function Account({ user, players, addPlayer, signOut, back }) {
           onChange={(e) => setName(e.target.value)}
           placeholder="your name"
         />
-
         {msg && (
           <p className="subtle" style={{ marginBottom: 0, color: good ? "var(--accent)" : "var(--red)" }}>
             {msg}
           </p>
         )}
-
         <button
           className="btn btn-primary mt-12"
           style={{ width: "100%" }}
-          onClick={save}
-          disabled={busy || !trimmed || trimmed === current}
+          onClick={saveName}
+          disabled={busy || !trimmed || trimmed === (meta.display_name || "")}
         >
           {busy ? "Saving…" : "Save display name"}
         </button>
+      </div>
+
+      <div className="card mb-12">
+        <div className="tag" style={{ marginBottom: 10 }}>
+          Appearance
+        </div>
+
+        <div className="tag" style={{ marginBottom: 6 }}>
+          Theme
+        </div>
+        <div className="row">
+          <button
+            className={`btn ${theme === "light" ? "btn-toggle-on" : ""}`}
+            style={{ flex: 1 }}
+            onClick={() => applyTheme("light")}
+          >
+            Light
+          </button>
+          <button
+            className={`btn ${theme === "dark" ? "btn-toggle-on" : ""}`}
+            style={{ flex: 1 }}
+            onClick={() => applyTheme("dark")}
+          >
+            Dark
+          </button>
+        </div>
+
+        <div className="tag" style={{ margin: "14px 0 8px" }}>
+          Accent color
+        </div>
+        <div className="flex-wrap">
+          {Object.entries(ACCENTS).map(([key, hex]) => (
+            <button
+              key={key}
+              onClick={() => applyAccent(key)}
+              aria-label={key}
+              title={key}
+              style={{
+                width: 36,
+                height: 36,
+                borderRadius: 10,
+                background: hex,
+                cursor: "pointer",
+                border: accent === key ? "3px solid var(--ink)" : "2px solid var(--line)",
+              }}
+            />
+          ))}
+        </div>
       </div>
 
       <div className="card mb-12">

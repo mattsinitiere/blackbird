@@ -2,29 +2,29 @@ import { useState } from "react";
 import { BackBar } from "./ui";
 import { CRICKET_VARIANTS } from "@/lib/constants";
 
-export default function Setup({ players, addPlayer, onStart, back }) {
-  const [name, setName] = useState("");
-  const [selected, setSelected] = useState([]);
+export default function Setup({ players, addPlayer, onStart, back, me }) {
+  const meName = (me || "").trim();
+  const [newName, setNewName] = useState("");
+  const [selected, setSelected] = useState(meName ? [meName] : []);
   const [gameType, setGameType] = useState("x01");
   const [startScore, setStartScore] = useState(501);
   const [doubleOut, setDoubleOut] = useState(true);
   const [variant, setVariant] = useState("standard");
 
-  const selectSafe = (u) =>
-    setSelected((s) => (s.length < 4 && !s.includes(u) ? [...s, u] : s));
+  const add = (u) => setSelected((s) => (s.length < 4 && !s.includes(u) ? [...s, u] : s));
+  const remove = (u) => setSelected((s) => s.filter((x) => x !== u));
 
-  const toggle = (u) =>
-    setSelected((s) =>
-      s.includes(u) ? s.filter((x) => x !== u) : s.length < 4 ? [...s, u] : s
-    );
-
-  const onAdd = async () => {
-    const u = name.trim();
+  const onAddNew = async () => {
+    const u = newName.trim();
     if (!u) return;
-    const ok = await addPlayer(u);
-    if (ok) selectSafe(u);
-    setName("");
+    await addPlayer(u); // adds to the roster (no-op if already exists)
+    add(u);
+    setNewName("");
   };
+
+  const rosterOptions = players
+    .map((p) => p.username)
+    .filter((u) => u.toLowerCase() !== meName.toLowerCase() && !selected.includes(u));
 
   const solo = selected.length === 1;
   const canStart = selected.length >= 1;
@@ -128,37 +128,47 @@ export default function Setup({ players, addPlayer, onStart, back }) {
 
       <div className="card mb-12">
         <div className="tag mb-12">Players (1 = solo practice, up to 4)</div>
-        <div className="row mb-12">
+
+        <div className="flex-wrap">
+          {selected.length === 0 && <span className="subtle">No players selected yet.</span>}
+          {selected.map((u) => (
+            <button key={u} className="btn btn-primary" onClick={() => remove(u)}>
+              {u}
+              {u === meName ? " (you)" : ""} ✕
+            </button>
+          ))}
+        </div>
+
+        {rosterOptions.length > 0 && selected.length < 4 && (
+          <select
+            className="select mt-12"
+            value=""
+            onChange={(e) => {
+              if (e.target.value) add(e.target.value);
+            }}
+          >
+            <option value="">+ Add a player…</option>
+            {rosterOptions.map((u) => (
+              <option key={u} value={u}>
+                {u}
+              </option>
+            ))}
+          </select>
+        )}
+
+        <div className="row mt-12">
           <input
             className="input"
-            placeholder="add a username"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && onAdd()}
+            placeholder="or add a new name (guest)"
+            value={newName}
+            onChange={(e) => setNewName(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && onAddNew()}
           />
-          <button className="btn" onClick={onAdd}>
+          <button className="btn" onClick={onAddNew}>
             Add
           </button>
         </div>
-        <div className="flex-wrap">
-          {players.length === 0 && (
-            <span className="subtle">No players yet — add some above.</span>
-          )}
-          {players.map((p) => {
-            const on = selected.includes(p.username);
-            const idx = selected.indexOf(p.username);
-            return (
-              <button
-                key={p.username}
-                className={`btn ${on ? "btn-primary" : ""}`}
-                onClick={() => toggle(p.username)}
-              >
-                {on ? `${idx + 1}· ` : ""}
-                {p.username}
-              </button>
-            );
-          })}
-        </div>
+
         {solo && (
           <p className="tag" style={{ marginTop: 10, color: "var(--amber)", textTransform: "none", letterSpacing: 0 }}>
             Solo practice — this game won&apos;t be saved to stats or the leaderboard.

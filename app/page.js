@@ -4,6 +4,7 @@ import { useState, useEffect, useMemo, useCallback } from "react";
 import { supabase, isConfigured } from "@/lib/supabase";
 import { getPlayers, addPlayer as dbAddPlayer, getMatches, addMatch } from "@/lib/db";
 import { computeElo, computeStats } from "@/lib/stats";
+import { ACCENTS } from "@/lib/constants";
 import { Logo } from "@/components/ui";
 import Auth from "@/components/Auth";
 import Home from "@/components/Home";
@@ -43,6 +44,15 @@ export default function Page() {
     const { data: sub } = supabase.auth.onAuthStateChange((_event, s) => setSession(s));
     return () => sub.subscription.unsubscribe();
   }, []);
+
+  // apply theme + accent color from the user's saved preferences
+  useEffect(() => {
+    if (typeof document === "undefined") return;
+    const meta = (session && session.user && session.user.user_metadata) || {};
+    document.documentElement.dataset.theme = meta.theme === "dark" ? "dark" : "light";
+    const accent = ACCENTS[meta.accent] || ACCENTS.green;
+    document.documentElement.style.setProperty("--accent", accent);
+  }, [session]);
 
   const refresh = useCallback(async () => {
     try {
@@ -178,6 +188,7 @@ export default function Page() {
           <Setup
             players={players}
             addPlayer={addPlayer}
+            me={session.user?.user_metadata?.display_name || ""}
             onStart={(game) => {
               setLive(game);
               setView(

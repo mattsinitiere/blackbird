@@ -9,10 +9,10 @@
   --line-strong: #d6d3c9;
 
   --accent: #0e8c5a;
-  --accent-hover: #0b7a4e;
-  --accent-soft: #e3f3eb;
+  --accent-hover: color-mix(in srgb, var(--accent) 85%, #000);
+  --accent-soft: color-mix(in srgb, var(--accent) 13%, transparent);
   --red: #e03a3a;
-  --red-soft: #fbe6e6;
+  --red-soft: color-mix(in srgb, var(--red) 12%, transparent);
   --amber: #e0962b;
 
   --radius: 14px;
@@ -23,6 +23,18 @@
   --font-body: "Hanken Grotesk";
   --font-display-stack: var(--font-display), ui-sans-serif, system-ui, sans-serif;
   --font-body-stack: var(--font-body), ui-sans-serif, system-ui, sans-serif;
+}
+
+[data-theme="dark"] {
+  --bg: #0f1216;
+  --surface: #171b21;
+  --surface-2: #1d222a;
+  --ink: #eef1f5;
+  --ink-soft: #aab2bd;
+  --muted: #7b828d;
+  --line: #2a2f37;
+  --line-strong: #3a414b;
+  --shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 8px 24px rgba(0, 0, 0, 0.45);
 }
 
 * {
@@ -171,7 +183,7 @@ select {
 .btn-toggle-on {
   background: var(--ink);
   border-color: var(--ink);
-  color: #fff;
+  color: var(--surface);
 }
 
 /* ---------- chips / keypad ---------- */
@@ -189,7 +201,7 @@ select {
   transition: background 0.12s, transform 0.05s, border-color 0.12s;
 }
 .chip:hover {
-  background: #f0eee7;
+  background: var(--line);
   border-color: var(--line-strong);
 }
 .chip:active {
