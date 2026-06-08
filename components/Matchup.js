@@ -1,0 +1,129 @@
+import { useState } from "react";
+import { BackBar } from "./ui";
+import { headToHead } from "@/lib/stats";
+
+export default function Matchup({ usernames, elo, matches, stats, back }) {
+  const [a, setA] = useState(usernames[0] || "");
+  const [b, setB] = useState(usernames[1] || "");
+
+  if (usernames.length < 2) {
+    return (
+      <div className="fade">
+        <BackBar back={back} title="Matchup" />
+        <p className="subtle">Need at least two players with games logged.</p>
+      </div>
+    );
+  }
+
+  const Ra = elo[a] || 1500;
+  const Rb = elo[b] || 1500;
+  const valid = a && b && a !== b;
+  const pA = valid ? 1 / (1 + Math.pow(10, (Rb - Ra) / 400)) : 0.5;
+  const h2h = valid ? headToHead(matches, a, b) : { aw: 0, bw: 0, n: 0 };
+
+  const Picker = ({ val, set, label }) => (
+    <div style={{ flex: 1 }}>
+      <div className="tag" style={{ marginBottom: 6 }}>
+        {label}
+      </div>
+      <select className="select" value={val} onChange={(e) => set(e.target.value)}>
+        {usernames.map((u) => (
+          <option key={u} value={u}>
+            {u}
+          </option>
+        ))}
+      </select>
+    </div>
+  );
+
+  return (
+    <div className="fade">
+      <BackBar back={back} title="Matchup predictor" />
+
+      <div className="card mb-12">
+        <div className="row">
+          <Picker val={a} set={setA} label="Player A" />
+          <Picker val={b} set={setB} label="Player B" />
+        </div>
+      </div>
+
+      {!valid ? (
+        <p className="subtle">Pick two different players.</p>
+      ) : (
+        <>
+          <div className="card mb-12">
+            <div className="tag" style={{ marginBottom: 12 }}>
+              Predicted win likelihood (Elo)
+            </div>
+            <div className="row" style={{ alignItems: "center" }}>
+              <span className="num" style={{ fontSize: 30, color: "var(--accent)" }}>
+                {(pA * 100).toFixed(0)}%
+              </span>
+              <div className="bar">
+                <div style={{ width: `${pA * 100}%`, background: "var(--accent)" }} />
+                <div style={{ width: `${(1 - pA) * 100}%`, background: "var(--red)" }} />
+              </div>
+              <span className="num" style={{ fontSize: 30, color: "var(--red)" }}>
+                {((1 - pA) * 100).toFixed(0)}%
+              </span>
+            </div>
+            <div className="between" style={{ marginTop: 8 }}>
+              <span style={{ fontWeight: 700 }}>
+                {a} <span className="tag">{Math.round(Ra)}</span>
+              </span>
+              <span style={{ fontWeight: 700 }}>
+                <span className="tag">{Math.round(Rb)}</span> {b}
+              </span>
+            </div>
+          </div>
+
+          <div className="card mb-12">
+            <div className="tag" style={{ marginBottom: 6 }}>
+              Head to head
+            </div>
+            {h2h.n === 0 ? (
+              <p className="subtle" style={{ margin: 0 }}>
+                Never played each other — prediction is Elo-only and rough.
+              </p>
+            ) : (
+              <div className="num" style={{ fontSize: 22 }}>
+                {a} {h2h.aw} — {h2h.bw} {b}{" "}
+                <span className="tag" style={{ fontSize: 12 }}>
+                  ({h2h.n} games)
+                </span>
+              </div>
+            )}
+          </div>
+
+          <div className="card">
+            <div className="tag" style={{ marginBottom: 10 }}>
+              Form (3-dart avg)
+            </div>
+            <div className="row">
+              <div style={{ flex: 1, textAlign: "center" }}>
+                <div className="num" style={{ fontSize: 24 }}>
+                  {stats[a]?.x01.threeDartAvg.toFixed(1) || "—"}
+                </div>
+                <div className="tag" style={{ marginTop: 2 }}>
+                  {a}
+                </div>
+              </div>
+              <div style={{ flex: 1, textAlign: "center" }}>
+                <div className="num" style={{ fontSize: 24 }}>
+                  {stats[b]?.x01.threeDartAvg.toFixed(1) || "—"}
+                </div>
+                <div className="tag" style={{ marginTop: 2 }}>
+                  {b}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <p className="tag" style={{ marginTop: 14, lineHeight: 1.5, textTransform: "none", letterSpacing: 0 }}>
+            Elo updates after every match (start 1500, K=24). With few games it&apos;s a rough estimate; it sharpens as more matches are logged.
+          </p>
+        </>
+      )}
+    </div>
+  );
+}
