@@ -7,7 +7,8 @@
 create table if not exists players (
   id uuid primary key default gen_random_uuid(),
   username text unique not null,
-  created_at timestamptz not null default now()
+  created_at timestamptz not null default now(),
+  hidden boolean not null default false
 );
 
 -- Matches: one row per completed game.
@@ -35,6 +36,8 @@ create policy "members read players"
   on players for select to authenticated using (true);
 create policy "members add players"
   on players for insert to authenticated with check (true);
+create policy "members update players"
+  on players for update to authenticated using (true) with check (true);
 
 create policy "members read matches"
   on matches for select to authenticated using (true);

@@ -22,6 +22,15 @@ export default function Profile({ user, stats, elo, matches, back }) {
     return v === "cutthroat" ? "Cricket·Cut" : v === "noscore" ? "Cricket·NS" : "Cricket";
   };
 
+  const fmtDate = (iso) => {
+    if (!iso) return "";
+    try {
+      return new Date(iso).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
+    } catch {
+      return "";
+    }
+  };
+
   return (
     <div className="fade">
       <BackBar back={back} title={user} />
@@ -72,10 +81,15 @@ export default function Profile({ user, stats, elo, matches, back }) {
             className="between"
             style={{ padding: "8px 0", borderBottom: "1px solid var(--line)", fontSize: 14 }}
           >
-            <span>
-              {label(m)} vs {m.players.filter((p) => p !== user).join(", ") || "solo"}
+            <span style={{ flex: 1, minWidth: 0 }}>
+              <span style={{ display: "block" }}>
+                {label(m)} vs {m.players.filter((p) => p !== user).join(", ") || "solo"}
+              </span>
+              <span className="tag" style={{ textTransform: "none", letterSpacing: 0, fontSize: 11 }}>
+                {fmtDate(m.completedAt)}
+              </span>
             </span>
-            <span style={{ color: m.winner === user ? "var(--accent)" : "var(--red)", fontWeight: 800 }}>
+            <span style={{ color: m.winner === user ? "var(--accent)" : "var(--red)", fontWeight: 800, marginLeft: 12 }}>
               {m.winner === user ? "W" : "L"}
             </span>
           </div>

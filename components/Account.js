@@ -3,7 +3,7 @@ import { BackBar } from "./ui";
 import { supabase } from "@/lib/supabase";
 import { ACCENTS } from "@/lib/constants";
 
-export default function Account({ user, players, addPlayer, signOut, back }) {
+export default function Account({ user, players, addPlayer, setPlayerHidden, isAdmin, onOpenAdmin, signOut, back }) {
   const meta = user?.user_metadata || {};
   const [name, setName] = useState(meta.display_name || "");
   const [theme, setTheme] = useState(meta.theme === "dark" ? "dark" : "light");
@@ -57,7 +57,19 @@ export default function Account({ user, players, addPlayer, signOut, back }) {
   };
 
   const trimmed = name.trim();
-  const isPlayer = players.some((p) => p.username.toLowerCase() === trimmed.toLowerCase());
+  const myPlayer = players.find((p) => p.username.toLowerCase() === trimmed.toLowerCase());
+  const isPlayer = !!myPlayer;
+  const [hideBusy, setHideBusy] = useState(false);
+
+  const toggleLeaderboard = async () => {
+    if (!myPlayer) return;
+    setHideBusy(true);
+    try {
+      await setPlayerHidden(myPlayer.username, !myPlayer.hidden);
+    } finally {
+      setHideBusy(false);
+    }
+  };
 
   const addMe = async () => {
     const ok = await addPlayer(trimmed);
@@ -179,10 +191,37 @@ export default function Account({ user, players, addPlayer, signOut, back }) {
         {!trimmed ? (
           <p className="subtle" style={{ margin: 0 }}>Set a display name above first.</p>
         ) : isPlayer ? (
-          <p className="subtle" style={{ margin: 0 }}>
-            You&apos;re in the player list as <strong>{trimmed}</strong> — your stats show up under
-            that name.
-          </p>
+          <>
+            <p className="subtle" style={{ marginTop: 0, marginBottom: 14 }}>
+              You&apos;re in the player list as <strong>{trimmed}</strong> — your stats show up under
+              that name.
+            </p>
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                gap: 12,
+                paddingTop: 14,
+                borderTop: "1px solid var(--line)",
+              }}
+            >
+              <div>
+                <div style={{ fontWeight: 700 }}>Show on leaderboard</div>
+                <div className="tag" style={{ textTransform: "none", letterSpacing: 0, marginTop: 2 }}>
+                  {myPlayer.hidden ? "You're hidden from the standings." : "You're visible in the standings."}
+                </div>
+              </div>
+              <button
+                className={`btn ${myPlayer.hidden ? "" : "btn-toggle-on"}`}
+                style={{ minWidth: 92 }}
+                onClick={toggleLeaderboard}
+                disabled={hideBusy}
+              >
+                {hideBusy ? "…" : myPlayer.hidden ? "Show me" : "Hide me"}
+              </button>
+            </div>
+          </>
         ) : (
           <>
             <p className="subtle" style={{ marginTop: 0 }}>
@@ -195,6 +234,16 @@ export default function Account({ user, players, addPlayer, signOut, back }) {
           </>
         )}
       </div>
+
+      {isAdmin && (
+        <button
+          className="btn mb-12"
+          style={{ width: "100%" }}
+          onClick={onOpenAdmin}
+        >
+          Open admin panel
+        </button>
+      )}
 
       <button className="btn btn-danger" style={{ width: "100%" }} onClick={signOut}>
         Sign out

@@ -2,9 +2,9 @@
 
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { supabase, isConfigured } from "@/lib/supabase";
-import { getPlayers, addPlayer as dbAddPlayer, getMatches, addMatch } from "@/lib/db";
+import { getPlayers, addPlayer as dbAddPlayer, setPlayerHidden as dbSetPlayerHidden, getMatches, addMatch } from "@/lib/db";
 import { computeElo, computeStats } from "@/lib/stats";
-import { ACCENTS } from "@/lib/constants";
+import { ACCENTS, ADMIN_EMAIL } from "@/lib/constants";
 import { Logo } from "@/components/ui";
 import Auth from "@/components/Auth";
 import Home from "@/components/Home";
@@ -17,6 +17,7 @@ import Profile from "@/components/Profile";
 import Matchup from "@/components/Matchup";
 import Insights from "@/components/Insights";
 import Account from "@/components/Account";
+import Admin from "@/components/Admin";
 
 export default function Page() {
   const [authReady, setAuthReady] = useState(false);
@@ -84,18 +85,46 @@ export default function Page() {
     return () => document.removeEventListener("visibilitychange", onFocus);
   }, [session, refresh]);
 
+  // ensure the signed-in user (by display name) is in the shared player list,
+  // so everyone shows up in each other's "add player" dropdown
+  useEffect(() => {
+    if (!session || !dataReady) return;
+    const meName = (session.user?.user_metadata?.display_name || "").trim();
+    if (!meName) return;
+    if (players.some((p) => p.username.toLowerCase() === meName.toLowerCase())) return;
+    (async () => {
+      await dbAddPlayer(meName);
+      await refresh();
+    })();
+  }, [session, dataReady, players, refresh]);
+
   const usernames = useMemo(() => players.map((p) => p.username), [players]);
+  // players who appear in standings (guests + self-hidden are excluded)
+  const visibleUsernames = useMemo(
+    () => players.filter((p) => !p.hidden).map((p) => p.username),
+    [players]
+  );
   const stats = useMemo(() => computeStats(matches), [matches]);
   const elo = useMemo(() => computeElo(matches, usernames), [matches, usernames]);
 
-  const addPlayer = useCallback(async (name) => {
+  const isAdmin = useMemo(
+    () => (session?.user?.email || "").toLowerCase() === ADMIN_EMAIL.toLowerCase(),
+    [session]
+  );
+
+  const addPlayer = useCallback(async (name, hidden = false) => {
     const u = name.trim();
     if (!u) return false;
     if (players.some((p) => p.username.toLowerCase() === u.toLowerCase())) return false;
-    const ok = await dbAddPlayer(u);
+    const ok = await dbAddPlayer(u, hidden);
     if (ok) await refresh();
     return ok;
   }, [players, refresh]);
+
+  const setPlayerHidden = useCallback(async (username, hidden) => {
+    await dbSetPlayerHidden(username, hidden);
+    await refresh();
+  }, [refresh]);
 
   const finishMatch = useCallback(async (match) => {
     if (match.players.length >= 2) {
@@ -148,8 +177,9 @@ export default function Page() {
   if (!dataReady) return <LoadingScreen text="loading…" />;
 
   return (
-    <main className="app">
-      <div className="container">
+    <main className="app shell">
+      <div className="scroll">
+        <div className="container">
         <header className="header">
           <Logo size={36} />
           <div style={{ flex: 1 }}>
@@ -203,29 +233,42 @@ export default function Page() {
         {view === "playCricket" && live && <PlayCricket game={live} onFinish={finishMatch} onQuit={quit} />}
         {view === "playBaseball" && live && <PlayBaseball game={live} onFinish={finishMatch} onQuit={quit} />}
         {view === "leaderboard" && (
-          <Leaderboard usernames={usernames} stats={stats} elo={elo} openProfile={openProfile} back={() => setView("home")} />
+          <Leaderboard usernames={visibleUsernames} stats={stats} elo={elo} openProfile={openProfile} back={() => setView("home")} />
         )}
         {view === "profile" && profileUser && (
           <Profile user={profileUser} stats={stats[profileUser]} elo={elo[profileUser]} matches={matches} back={() => setView("leaderboard")} />
         )}
         {view === "matchup" && (
-          <Matchup usernames={usernames} elo={elo} matches={matches} stats={stats} back={() => setView("home")} />
+          <Matchup usernames={visibleUsernames} elo={elo} matches={matches} stats={stats} back={() => setView("home")} />
         )}
         {view === "insights" && (
-          <Insights usernames={usernames} stats={stats} elo={elo} matches={matches} back={() => setView("home")} />
+          <Insights usernames={visibleUsernames} stats={stats} elo={elo} matches={matches} back={() => setView("home")} />
         )}
         {view === "account" && (
-          <Account user={session.user} players={players} addPlayer={addPlayer} signOut={signOut} back={() => setView("home")} />
+          <Account
+            user={session.user}
+            players={players}
+            addPlayer={addPlayer}
+            setPlayerHidden={setPlayerHidden}
+            isAdmin={isAdmin}
+            onOpenAdmin={() => setView("admin")}
+            signOut={signOut}
+            back={() => setView("home")}
+          />
+        )}
+        {view === "admin" && isAdmin && (
+          <Admin stats={stats} refreshData={refresh} back={() => setView("account")} />
         )}
 
-        <nav className="nav">
-          <button className={`navbtn ${view === "home" ? "active" : ""}`} onClick={() => setView("home")}>Home</button>
-          <button className={`navbtn ${["setup", "playX01", "playCricket", "playBaseball"].includes(view) ? "active" : ""}`} onClick={() => setView("setup")}>Play</button>
-          <button className={`navbtn ${["leaderboard", "profile"].includes(view) ? "active" : ""}`} onClick={() => setView("leaderboard")}>Stats</button>
-          <button className={`navbtn ${view === "matchup" ? "active" : ""}`} onClick={() => setView("matchup")}>Matchup</button>
-          <button className={`navbtn ${view === "insights" ? "active" : ""}`} onClick={() => setView("insights")}>AI</button>
-        </nav>
+        </div>
       </div>
+      <nav className="nav">
+        <button className={`navbtn ${view === "home" ? "active" : ""}`} onClick={() => setView("home")}>Home</button>
+        <button className={`navbtn ${["setup", "playX01", "playCricket", "playBaseball"].includes(view) ? "active" : ""}`} onClick={() => setView("setup")}>Play</button>
+        <button className={`navbtn ${["leaderboard", "profile"].includes(view) ? "active" : ""}`} onClick={() => setView("leaderboard")}>Stats</button>
+        <button className={`navbtn ${view === "matchup" ? "active" : ""}`} onClick={() => setView("matchup")}>Matchup</button>
+        <button className={`navbtn ${view === "insights" ? "active" : ""}`} onClick={() => setView("insights")}>AI</button>
+      </nav>
     </main>
   );
 }

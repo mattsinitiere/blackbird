@@ -17,7 +17,7 @@ export default function Setup({ players, addPlayer, onStart, back, me }) {
   const onAddNew = async () => {
     const u = newName.trim();
     if (!u) return;
-    await addPlayer(u); // adds to the roster (no-op if already exists)
+    await addPlayer(u, true); // guest: added hidden so they stay off the leaderboard
     add(u);
     setNewName("");
   };
@@ -154,6 +154,11 @@ export default function Setup({ players, addPlayer, onStart, back, me }) {
               </option>
             ))}
           </select>
+        )}
+        {rosterOptions.length === 0 && selected.length < 4 && (
+          <p className="tag mt-12" style={{ textTransform: "none", letterSpacing: 0 }}>
+            No other players to pick yet — add a guest below. (People appear here once they&apos;ve signed in with a display name.)
+          </p>
         )}
 
         <div className="row mt-12">

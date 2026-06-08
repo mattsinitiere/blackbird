@@ -1,18 +1,19 @@
 import { Stat } from "./ui";
 
 export default function Home({ setView, stats, elo, players, matches, openProfile }) {
-  const ranked = players
+  const visible = players.filter((p) => !p.hidden);
+  const ranked = visible
     .map((p) => ({ u: p.username, elo: elo[p.username] || 1500, s: stats[p.username] }))
     .sort((a, b) => b.elo - a.elo);
 
-  const topAvg = players.length
-    ? Math.max(0, ...players.map((p) => stats[p.username]?.x01.threeDartAvg || 0))
+  const topAvg = visible.length
+    ? Math.max(0, ...visible.map((p) => stats[p.username]?.x01.threeDartAvg || 0))
     : 0;
 
   return (
     <div className="fade">
       <div className="grid-3 mb-12">
-        <Stat label="Players" value={players.length} />
+        <Stat label="Players" value={visible.length} />
         <Stat label="Games" value={matches.length} />
         <Stat label="Top avg" value={topAvg ? topAvg.toFixed(1) : "—"} />
       </div>

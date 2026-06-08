@@ -1,51 +1,21 @@
 import { useState } from "react";
 
-export function Board({ size = 32 }) {
-  const segs = 20;
-  const r = size / 2;
-  const els = [];
-  for (let i = 0; i < segs; i++) {
-    const a0 = (i / segs) * 2 * Math.PI - Math.PI / 2 - Math.PI / segs;
-    const a1 = ((i + 1) / segs) * 2 * Math.PI - Math.PI / 2 - Math.PI / segs;
-    const x0 = r + r * Math.cos(a0);
-    const y0 = r + r * Math.sin(a0);
-    const x1 = r + r * Math.cos(a1);
-    const y1 = r + r * Math.sin(a1);
-    els.push(
-      <path
-        key={i}
-        d={`M${r},${r} L${x0},${y0} A${r},${r} 0 0 1 ${x1},${y1} Z`}
-        fill={i % 2 ? "#1c1c1c" : "#efe9d8"}
-      />
-    );
-    const xm = r + r * 0.74 * Math.cos((a0 + a1) / 2);
-    const ym = r + r * 0.74 * Math.sin((a0 + a1) / 2);
-    els.push(
-      <circle key={"b" + i} cx={xm} cy={ym} r={r * 0.07} fill={i % 2 ? "#e03a3a" : "#0e8c5a"} />
-    );
-  }
-  return (
-    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} aria-hidden="true">
-      {els}
-      <circle cx={r} cy={r} r={r * 0.16} fill="#0e8c5a" />
-      <circle cx={r} cy={r} r={r * 0.07} fill="#e03a3a" />
-    </svg>
-  );
-}
-
 /**
- * Logo: shows your own image from /public/logo.png if present, otherwise
- * falls back to the dartboard mark so the app never shows a broken image.
+ * Logo: shows your own image from /public/logo.png if present.
+ * If there's no logo file, it shows nothing (keeps the spot's spacing) —
+ * no dartboard fallback.
  */
 export function Logo({ size = 36 }) {
   const [failed, setFailed] = useState(false);
-  if (failed) return <Board size={size} />;
+  if (failed) {
+    return <span style={{ width: size, height: size, display: "inline-block", flex: "none" }} aria-hidden="true" />;
+  }
   return (
     <img
       src="/logo.png"
       alt="Blackbird"
       onError={() => setFailed(true)}
-      style={{ height: size, width: size, objectFit: "contain", borderRadius: 8, display: "block" }}
+      style={{ height: size, width: size, objectFit: "contain", borderRadius: 8, display: "block", flex: "none" }}
     />
   );
 }
