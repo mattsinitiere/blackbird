@@ -1,5 +1,4 @@
 import { createClient } from "@supabase/supabase-js";
-import { replayMatchesToResults } from "@/lib/stats";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -133,42 +132,7 @@ export async function POST(req) {
     }
 
     if (action === "rebuild") {
-      // one-time backfill: replay the legacy `matches` table into per-player rows
-      const { data: matchRows, error: me } = await admin
-        .from("matches")
-        .select("*")
-        .order("completed_at", { ascending: true });
-      if (me) throw me;
-      const matches = (matchRows || []).map((r) => ({
-        id: r.id,
-        gameType: r.game_type,
-        config: r.config || {},
-        players: r.players,
-        winner: r.winner,
-        perPlayer: r.per_player || {},
-        completedAt: r.completed_at,
-      }));
-
-      const { rows, finalElos } = replayMatchesToResults(matches);
-
-      // wipe existing results, then repopulate (idempotent — safe to re-run)
-      const { error: de } = await admin.from("game_results").delete().not("id", "is", null);
-      if (de) throw de;
-      for (let i = 0; i < rows.length; i += 500) {
-        const chunk = rows.slice(i, i + 500);
-        const { error: ie } = await admin.from("game_results").insert(chunk);
-        if (ie) throw ie;
-      }
-
-      // reset everyone to 1000, then apply the replayed ratings
-      const { error: re } = await admin.from("players").update({ elo: 1000 }).not("username", "is", null);
-      if (re) throw re;
-      for (const [username, elo] of Object.entries(finalElos)) {
-        const { error: ue } = await admin.from("players").update({ elo }).eq("username", username);
-        if (ue) throw ue;
-      }
-
-      return json({ ok: true, games: matches.length, rows: rows.length });
+      return json({ error: "Rebuild has been disabled." }, 410);
     }
 
     return json({ error: "Unknown action." }, 400);

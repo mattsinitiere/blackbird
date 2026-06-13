@@ -134,28 +134,6 @@ export default function Admin({ stats, back, refreshData }) {
     }
   };
 
-  const rebuild = async () => {
-    const msg =
-      "Rebuild the per-player tables from your old games?\n\n" +
-      "This replays your original match history into the new per-player format and " +
-      "recalculates everyone's Elo from 1000.\n\n" +
-      "Only use this ONCE, right after migrating. It overwrites the current per-player " +
-      "results, so any games logged in the new system would be replaced by the old history. Continue?";
-    if (typeof window !== "undefined" && !window.confirm(msg)) return;
-    setBusy("rebuild");
-    setErr("");
-    try {
-      const r = await callAdmin({ action: "rebuild" });
-      flash(`Rebuilt from ${r.games} old game${r.games === 1 ? "" : "s"}.`);
-      await load();
-      refreshData && refreshData();
-    } catch (er) {
-      setErr(er.message);
-    } finally {
-      setBusy("");
-    }
-  };
-
   const togglePlayerHidden = async (username, hidden) => {    setBusy("p:" + username);
     setErr("");
     try {
@@ -192,23 +170,6 @@ export default function Admin({ stats, back, refreshData }) {
         </div>
       ) : (
         <>
-          {/* ---------- One-time migration ---------- */}
-          <div className="card mb-12" style={{ borderColor: "var(--line-strong)" }}>
-            <div style={{ fontWeight: 800, marginBottom: 6 }}>Rebuild from old games</div>
-            <p className="tag" style={{ textTransform: "none", letterSpacing: 0, margin: "0 0 12px" }}>
-              One-time: replays your original match history into the new per-player format and
-              recalculates Elo from 1000. Run this once right after migrating, before logging new games.
-            </p>
-            <button
-              className="btn"
-              style={{ width: "100%" }}
-              disabled={busy === "rebuild"}
-              onClick={rebuild}
-            >
-              {busy === "rebuild" ? "Rebuilding…" : "Rebuild from old games"}
-            </button>
-          </div>
-
           {/* ---------- Players + stats ---------- */}
           <div className="tag" style={{ marginBottom: 10 }}>
             Players &amp; stats ({data.players.length})
