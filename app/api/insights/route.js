@@ -63,13 +63,23 @@ async function callAI({ system, user }) {
         body: JSON.stringify({
           systemInstruction: { parts: [{ text: system }] },
           contents: [{ role: "user", parts: [{ text: user }] }],
-          generationConfig: { maxOutputTokens: 800, temperature: 0.8 },
+          generationConfig: {
+            maxOutputTokens: 2048,
+            temperature: 0.8,
+            // gemini-2.5 spends output tokens on internal "thinking", which can
+            // truncate the visible answer; turn it off so all tokens go to text
+            thinkingConfig: { thinkingBudget: 0 },
+          },
         }),
       }
     );
     const data = await r.json();
     if (!r.ok) throw new Error(data?.error?.message || "Gemini request failed");
-    const text = data?.candidates?.[0]?.content?.parts?.map((p) => p.text).join("") || "";
+    const parts = data?.candidates?.[0]?.content?.parts || [];
+    const text = parts
+      .filter((p) => p && p.text && !p.thought)
+      .map((p) => p.text)
+      .join("");
     return { text, model: `gemini/${model}` };
   }
 
