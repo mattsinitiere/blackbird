@@ -194,7 +194,7 @@ export default function PlayerCard({ user, stats, elo, onOpenAccount }) {
 
         <div className="row mt-12" style={{ flexWrap: "wrap" }}>
           <button className="btn btn-primary" style={{ flex: 1, minWidth: 150 }} onClick={exportCard} disabled={busy}>
-            {busy ? "Preparing…" : "Export card to image"}
+            {busy ? "Preparing…" : "Export Player Card"}
           </button>
           {onOpenAccount && (
             <button className="btn" style={{ flex: 1, minWidth: 120 }} onClick={onOpenAccount}>

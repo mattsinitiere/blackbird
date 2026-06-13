@@ -6,7 +6,7 @@ import { ACCENTS } from "@/lib/constants";
 export default function Account({ user, players, addPlayer, setPlayerHidden, isAdmin, onOpenAdmin, signOut, back }) {
   const meta = user?.user_metadata || {};
   const [name, setName] = useState(meta.display_name || "");
-  const [theme, setTheme] = useState(meta.theme === "dark" ? "dark" : "light");
+  const [theme, setTheme] = useState(["dark", "glass"].includes(meta.theme) ? meta.theme : "light");
   const [accent, setAccent] = useState(
     meta.accent && (meta.accent.charAt(0) === "#" || ACCENTS[meta.accent]) ? meta.accent : "green"
   );
@@ -133,6 +133,13 @@ export default function Account({ user, players, addPlayer, setPlayerHidden, isA
             onClick={() => applyTheme("dark")}
           >
             Dark
+          </button>
+          <button
+            className={`btn ${theme === "glass" ? "btn-toggle-on" : ""}`}
+            style={{ flex: 1 }}
+            onClick={() => applyTheme("glass")}
+          >
+            Glass
           </button>
         </div>
 

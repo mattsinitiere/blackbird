@@ -54,7 +54,7 @@ export default function Page() {
   useEffect(() => {
     if (typeof document === "undefined") return;
     const meta = (session && session.user && session.user.user_metadata) || {};
-    document.documentElement.dataset.theme = meta.theme === "dark" ? "dark" : "light";
+    document.documentElement.dataset.theme = ["dark", "glass"].includes(meta.theme) ? meta.theme : "light";
     const a = meta.accent;
     const accent = a ? (a.charAt(0) === "#" ? a : ACCENTS[a] || ACCENTS.green) : ACCENTS.green;
     document.documentElement.style.setProperty("--accent", accent);
@@ -302,7 +302,7 @@ export default function Page() {
           />
         )}
         {view === "admin" && isAdmin && (
-          <Admin stats={stats} refreshData={refresh} back={() => setView("account")} />
+          <Admin stats={stats} addPlayer={addPlayer} refreshData={refresh} back={() => setView("account")} />
         )}
 
         </div>

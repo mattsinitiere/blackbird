@@ -28,12 +28,13 @@ function fmtDate(iso) {
   }
 }
 
-export default function Admin({ stats, back, refreshData }) {
+export default function Admin({ stats, addPlayer, back, refreshData }) {
   const [data, setData] = useState(null);
   const [edits, setEdits] = useState({});
   const [err, setErr] = useState("");
   const [ok, setOk] = useState("");
   const [busy, setBusy] = useState("");
+  const [newName, setNewName] = useState("");
 
   const load = useCallback(async () => {
     setErr("");
@@ -134,6 +135,28 @@ export default function Admin({ stats, back, refreshData }) {
     }
   };
 
+  const addNewPlayer = async () => {
+    const u = newName.trim();
+    if (!u) return;
+    setBusy("add");
+    setErr("");
+    try {
+      const okAdd = await addPlayer(u);
+      if (okAdd) {
+        flash(`Added ${u}.`);
+        setNewName("");
+        await load();
+        refreshData && refreshData();
+      } else {
+        setErr("That name is already a player.");
+      }
+    } catch (e) {
+      setErr(e.message);
+    } finally {
+      setBusy("");
+    }
+  };
+
   const togglePlayerHidden = async (username, hidden) => {    setBusy("p:" + username);
     setErr("");
     try {
@@ -170,6 +193,31 @@ export default function Admin({ stats, back, refreshData }) {
         </div>
       ) : (
         <>
+          {/* ---------- Add new player ---------- */}
+          <div className="card mb-12">
+            <div className="tag" style={{ marginBottom: 8 }}>Add new player</div>
+            <div className="row">
+              <input
+                className="input"
+                value={newName}
+                onChange={(e) => setNewName(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") addNewPlayer();
+                }}
+                placeholder="Player name"
+                style={{ flex: 1 }}
+              />
+              <button
+                className="btn btn-primary"
+                style={{ flex: "none", minWidth: 88 }}
+                disabled={busy === "add" || !newName.trim()}
+                onClick={addNewPlayer}
+              >
+                {busy === "add" ? "Adding…" : "Add"}
+              </button>
+            </div>
+          </div>
+
           {/* ---------- Players + stats ---------- */}
           <div className="tag" style={{ marginBottom: 10 }}>
             Players &amp; stats ({data.players.length})

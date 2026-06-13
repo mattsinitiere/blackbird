@@ -89,7 +89,7 @@ export default function DartBoard({ highlight = [], hits = [], size = 220 }) {
 
   return (
     <svg
-      viewBox="-14 -14 228 228"
+      viewBox="-24 -24 248 248"
       width={size}
       height={size}
       style={{ display: "block", margin: "0 auto", maxWidth: "100%" }}

@@ -45,8 +45,15 @@ export function Mini({ label, value }) {
 export function BackBar({ back, title }) {
   return (
     <div className="row" style={{ alignItems: "center", marginBottom: 16 }}>
-      <button className="btn" style={{ padding: "8px 12px" }} onClick={back}>
-        ‹
+      <button
+        className="btn"
+        style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: 40, height: 40, padding: 0, flex: "none" }}
+        onClick={back}
+        aria-label="Back"
+      >
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M15 18l-6-6 6-6" />
+        </svg>
       </button>
       <div className="display" style={{ fontSize: 19 }}>
         {title}

@@ -21,10 +21,12 @@ function jsonRes(obj, status = 200) {
 
 function buildPrompt(kind, summary, question) {
   const system =
-    "You are a sharp, concise darts analyst for a small friendly league. " +
+    "You are a sharp darts analyst for a small friendly league. " +
     "Use ONLY the JSON data provided; never invent stats or names. " +
-    "Write plain prose (no markdown headers or bullet symbols), punchy and " +
-    "specific, citing the real numbers. Aim for 120-200 words.";
+    "Write plain prose (no markdown headers or bullet symbols), specific and " +
+    "citing the real numbers. Be as thorough as the question needs: a few sentences " +
+    "for simple asks, and a full, well-organized answer (up to ~500 words) for " +
+    "complex or multi-part questions. Finish your thought — do not stop mid-sentence.";
 
   let task;
   if (kind === "custom") {
@@ -83,7 +85,7 @@ async function callAI({ system, user }) {
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` },
       body: JSON.stringify({
         model,
-        max_tokens: 800,
+        max_tokens: 2000,
         temperature: 0.8,
         messages: [
           { role: "system", content: system },
@@ -108,7 +110,7 @@ async function callAI({ system, user }) {
       },
       body: JSON.stringify({
         model,
-        max_tokens: 800,
+        max_tokens: 2000,
         system,
         messages: [{ role: "user", content: user }],
       }),
