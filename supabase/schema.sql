@@ -8,7 +8,8 @@ create table if not exists players (
   id uuid primary key default gen_random_uuid(),
   username text unique not null,
   created_at timestamptz not null default now(),
-  hidden boolean not null default false
+  hidden boolean not null default false,
+  elo numeric not null default 1000
 );
 
 -- Matches: one row per completed game.
@@ -43,3 +44,25 @@ create policy "members read matches"
   on matches for select to authenticated using (true);
 create policy "members add matches"
   on matches for insert to authenticated with check (true);
+
+-- One row per player per game (per-player scoring).
+create table if not exists game_results (
+  id uuid primary key default gen_random_uuid(),
+  game_id uuid not null,
+  username text not null,
+  game_type text not null,
+  config jsonb not null default '{}',
+  winner text not null,
+  result text not null,
+  opponents jsonb not null default '[]',
+  stats jsonb not null default '{}',
+  elo_after numeric not null default 1000,
+  completed_at timestamptz not null default now()
+);
+create index if not exists game_results_username_idx on game_results (username);
+create index if not exists game_results_game_idx on game_results (game_id);
+alter table game_results enable row level security;
+create policy "members read results"
+  on game_results for select to authenticated using (true);
+create policy "members add results"
+  on game_results for insert to authenticated with check (true);

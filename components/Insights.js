@@ -2,6 +2,7 @@ import { useState } from "react";
 import { BackBar } from "./ui";
 import { supabase } from "@/lib/supabase";
 import { headToHead } from "@/lib/stats";
+import { BASE_ELO } from "@/lib/constants";
 
 function round(n, d = 0) {
   const f = Math.pow(10, d);
@@ -12,7 +13,7 @@ function playerRow(u, stats, elo) {
   const s = stats[u];
   return {
     name: u,
-    elo: Math.round(elo[u] || 1500),
+    elo: Math.round(elo[u] || BASE_ELO),
     games: s.games,
     wins: s.wins,
     winPct: round(s.winPct),
@@ -26,7 +27,7 @@ function playerRow(u, stats, elo) {
   };
 }
 
-export default function Insights({ usernames, stats, elo, matches, back }) {
+export default function Insights({ usernames, stats, elo, results, gameCount, back }) {
   const known = usernames.filter((u) => stats[u]);
   const [kind, setKind] = useState("league");
   const [a, setA] = useState(known[0] || "");
@@ -35,21 +36,22 @@ export default function Insights({ usernames, stats, elo, matches, back }) {
   const [result, setResult] = useState("");
   const [model, setModel] = useState("");
   const [error, setError] = useState("");
+  const [question, setQuestion] = useState("");
 
   const buildSummary = () => {
     if (kind === "player") {
-      const ranked = [...known].sort((x, y) => (elo[y] || 1500) - (elo[x] || 1500));
+      const ranked = [...known].sort((x, y) => (elo[y] || BASE_ELO) - (elo[x] || BASE_ELO));
       return {
         focusPlayer: playerRow(a, stats, elo),
         leagueRankOfFocus: ranked.indexOf(a) + 1,
         leagueSize: known.length,
-        totalGames: matches.length,
+        totalGames: gameCount,
       };
     }
     if (kind === "matchup") {
-      const Ra = elo[a] || 1500;
-      const Rb = elo[b] || 1500;
-      const h2h = headToHead(matches, a, b);
+      const Ra = elo[a] || BASE_ELO;
+      const Rb = elo[b] || BASE_ELO;
+      const h2h = headToHead(results, a, b);
       return {
         playerA: playerRow(a, stats, elo),
         playerB: playerRow(b, stats, elo),
@@ -58,9 +60,15 @@ export default function Insights({ usernames, stats, elo, matches, back }) {
       };
     }
     return {
-      totalGames: matches.length,
+      totalGames: gameCount,
       players: known.map((u) => playerRow(u, stats, elo)),
     };
+  };
+
+  const buildBody = () => {
+    const base = { kind, summary: buildSummary() };
+    if (kind === "custom") base.question = question;
+    return base;
   };
 
   const generate = async () => {
@@ -78,7 +86,7 @@ export default function Insights({ usernames, stats, elo, matches, back }) {
           "Content-Type": "application/json",
           Authorization: `Bearer ${session?.access_token || ""}`,
         },
-        body: JSON.stringify({ kind, summary: buildSummary() }),
+        body: JSON.stringify(buildBody()),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Request failed");
@@ -94,6 +102,7 @@ export default function Insights({ usernames, stats, elo, matches, back }) {
   const canGenerate =
     known.length > 0 &&
     (kind === "league" ||
+      (kind === "custom" && question.trim()) ||
       (kind === "player" && a) ||
       (kind === "matchup" && a && b && a !== b));
 
@@ -111,11 +120,12 @@ export default function Insights({ usernames, stats, elo, matches, back }) {
                 ["league", "League"],
                 ["player", "Player"],
                 ["matchup", "Matchup"],
+                ["custom", "Ask"],
               ].map(([k, l]) => (
                 <button
                   key={k}
                   className={`btn ${kind === k ? "btn-primary" : ""}`}
-                  style={{ flex: 1 }}
+                  style={{ flex: 1, padding: "10px 6px" }}
                   onClick={() => {
                     setKind(k);
                     setResult("");
@@ -156,13 +166,30 @@ export default function Insights({ usernames, stats, elo, matches, back }) {
               </div>
             )}
 
+            {kind === "custom" && (
+              <div>
+                <textarea
+                  className="input"
+                  value={question}
+                  onChange={(e) => setQuestion(e.target.value)}
+                  placeholder="Ask anything about the league — e.g. 'Who has the best checkout under pressure?' or 'Who's improved most lately?'"
+                  rows={3}
+                  maxLength={600}
+                  style={{ resize: "vertical", lineHeight: 1.5 }}
+                />
+                <p className="tag" style={{ textTransform: "none", letterSpacing: 0, marginTop: 8 }}>
+                  The AI answers using your league&apos;s real stats only.
+                </p>
+              </div>
+            )}
+
             <button
               className="btn btn-primary mt-12"
               style={{ width: "100%", padding: 14 }}
               onClick={generate}
               disabled={busy || !canGenerate}
             >
-              {busy ? "Analysing…" : "Generate insight"}
+              {busy ? "Analysing…" : kind === "custom" ? "Ask" : "Generate insight"}
             </button>
           </div>
 

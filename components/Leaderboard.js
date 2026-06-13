@@ -1,11 +1,12 @@
 import { useState } from "react";
 import { BackBar } from "./ui";
+import { BASE_ELO } from "@/lib/constants";
 
 export default function Leaderboard({ usernames, stats, elo, openProfile, back }) {
   const [mode, setMode] = useState("overall");
 
   const rows = usernames
-    .map((u) => ({ u, s: stats[u], elo: elo[u] || 1500 }))
+    .map((u) => ({ u, s: stats[u], elo: elo[u] || BASE_ELO }))
     .filter((r) => r.s)
     .filter((r) =>
       mode === "x01"

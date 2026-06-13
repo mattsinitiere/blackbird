@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Modal } from "./ui";
 import DartBoard from "./DartBoard";
 
@@ -6,7 +6,7 @@ const dartValue = (d) => (d.n === 0 ? 0 : d.n === 25 ? 25 * d.mult : d.n * d.mul
 const dartLabel = (d) =>
   d.n === 0 ? "Miss" : d.n === 25 ? (d.mult === 2 ? "Bull" : "25") : `${d.mult === 1 ? "S" : d.mult === 2 ? "D" : "T"}${d.n}`;
 
-export default function PlayX01({ game, onFinish, onQuit }) {
+export default function PlayX01({ game, resume, onProgress, onFinish, onQuit }) {
   const { players, config } = game;
   const start = config.startScore;
 
@@ -17,14 +17,23 @@ export default function PlayX01({ game, onFinish, onQuit }) {
     highestTurn: players.reduce((o, u) => ((o[u] = 0), o), {}),
     checkout: players.reduce((o, u) => ((o[u] = 0), o), {}),
     log: players.reduce((o, u) => ((o[u] = []), o), {}),
+    // per-position [1st, 2nd, 3rd] dart sums/counts for averages
+    dartPos: players.reduce(
+      (o, u) => ((o[u] = [{ sum: 0, count: 0 }, { sum: 0, count: 0 }, { sum: 0, count: 0 }]), o),
+      {}
+    ),
   });
 
-  const [s, setS] = useState(blank);
-  const [turn, setTurn] = useState(0);
-  const [turnDarts, setTurnDarts] = useState([]);
-  const [mult, setMult] = useState(1);
-  const [msg, setMsg] = useState("");
-  const [history, setHistory] = useState([]);
+  const [s, setS] = useState(() => resume?.s ?? blank());
+  const [turn, setTurn] = useState(() => resume?.turn ?? 0);
+  const [turnDarts, setTurnDarts] = useState(() => resume?.turnDarts ?? []);
+  const [mult, setMult] = useState(() => resume?.mult ?? 1);
+  const [msg, setMsg] = useState(() => resume?.msg ?? "");
+  const [history, setHistory] = useState(() => resume?.history ?? []);
+
+  useEffect(() => {
+    onProgress && onProgress({ s, turn, turnDarts, mult, msg, history });
+  }, [s, turn, turnDarts, mult, msg, history, onProgress]);
 
   const cur = players[turn % players.length];
   const turnSum = turnDarts.reduce((a, d) => a + dartValue(d), 0);
@@ -37,6 +46,14 @@ export default function PlayX01({ game, onFinish, onQuit }) {
     const ns = JSON.parse(JSON.stringify(s));
     ns.darts[cur] += darts.length;
     ns.log[cur] = [...ns.log[cur], ...darts];
+    // per-position averages: busted turns count the dart but score 0,
+    // matching how the overall 3-dart average treats busts
+    const counted = kind !== "bust";
+    darts.forEach((d, i) => {
+      if (i > 2) return;
+      ns.dartPos[cur][i].count += 1;
+      ns.dartPos[cur][i].sum += counted ? dartValue(d) : 0;
+    });
     if (kind !== "bust") {
       ns.scores[cur] = scoreBefore - sum;
       ns.points[cur] += sum;
@@ -56,6 +73,7 @@ export default function PlayX01({ game, onFinish, onQuit }) {
           checkout: u === cur ? scoreBefore : 0,
           finalScore: ns.scores[u],
           darts: ns.log[u],
+          dartPos: ns.dartPos[u],
         };
       });
       onFinish({

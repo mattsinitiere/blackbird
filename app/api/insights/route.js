@@ -19,7 +19,7 @@ function jsonRes(obj, status = 200) {
   });
 }
 
-function buildPrompt(kind, summary) {
+function buildPrompt(kind, summary, question) {
   const system =
     "You are a sharp, concise darts analyst for a small friendly league. " +
     "Use ONLY the JSON data provided; never invent stats or names. " +
@@ -27,7 +27,12 @@ function buildPrompt(kind, summary) {
     "specific, citing the real numbers. Aim for 120-200 words.";
 
   let task;
-  if (kind === "player") {
+  if (kind === "custom") {
+    const q = (question || "").toString().slice(0, 600).trim();
+    task =
+      `Answer this question about the league, using ONLY the data below. ` +
+      `If the data can't answer it, say so plainly rather than guessing.\n\nQUESTION: ${q}`;
+  } else if (kind === "player") {
     task =
       "Profile this player: strengths, weaknesses, current form, and one concrete thing to work on.";
   } else if (kind === "matchup") {
@@ -135,11 +140,14 @@ export async function POST(req) {
   } catch {
     return jsonRes({ error: "Bad request" }, 400);
   }
-  const { kind, summary } = body || {};
+  const { kind, summary, question } = body || {};
   if (!summary) return jsonRes({ error: "Missing data" }, 400);
+  if (kind === "custom" && !(question || "").toString().trim()) {
+    return jsonRes({ error: "Type a question first." }, 400);
+  }
 
   try {
-    const { system, user } = buildPrompt(kind, summary);
+    const { system, user } = buildPrompt(kind, summary, question);
     const { text, model } = await callAI({ system, user });
     if (!text.trim()) return jsonRes({ error: "The model returned an empty response." }, 502);
     return jsonRes({ text, model });

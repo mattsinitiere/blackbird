@@ -1,22 +1,27 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { BASEBALL_INNINGS } from "@/lib/constants";
 import DartBoard from "./DartBoard";
 
-export default function PlayBaseball({ game, onFinish, onQuit }) {
+export default function PlayBaseball({ game, resume, onProgress, onFinish, onQuit }) {
   const { players } = game;
   const n = players.length;
 
   const blank = () =>
     players.reduce((o, u) => ((o[u] = { innings: [], total: 0, log: [] }), o), {});
-  const [state, setState] = useState(blank);
-  const [turn, setTurn] = useState(0);
-  const [turnDarts, setTurnDarts] = useState([]);
-  const [history, setHistory] = useState([]);
+  const [state, setState] = useState(() => resume?.state ?? blank());
+  const [turn, setTurn] = useState(() => resume?.turn ?? 0);
+  const [turnDarts, setTurnDarts] = useState(() => resume?.turnDarts ?? []);
+  const [history, setHistory] = useState(() => resume?.history ?? []);
+
+  useEffect(() => {
+    onProgress && onProgress({ state, turn, turnDarts, history });
+  }, [state, turn, turnDarts, history, onProgress]);
 
   const cur = players[turn % n];
   const inning = Math.floor(turn / n) + 1;
   const isExtra = inning > BASEBALL_INNINGS;
-  const target = isExtra ? 25 : inning; // extra innings aim at the bull
+  // numbers continue 10,11,...20 then wrap back to 1
+  const target = ((inning - 1) % 20) + 1;
 
   const addDart = (mult) => {
     if (turnDarts.length >= 3) return;
@@ -124,7 +129,7 @@ export default function PlayBaseball({ game, onFinish, onQuit }) {
       <div className="card">
         <div className="between" style={{ marginBottom: 10 }}>
           <span className="tag">
-            Inning {isExtra ? `${inning} (extra · bull)` : inning} — {cur}, dart {Math.min(turnDarts.length + 1, 3)} of 3
+            Inning {isExtra ? `${inning} (extra · ${target})` : inning} — {cur}, dart {Math.min(turnDarts.length + 1, 3)} of 3
           </span>
           <span className="num" style={{ color: "var(--amber)" }}>{liveRuns}</span>
         </div>
@@ -138,7 +143,7 @@ export default function PlayBaseball({ game, onFinish, onQuit }) {
 
         <div className="flex-wrap" style={{ marginTop: 10, minHeight: 30 }}>
           {turnDarts.length === 0 && (
-            <span className="tag">aim at {isExtra ? "the bull" : inning} — log each dart</span>
+            <span className="tag">aim at {target} — log each dart</span>
           )}
           {turnDarts.map((d, i) => (
             <span key={i} className="btn" style={{ padding: "5px 10px", fontSize: 13 }}>

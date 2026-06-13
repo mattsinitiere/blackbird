@@ -1,8 +1,9 @@
 import { useState } from "react";
 import { BackBar } from "./ui";
 import { headToHead } from "@/lib/stats";
+import { BASE_ELO } from "@/lib/constants";
 
-export default function Matchup({ usernames, elo, matches, stats, back }) {
+export default function Matchup({ usernames, elo, results, stats, back }) {
   const [a, setA] = useState(usernames[0] || "");
   const [b, setB] = useState(usernames[1] || "");
 
@@ -15,11 +16,11 @@ export default function Matchup({ usernames, elo, matches, stats, back }) {
     );
   }
 
-  const Ra = elo[a] || 1500;
-  const Rb = elo[b] || 1500;
+  const Ra = elo[a] || BASE_ELO;
+  const Rb = elo[b] || BASE_ELO;
   const valid = a && b && a !== b;
   const pA = valid ? 1 / (1 + Math.pow(10, (Rb - Ra) / 400)) : 0.5;
-  const h2h = valid ? headToHead(matches, a, b) : { aw: 0, bw: 0, n: 0 };
+  const h2h = valid ? headToHead(results, a, b) : { aw: 0, bw: 0, n: 0 };
 
   const Picker = ({ val, set, label }) => (
     <div style={{ flex: 1 }}>
@@ -120,7 +121,7 @@ export default function Matchup({ usernames, elo, matches, stats, back }) {
           </div>
 
           <p className="tag" style={{ marginTop: 14, lineHeight: 1.5, textTransform: "none", letterSpacing: 0 }}>
-            Elo updates after every match (start 1500, K=24). With few games it&apos;s a rough estimate; it sharpens as more matches are logged.
+            Elo updates after every game (start 1000, K=24). With few games it&apos;s a rough estimate; it sharpens as more games are logged.
           </p>
         </>
       )}

@@ -1,9 +1,10 @@
 import { Stat } from "./ui";
+import { BASE_ELO } from "@/lib/constants";
 
-export default function Home({ setView, stats, elo, players, matches, openProfile }) {
+export default function Home({ setView, stats, elo, players, gameCount, openProfile }) {
   const visible = players.filter((p) => !p.hidden);
   const ranked = visible
-    .map((p) => ({ u: p.username, elo: elo[p.username] || 1500, s: stats[p.username] }))
+    .map((p) => ({ u: p.username, elo: elo[p.username] || BASE_ELO, s: stats[p.username] }))
     .sort((a, b) => b.elo - a.elo);
 
   const topAvg = visible.length
@@ -14,7 +15,7 @@ export default function Home({ setView, stats, elo, players, matches, openProfil
     <div className="fade">
       <div className="grid-3 mb-12">
         <Stat label="Players" value={visible.length} />
-        <Stat label="Games" value={matches.length} />
+        <Stat label="Games" value={gameCount} />
         <Stat label="Top avg" value={topAvg ? topAvg.toFixed(1) : "—"} />
       </div>
 

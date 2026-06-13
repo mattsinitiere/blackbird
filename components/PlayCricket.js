@@ -1,10 +1,10 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { X01_TARGETS, CRICKET_VALUE } from "@/lib/constants";
 import DartBoard from "./DartBoard";
 
 const numOf = (t) => (t === "B" ? 25 : Number(t));
 
-export default function PlayCricket({ game, onFinish, onQuit }) {
+export default function PlayCricket({ game, resume, onProgress, onFinish, onQuit }) {
   const { players } = game;
   const variant = game.config?.variant || "standard";
 
@@ -20,11 +20,15 @@ export default function PlayCricket({ game, onFinish, onQuit }) {
       return o;
     }, {});
 
-  const [state, setState] = useState(blank);
-  const [turn, setTurn] = useState(0);
-  const [darts, setDarts] = useState([]);
-  const [ring, setRing] = useState(1);
-  const [history, setHistory] = useState([]);
+  const [state, setState] = useState(() => resume?.state ?? blank());
+  const [turn, setTurn] = useState(() => resume?.turn ?? 0);
+  const [darts, setDarts] = useState(() => resume?.darts ?? []);
+  const [ring, setRing] = useState(() => resume?.ring ?? 1);
+  const [history, setHistory] = useState(() => resume?.history ?? []);
+
+  useEffect(() => {
+    onProgress && onProgress({ state, turn, darts, ring, history });
+  }, [state, turn, darts, ring, history, onProgress]);
 
   const cur = players[turn % players.length];
   const allClosed = (marks) => X01_TARGETS.every((t) => marks[t] >= 3);

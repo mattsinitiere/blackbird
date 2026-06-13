@@ -53,6 +53,9 @@ html,
 body {
   margin: 0;
   padding: 0;
+  height: 100%;
+  overflow: hidden;
+  overscroll-behavior: none;
   background: var(--bg);
   color: var(--ink);
   font-family: var(--font-body-stack);
@@ -67,6 +70,9 @@ select {
 
 .app {
   min-height: 100vh;
+  height: 100%;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
   background:
     radial-gradient(60% 40% at 100% 0%, rgba(14, 140, 90, 0.05), transparent 70%),
     radial-gradient(50% 35% at 0% 100%, rgba(224, 58, 58, 0.04), transparent 70%),
@@ -74,16 +80,17 @@ select {
 }
 .app.shell {
   height: 100vh;
-  height: 100dvh;
+  height: 100svh;
   min-height: 0;
+  overflow: hidden;
   display: flex;
   flex-direction: column;
-  overflow: hidden;
 }
 .scroll {
   flex: 1 1 auto;
   min-height: 0;
   overflow-y: auto;
+  overscroll-behavior: contain;
   -webkit-overflow-scrolling: touch;
 }
 
@@ -294,6 +301,11 @@ select {
 }
 .stack-8 > * + * {
   margin-top: 8px;
+}
+.stack {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
 }
 .mt-12 {
   margin-top: 12px;

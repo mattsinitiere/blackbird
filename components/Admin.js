@@ -114,8 +114,49 @@ export default function Admin({ stats, back, refreshData }) {
     }
   };
 
-  const togglePlayerHidden = async (username, hidden) => {
+  const resetScore = async (username, games) => {
+    const msg =
+      `Reset ${username}'s score?\n\n` +
+      `This deletes the ${games} game${games === 1 ? "" : "s"} on their record and sets their Elo back to 1000. ` +
+      `Everyone else keeps their own records untouched. This can't be undone.`;
+    if (typeof window !== "undefined" && !window.confirm(msg)) return;
     setBusy("p:" + username);
+    setErr("");
+    try {
+      await callAdmin({ action: "resetScore", username });
+      flash(`Reset ${username}'s score.`);
+      await load();
+      refreshData && refreshData();
+    } catch (er) {
+      setErr(er.message);
+    } finally {
+      setBusy("");
+    }
+  };
+
+  const rebuild = async () => {
+    const msg =
+      "Rebuild the per-player tables from your old games?\n\n" +
+      "This replays your original match history into the new per-player format and " +
+      "recalculates everyone's Elo from 1000.\n\n" +
+      "Only use this ONCE, right after migrating. It overwrites the current per-player " +
+      "results, so any games logged in the new system would be replaced by the old history. Continue?";
+    if (typeof window !== "undefined" && !window.confirm(msg)) return;
+    setBusy("rebuild");
+    setErr("");
+    try {
+      const r = await callAdmin({ action: "rebuild" });
+      flash(`Rebuilt from ${r.games} old game${r.games === 1 ? "" : "s"}.`);
+      await load();
+      refreshData && refreshData();
+    } catch (er) {
+      setErr(er.message);
+    } finally {
+      setBusy("");
+    }
+  };
+
+  const togglePlayerHidden = async (username, hidden) => {    setBusy("p:" + username);
     setErr("");
     try {
       await callAdmin({ action: "setHidden", username, hidden: !hidden });
@@ -151,6 +192,23 @@ export default function Admin({ stats, back, refreshData }) {
         </div>
       ) : (
         <>
+          {/* ---------- One-time migration ---------- */}
+          <div className="card mb-12" style={{ borderColor: "var(--line-strong)" }}>
+            <div style={{ fontWeight: 800, marginBottom: 6 }}>Rebuild from old games</div>
+            <p className="tag" style={{ textTransform: "none", letterSpacing: 0, margin: "0 0 12px" }}>
+              One-time: replays your original match history into the new per-player format and
+              recalculates Elo from 1000. Run this once right after migrating, before logging new games.
+            </p>
+            <button
+              className="btn"
+              style={{ width: "100%" }}
+              disabled={busy === "rebuild"}
+              onClick={rebuild}
+            >
+              {busy === "rebuild" ? "Rebuilding…" : "Rebuild from old games"}
+            </button>
+          </div>
+
           {/* ---------- Players + stats ---------- */}
           <div className="tag" style={{ marginBottom: 10 }}>
             Players &amp; stats ({data.players.length})
@@ -197,7 +255,7 @@ export default function Admin({ stats, back, refreshData }) {
                       <div className="tag" style={{ marginTop: 2, fontSize: 10 }}>3-dart avg</div>
                     </div>
                   </div>
-                  <div className="row">
+                  <div className="row" style={{ marginBottom: 8 }}>
                     <button
                       className="btn"
                       style={{ flex: 1 }}
@@ -215,13 +273,21 @@ export default function Admin({ stats, back, refreshData }) {
                       Remove
                     </button>
                   </div>
+                  <button
+                    className="btn btn-danger"
+                    style={{ width: "100%" }}
+                    disabled={busyHere}
+                    onClick={() => resetScore(p.username, s.games)}
+                  >
+                    Reset score
+                  </button>
                 </div>
               );
             })}
           </div>
 
           {/* ---------- Accounts ---------- */}
-          <div className="tag" style={{ margin: "18px 0 10px" }}>
+          <div className="tag" style={{ margin: "26px 0 10px" }}>
             Login accounts ({data.users.length})
           </div>
           <p className="tag" style={{ textTransform: "none", letterSpacing: 0, marginTop: 0, marginBottom: 12 }}>

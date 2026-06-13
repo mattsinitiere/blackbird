@@ -1,6 +1,9 @@
 import { BackBar, Stat, Mini } from "./ui";
+import { LineChart } from "./Charts";
+import PlayerCard from "./PlayerCard";
+import { playerTimeline } from "@/lib/stats";
 
-export default function Profile({ user, stats, elo, matches, back }) {
+export default function Profile({ user, stats, elo, results, onOpenAccount, back }) {
   if (!stats) {
     return (
       <div className="fade">
@@ -10,15 +13,18 @@ export default function Profile({ user, stats, elo, matches, back }) {
     );
   }
 
-  const recent = matches
-    .filter((m) => m.players.includes(user))
+  const timeline = playerTimeline(results, user);
+  const dartAvg = stats.x01.dartAvg || [0, 0, 0];
+
+  const recent = results
+    .filter((r) => r.username === user)
     .slice(-8)
     .reverse();
 
-  const label = (m) => {
-    if (m.gameType === "x01") return `${m.config.startScore}`;
-    if (m.gameType === "baseball") return "Baseball";
-    const v = m.config?.variant;
+  const label = (r) => {
+    if (r.gameType === "x01") return `${r.config.startScore}`;
+    if (r.gameType === "baseball") return "Baseball";
+    const v = r.config?.variant;
     return v === "cutthroat" ? "Cricket·Cut" : v === "noscore" ? "Cricket·NS" : "Cricket";
   };
 
@@ -35,10 +41,27 @@ export default function Profile({ user, stats, elo, matches, back }) {
     <div className="fade">
       <BackBar back={back} title={user} />
 
+      <PlayerCard user={user} stats={stats} elo={elo} onOpenAccount={onOpenAccount} />
+
       <div className="grid-3 mb-12">
-        <Stat label="Elo" value={Math.round(elo || 1500)} />
+        <Stat label="Elo" value={Math.round(elo || 1000)} />
         <Stat label="Win %" value={stats.winPct.toFixed(0)} />
         <Stat label="Games" value={stats.games} />
+      </div>
+
+      <div className="card mb-12">
+        <h3 className="section-title">Elo over time</h3>
+        <LineChart data={timeline.elo} color="var(--accent)" />
+      </div>
+
+      <div className="card mb-12">
+        <h3 className="section-title">3-dart average over time</h3>
+        <LineChart data={timeline.avg} color="#3b82f6" decimals={1} />
+      </div>
+
+      <div className="card mb-12">
+        <h3 className="section-title">Win % over time</h3>
+        <LineChart data={timeline.win} color="#16a34a" unit="%" />
       </div>
 
       <div className="card mb-12">
@@ -48,6 +71,11 @@ export default function Profile({ user, stats, elo, matches, back }) {
           <Mini label="High turn" value={stats.x01.highestTurn} />
           <Mini label="Best leg" value={stats.x01.bestLeg ? `${stats.x01.bestLeg}d` : "—"} />
           <Mini label="High out" value={stats.x01.highestCheckout || "—"} />
+        </div>
+        <div className="grid-3" style={{ marginTop: 8 }}>
+          <Mini label="1st dart" value={dartAvg[0] ? dartAvg[0].toFixed(1) : "—"} />
+          <Mini label="2nd dart" value={dartAvg[1] ? dartAvg[1].toFixed(1) : "—"} />
+          <Mini label="3rd dart" value={dartAvg[2] ? dartAvg[2].toFixed(1) : "—"} />
         </div>
         <div className="tag" style={{ marginTop: 10 }}>
           {stats.x01.wins}-{stats.x01.games - stats.x01.wins} record
@@ -75,7 +103,7 @@ export default function Profile({ user, stats, elo, matches, back }) {
       <div className="card">
         <h3 className="section-title">Recent</h3>
         {recent.length === 0 && <span className="tag">none</span>}
-        {recent.map((m, i) => (
+        {recent.map((r, i) => (
           <div
             key={i}
             className="between"
@@ -83,14 +111,14 @@ export default function Profile({ user, stats, elo, matches, back }) {
           >
             <span style={{ flex: 1, minWidth: 0 }}>
               <span style={{ display: "block" }}>
-                {label(m)} vs {m.players.filter((p) => p !== user).join(", ") || "solo"}
+                {label(r)} vs {(r.opponents || []).join(", ") || "solo"}
               </span>
               <span className="tag" style={{ textTransform: "none", letterSpacing: 0, fontSize: 11 }}>
-                {fmtDate(m.completedAt)}
+                {fmtDate(r.completedAt)}
               </span>
             </span>
-            <span style={{ color: m.winner === user ? "var(--accent)" : "var(--red)", fontWeight: 800, marginLeft: 12 }}>
-              {m.winner === user ? "W" : "L"}
+            <span style={{ color: r.result === "win" ? "var(--accent)" : "var(--red)", fontWeight: 800, marginLeft: 12 }}>
+              {r.result === "win" ? "W" : "L"}
             </span>
           </div>
         ))}

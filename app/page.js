@@ -1,9 +1,9 @@
 "use client";
 
-import { useState, useEffect, useMemo, useCallback } from "react";
+import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { supabase, isConfigured } from "@/lib/supabase";
-import { getPlayers, addPlayer as dbAddPlayer, setPlayerHidden as dbSetPlayerHidden, getMatches, addMatch } from "@/lib/db";
-import { computeElo, computeStats } from "@/lib/stats";
+import { getPlayers, addPlayer as dbAddPlayer, setPlayerHidden as dbSetPlayerHidden, getGameResults, recordGame } from "@/lib/db";
+import { computeStats, eloMapFromPlayers, applyEloUpdate } from "@/lib/stats";
 import { ACCENTS, ADMIN_EMAIL } from "@/lib/constants";
 import { Logo } from "@/components/ui";
 import Auth from "@/components/Auth";
@@ -25,11 +25,15 @@ export default function Page() {
 
   const [dataReady, setDataReady] = useState(false);
   const [players, setPlayers] = useState([]);
-  const [matches, setMatches] = useState([]);
+  const [results, setResults] = useState([]);
   const [loadError, setLoadError] = useState("");
 
   const [view, setView] = useState("home");
   const [live, setLive] = useState(null);
+  const liveProgress = useRef(null);
+  const saveProgress = useCallback((p) => {
+    liveProgress.current = p;
+  }, []);
   const [profileUser, setProfileUser] = useState(null);
   const [notice, setNotice] = useState("");
 
@@ -58,9 +62,9 @@ export default function Page() {
 
   const refresh = useCallback(async () => {
     try {
-      const [p, m] = await Promise.all([getPlayers(), getMatches()]);
+      const [p, r] = await Promise.all([getPlayers(), getGameResults()]);
       setPlayers(p);
-      setMatches(m);
+      setResults(r);
       setLoadError("");
     } catch (e) {
       setLoadError(e.message || "Failed to load data.");
@@ -104,8 +108,9 @@ export default function Page() {
     () => players.filter((p) => !p.hidden).map((p) => p.username),
     [players]
   );
-  const stats = useMemo(() => computeStats(matches), [matches]);
-  const elo = useMemo(() => computeElo(matches, usernames), [matches, usernames]);
+  const stats = useMemo(() => computeStats(results), [results]);
+  const elo = useMemo(() => eloMapFromPlayers(players), [players]);
+  const gameCount = useMemo(() => new Set(results.map((r) => r.gameId)).size, [results]);
 
   const isAdmin = useMemo(
     () => (session?.user?.email || "").toLowerCase() === ADMIN_EMAIL.toLowerCase(),
@@ -128,18 +133,34 @@ export default function Page() {
 
   const finishMatch = useCallback(async (match) => {
     if (match.players.length >= 2) {
-      await addMatch(match);
+      const winner = match.winner;
+      const nextElo = applyEloUpdate(elo, match.players, winner);
+      const gameId =
+        (typeof crypto !== "undefined" && crypto.randomUUID && crypto.randomUUID()) ||
+        `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+      await recordGame({
+        gameId,
+        gameType: match.gameType,
+        config: match.config,
+        players: match.players,
+        winner,
+        perPlayer: match.perPlayer,
+        eloAfter: nextElo,
+        completedAt: match.completedAt,
+      });
       await refresh();
       setLive(null);
+      liveProgress.current = null;
       setNotice("");
       setView("leaderboard");
     } else {
       // solo practice — not saved
       setLive(null);
+      liveProgress.current = null;
       setNotice("Practice game finished — not saved to stats.");
       setView("home");
     }
-  }, [refresh]);
+  }, [refresh, elo]);
 
   const openProfile = (u) => {
     setProfileUser(u);
@@ -153,8 +174,13 @@ export default function Page() {
 
   const quit = () => {
     setLive(null);
+    liveProgress.current = null;
     setView("home");
   };
+
+  const playViewFor = (gt) =>
+    gt === "x01" ? "playX01" : gt === "cricket" ? "playCricket" : "playBaseball";
+  const goPlay = () => setView(live ? playViewFor(live.gameType) : "setup");
 
   if (!isConfigured) {
     return (
@@ -191,11 +217,18 @@ export default function Page() {
           <button className="btn" style={{ padding: "8px 11px" }} onClick={refresh} title="Refresh">
             ↻
           </button>
+          <button className="btn" style={{ padding: "8px 11px" }} onClick={() => setView("account")} title="Settings">
+            ⚙
+          </button>
           <button
             className="btn"
-            style={{ padding: "8px 11px", maxWidth: 140, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
-            onClick={() => setView("account")}
-            title="Account"
+            style={{ padding: "8px 11px", maxWidth: 120, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
+            onClick={() => {
+              const me = session.user?.user_metadata?.display_name;
+              if (me) openProfile(me);
+              else setView("account");
+            }}
+            title="Your stats & card"
           >
             {session.user?.user_metadata?.display_name || "Account"}
           </button>
@@ -213,7 +246,7 @@ export default function Page() {
         )}
 
         {view === "home" && (
-          <Home setView={setView} stats={stats} elo={elo} players={players} matches={matches} openProfile={openProfile} />
+          <Home setView={setView} stats={stats} elo={elo} players={players} gameCount={gameCount} openProfile={openProfile} />
         )}
         {view === "setup" && (
           <Setup
@@ -221,6 +254,7 @@ export default function Page() {
             addPlayer={addPlayer}
             me={session.user?.user_metadata?.display_name || ""}
             onStart={(game) => {
+              liveProgress.current = null;
               setLive(game);
               setView(
                 game.gameType === "x01" ? "playX01" : game.gameType === "cricket" ? "playCricket" : "playBaseball"
@@ -229,20 +263,31 @@ export default function Page() {
             back={() => setView("home")}
           />
         )}
-        {view === "playX01" && live && <PlayX01 game={live} onFinish={finishMatch} onQuit={quit} />}
-        {view === "playCricket" && live && <PlayCricket game={live} onFinish={finishMatch} onQuit={quit} />}
-        {view === "playBaseball" && live && <PlayBaseball game={live} onFinish={finishMatch} onQuit={quit} />}
+        {view === "playX01" && live && <PlayX01 game={live} resume={liveProgress.current} onProgress={saveProgress} onFinish={finishMatch} onQuit={quit} />}
+        {view === "playCricket" && live && <PlayCricket game={live} resume={liveProgress.current} onProgress={saveProgress} onFinish={finishMatch} onQuit={quit} />}
+        {view === "playBaseball" && live && <PlayBaseball game={live} resume={liveProgress.current} onProgress={saveProgress} onFinish={finishMatch} onQuit={quit} />}
         {view === "leaderboard" && (
           <Leaderboard usernames={visibleUsernames} stats={stats} elo={elo} openProfile={openProfile} back={() => setView("home")} />
         )}
         {view === "profile" && profileUser && (
-          <Profile user={profileUser} stats={stats[profileUser]} elo={elo[profileUser]} matches={matches} back={() => setView("leaderboard")} />
+          <Profile
+            user={profileUser}
+            stats={stats[profileUser]}
+            elo={elo[profileUser]}
+            results={results}
+            onOpenAccount={
+              profileUser === (session.user?.user_metadata?.display_name || "")
+                ? () => setView("account")
+                : null
+            }
+            back={() => setView("leaderboard")}
+          />
         )}
         {view === "matchup" && (
-          <Matchup usernames={visibleUsernames} elo={elo} matches={matches} stats={stats} back={() => setView("home")} />
+          <Matchup usernames={visibleUsernames} elo={elo} results={results} stats={stats} back={() => setView("home")} />
         )}
         {view === "insights" && (
-          <Insights usernames={visibleUsernames} stats={stats} elo={elo} matches={matches} back={() => setView("home")} />
+          <Insights usernames={visibleUsernames} stats={stats} elo={elo} results={results} gameCount={gameCount} back={() => setView("home")} />
         )}
         {view === "account" && (
           <Account
@@ -264,7 +309,7 @@ export default function Page() {
       </div>
       <nav className="nav">
         <button className={`navbtn ${view === "home" ? "active" : ""}`} onClick={() => setView("home")}>Home</button>
-        <button className={`navbtn ${["setup", "playX01", "playCricket", "playBaseball"].includes(view) ? "active" : ""}`} onClick={() => setView("setup")}>Play</button>
+        <button className={`navbtn ${["setup", "playX01", "playCricket", "playBaseball"].includes(view) ? "active" : ""}`} onClick={goPlay}>Play{live ? " ●" : ""}</button>
         <button className={`navbtn ${["leaderboard", "profile"].includes(view) ? "active" : ""}`} onClick={() => setView("leaderboard")}>Stats</button>
         <button className={`navbtn ${view === "matchup" ? "active" : ""}`} onClick={() => setView("matchup")}>Matchup</button>
         <button className={`navbtn ${view === "insights" ? "active" : ""}`} onClick={() => setView("insights")}>AI</button>
