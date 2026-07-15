@@ -6,7 +6,7 @@ import { getPlayers, addPlayer as dbAddPlayer, setPlayerHidden as dbSetPlayerHid
 import { computeStats, eloMapFromPlayers, applyEloUpdate } from "@/lib/stats";
 import { ACCENTS, ADMIN_EMAIL } from "@/lib/constants";
 import { applyFontScale } from "@/lib/prefs";
-import { Logo } from "@/components/ui";
+import { Logo, GearIcon } from "@/components/ui";
 import Auth from "@/components/Auth";
 import Home from "@/components/Home";
 import Setup from "@/components/Setup";
@@ -219,12 +219,18 @@ export default function Page() {
           <button className="btn" style={{ padding: "8px 11px" }} onClick={refresh} title="Refresh">
             ↻
           </button>
-          <button className="btn" style={{ padding: "8px 11px" }} onClick={() => setView("account")} title="Settings">
-            ⚙
+          <button
+            className="btn"
+            style={{ padding: "8px 11px", display: "inline-flex", alignItems: "center", justifyContent: "center" }}
+            onClick={() => setView("account")}
+            title="Settings"
+            aria-label="Settings"
+          >
+            <GearIcon />
           </button>
           <button
             className="btn"
-            style={{ padding: "8px 11px", maxWidth: 120, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
+            style={{ padding: "8px 11px", maxWidth: "calc(120px * var(--fs))", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
             onClick={() => {
               const me = session.user?.user_metadata?.display_name;
               if (me) openProfile(me);

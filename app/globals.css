@@ -170,6 +170,8 @@ select {
 /* ---------- header ---------- */
 .header {
   display: flex;
+  /* buttons drop to their own line rather than off-screen at large text */
+  flex-wrap: wrap;
   align-items: center;
   gap: 13px;
   margin-bottom: 22px;
