@@ -87,7 +87,7 @@ export default function PlayBaseball({ game, resume, onProgress, onFinish, onQui
   return (
     <div className="fade">
       <div className="between mb-12">
-        <div className="display" style={{ fontSize: 17 }}>
+        <div className="display" style={{ fontSize: "calc(17px * var(--fs))" }}>
           Baseball
         </div>
         <button className="btn btn-danger" style={{ padding: "7px 12px" }} onClick={onQuit}>
@@ -146,7 +146,7 @@ export default function PlayBaseball({ game, resume, onProgress, onFinish, onQui
             <span className="tag">aim at {target} — log each dart</span>
           )}
           {turnDarts.map((d, i) => (
-            <span key={i} className="btn" style={{ padding: "5px 10px", fontSize: 13 }}>
+            <span key={i} className="btn" style={{ padding: "5px 10px", fontSize: "calc(13px * var(--fs))" }}>
               {d.n === 0 ? "Miss" : d.mult === 1 ? "Single" : d.mult === 2 ? "Double" : "Triple"}
             </span>
           ))}

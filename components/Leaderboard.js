@@ -69,14 +69,14 @@ export default function Leaderboard({ usernames, stats, elo, openProfile, back }
             style={{ display: "flex", alignItems: "center", gap: 12 }}
             onClick={() => openProfile(r.u)}
           >
-            <div className="num" style={{ fontSize: 20, width: 22, color: i === 0 ? "var(--amber)" : "var(--muted)" }}>
+            <div className="num" style={{ fontSize: "calc(20px * var(--fs))", width: "calc(22px * var(--fs))", color: i === 0 ? "var(--amber)" : "var(--muted)" }}>
               {i + 1}
             </div>
             <div style={{ flex: 1 }}>
               <div style={{ fontWeight: 700 }}>{r.u}</div>
               <div className="tag" style={{ marginTop: 2 }}>{sub(r.s)}</div>
             </div>
-            <div className="num" style={{ fontSize: 17, color: "var(--accent)" }}>{big(r)}</div>
+            <div className="num" style={{ fontSize: "calc(17px * var(--fs))", color: "var(--accent)" }}>{big(r)}</div>
           </div>
         ))}
       </div>

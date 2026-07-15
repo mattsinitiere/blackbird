@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { BackBar } from "./ui";
 import { supabase } from "@/lib/supabase";
-import { ACCENTS } from "@/lib/constants";
+import { ACCENTS, FONT_SCALES } from "@/lib/constants";
+import { applyFontScale } from "@/lib/prefs";
 
 export default function Account({ user, players, addPlayer, setPlayerHidden, isAdmin, onOpenAdmin, signOut, back }) {
   const meta = user?.user_metadata || {};
@@ -9,6 +10,9 @@ export default function Account({ user, players, addPlayer, setPlayerHidden, isA
   const [theme, setTheme] = useState(["dark", "glass"].includes(meta.theme) ? meta.theme : "light");
   const [accent, setAccent] = useState(
     meta.accent && (meta.accent.charAt(0) === "#" || ACCENTS[meta.accent]) ? meta.accent : "green"
+  );
+  const [fontScale, setFontScale] = useState(
+    FONT_SCALES.some((f) => f.id === meta.fontScale) ? meta.fontScale : "normal"
   );
   const [msg, setMsg] = useState("");
   const [good, setGood] = useState(false);
@@ -54,6 +58,12 @@ export default function Account({ user, players, addPlayer, setPlayerHidden, isA
     if (typeof document !== "undefined")
       document.documentElement.style.setProperty("--accent", hexFor(value));
     persist({ accent: value });
+  };
+
+  const applyTextSize = (id) => {
+    setFontScale(id);
+    applyFontScale(id);
+    persist({ fontScale: id });
   };
 
   const trimmed = name.trim();
@@ -141,6 +151,30 @@ export default function Account({ user, players, addPlayer, setPlayerHidden, isA
           >
             Glass
           </button>
+        </div>
+
+        <div className="tag" style={{ margin: "14px 0 6px" }}>
+          Text size
+        </div>
+        <div className="grid-4">
+          {FONT_SCALES.map((f) => (
+            <button
+              key={f.id}
+              className={`btn ${fontScale === f.id ? "btn-toggle-on" : ""}`}
+              onClick={() => applyTextSize(f.id)}
+            >
+              {f.label}
+            </button>
+          ))}
+        </div>
+        <div
+          className="card pad-sm mt-12"
+          style={{ display: "flex", alignItems: "baseline", justifyContent: "center", gap: 10 }}
+        >
+          <span className="num" style={{ fontSize: "calc(34px * var(--fs))", color: "var(--accent)" }}>
+            180
+          </span>
+          <span className="subtle">preview — how scores will look</span>
         </div>
 
         <div className="tag" style={{ margin: "14px 0 8px" }}>

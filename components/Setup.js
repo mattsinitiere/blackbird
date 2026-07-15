@@ -184,7 +184,7 @@ export default function Setup({ players, addPlayer, onStart, back, me }) {
       <button
         className="btn btn-primary"
         disabled={!canStart}
-        style={{ width: "100%", fontSize: 15, padding: 15 }}
+        style={{ width: "100%", fontSize: "calc(15px * var(--fs))", padding: 15 }}
         onClick={start}
       >
         {canStart ? (solo ? "Start practice" : "Throw first") : "Pick at least 1 player"}

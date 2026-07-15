@@ -5,6 +5,7 @@ import { supabase, isConfigured } from "@/lib/supabase";
 import { getPlayers, addPlayer as dbAddPlayer, setPlayerHidden as dbSetPlayerHidden, getGameResults, recordGame } from "@/lib/db";
 import { computeStats, eloMapFromPlayers, applyEloUpdate } from "@/lib/stats";
 import { ACCENTS, ADMIN_EMAIL } from "@/lib/constants";
+import { applyFontScale } from "@/lib/prefs";
 import { Logo } from "@/components/ui";
 import Auth from "@/components/Auth";
 import Home from "@/components/Home";
@@ -58,6 +59,7 @@ export default function Page() {
     const a = meta.accent;
     const accent = a ? (a.charAt(0) === "#" ? a : ACCENTS[a] || ACCENTS.green) : ACCENTS.green;
     document.documentElement.style.setProperty("--accent", accent);
+    applyFontScale(meta.fontScale);
   }, [session]);
 
   const refresh = useCallback(async () => {
@@ -322,7 +324,7 @@ function LoadingScreen({ text }) {
   return (
     <main className="app">
       <div className="container" style={{ textAlign: "center", paddingTop: 90 }}>
-        <div className="num" style={{ fontSize: 26, color: "var(--muted)" }}>{text}</div>
+        <div className="num" style={{ fontSize: "calc(26px * var(--fs))", color: "var(--muted)" }}>{text}</div>
       </div>
     </main>
   );

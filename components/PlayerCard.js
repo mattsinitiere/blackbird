@@ -256,9 +256,9 @@ export default function PlayerCard({ user, stats, elo, onOpenAccount }) {
       />
       <div style={{ position: "relative" }}>
         <div className="tag" style={{ color: "var(--accent)" }}>Player card</div>
-        <div style={{ fontWeight: 800, fontSize: 26, marginTop: 4 }}>{user}</div>
+        <div style={{ fontWeight: 800, fontSize: "calc(26px * var(--fs))", marginTop: 4 }}>{user}</div>
         <div style={{ display: "flex", alignItems: "baseline", gap: 10, marginTop: 6 }}>
-          <span className="num" style={{ fontSize: 40, color: "var(--accent)" }}>{Math.round(elo || 1000)}</span>
+          <span className="num" style={{ fontSize: "calc(40px * var(--fs))", color: "var(--accent)" }}>{Math.round(elo || 1000)}</span>
           <span className="tag">Elo</span>
         </div>
         <div className="tag" style={{ textTransform: "none", letterSpacing: 0, marginTop: 6 }}>

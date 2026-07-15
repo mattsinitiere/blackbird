@@ -234,7 +234,7 @@ export default function Admin({ stats, addPlayer, back, refreshData }) {
               return (
                 <div className="card" key={p.username}>
                   <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
-                    <div style={{ fontWeight: 800, fontSize: 16, flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                    <div style={{ fontWeight: 800, fontSize: "calc(16px * var(--fs))", flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                       {p.username}
                     </div>
                     {p.hidden && (
@@ -249,19 +249,19 @@ export default function Admin({ stats, addPlayer, back, refreshData }) {
                   <div className="grid-4" style={{ marginBottom: 12 }}>
                     <div className="mini">
                       <div className="num">{s.games}</div>
-                      <div className="tag" style={{ marginTop: 2, fontSize: 10 }}>games</div>
+                      <div className="tag" style={{ marginTop: 2, fontSize: "calc(10px * var(--fs-chrome))" }}>games</div>
                     </div>
                     <div className="mini">
                       <div className="num">{s.wins}</div>
-                      <div className="tag" style={{ marginTop: 2, fontSize: 10 }}>wins</div>
+                      <div className="tag" style={{ marginTop: 2, fontSize: "calc(10px * var(--fs-chrome))" }}>wins</div>
                     </div>
                     <div className="mini">
                       <div className="num">{s.games ? Math.round(s.winPct) + "%" : "—"}</div>
-                      <div className="tag" style={{ marginTop: 2, fontSize: 10 }}>win rate</div>
+                      <div className="tag" style={{ marginTop: 2, fontSize: "calc(10px * var(--fs-chrome))" }}>win rate</div>
                     </div>
                     <div className="mini">
                       <div className="num">{s.x01 && s.x01.threeDartAvg ? s.x01.threeDartAvg.toFixed(1) : "—"}</div>
-                      <div className="tag" style={{ marginTop: 2, fontSize: 10 }}>3-dart avg</div>
+                      <div className="tag" style={{ marginTop: 2, fontSize: "calc(10px * var(--fs-chrome))" }}>3-dart avg</div>
                     </div>
                   </div>
                   <div className="row" style={{ marginBottom: 8 }}>

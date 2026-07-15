@@ -23,6 +23,11 @@
   --red-soft: color-mix(in srgb, var(--red) 12%, transparent);
   --amber: #e0962b;
 
+  /* text-size scale — set from the user's preference (see lib/prefs.js).
+     --fs scales content text; --fs-chrome scales shell text more gently. */
+  --fs: 1;
+  --fs-chrome: 1;
+
   --radius: 14px;
   --radius-sm: 10px;
   --shadow: 0 1px 2px rgba(24, 26, 31, 0.04), 0 8px 24px rgba(24, 26, 31, 0.06);
@@ -117,6 +122,10 @@ body {
   background: var(--bg);
   color: var(--ink);
   font-family: var(--font-body-stack);
+  /* base size for any text that doesn't set its own, so it scales too */
+  font-size: calc(16px * var(--fs));
+  /* long unbroken strings (emails, names) wrap instead of clipping when scaled */
+  overflow-wrap: break-word;
   -webkit-font-smoothing: antialiased;
 }
 
@@ -168,7 +177,7 @@ select {
 .brand-title {
   font-family: var(--font-display-stack);
   font-weight: 800;
-  font-size: 30px;
+  font-size: calc(30px * var(--fs-chrome));
   line-height: 1;
   letter-spacing: -0.02em;
 }
@@ -186,7 +195,7 @@ select {
   letter-spacing: -0.01em;
 }
 .tag {
-  font-size: 11px;
+  font-size: calc(11px * var(--fs-chrome));
   font-weight: 700;
   letter-spacing: 0.07em;
   text-transform: uppercase;
@@ -195,12 +204,12 @@ select {
 .section-title {
   font-family: var(--font-display-stack);
   font-weight: 700;
-  font-size: 15px;
+  font-size: calc(15px * var(--fs));
   margin: 0 0 12px;
 }
 .subtle {
   color: var(--ink-soft);
-  font-size: 14px;
+  font-size: calc(14px * var(--fs));
 }
 
 /* ---------- cards ---------- */
@@ -227,7 +236,7 @@ select {
 .btn {
   font-family: var(--font-body-stack);
   font-weight: 600;
-  font-size: 14px;
+  font-size: calc(14px * var(--fs));
   border: 1px solid var(--line-strong);
   background: var(--surface);
   color: var(--ink);
@@ -277,7 +286,7 @@ select {
 .chip {
   font-family: var(--font-display-stack);
   font-weight: 600;
-  font-size: 18px;
+  font-size: calc(18px * var(--fs));
   background: var(--surface-2);
   border: 1px solid var(--line);
   color: var(--ink);
@@ -308,7 +317,7 @@ select {
   color: var(--ink);
   border-radius: var(--radius-sm);
   padding: 11px 12px;
-  font-size: 15px;
+  font-size: calc(15px * var(--fs));
   outline: none;
 }
 .input:focus,
@@ -328,12 +337,16 @@ select {
 }
 
 /* ---------- layout utils ---------- */
+/* rows wrap rather than overflow once text is scaled up */
 .row {
   display: flex;
+  flex-wrap: wrap;
   gap: 10px;
 }
 .between {
   display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
   justify-content: space-between;
   align-items: center;
 }
@@ -342,14 +355,17 @@ select {
   grid-template-columns: repeat(2, 1fr);
   gap: 10px;
 }
+/* three across normally; drops to two once scaled text needs the room */
 .grid-3 {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, calc(76px * var(--fs))), 1fr));
   gap: 10px;
 }
+/* four across normally; sheds columns as the text scales so word buttons
+   ("Bull", "Undo") never outgrow their chip */
 .grid-4 {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, calc(64px * var(--fs))), 1fr));
   gap: 8px;
 }
 .grid-5 {
@@ -392,7 +408,7 @@ select {
   box-shadow: var(--shadow);
 }
 .stat .num {
-  font-size: 26px;
+  font-size: calc(26px * var(--fs));
 }
 .mini {
   text-align: center;
@@ -402,7 +418,7 @@ select {
   border-radius: var(--radius-sm);
 }
 .mini .num {
-  font-size: 20px;
+  font-size: calc(20px * var(--fs));
 }
 
 /* ---------- progress bar ---------- */
@@ -419,10 +435,10 @@ select {
 .cricket-table {
   width: 100%;
   border-collapse: collapse;
-  font-size: 14px;
+  font-size: calc(14px * var(--fs));
 }
 .cricket-table th {
-  font-size: 11px;
+  font-size: calc(11px * var(--fs-chrome));
   letter-spacing: 0.05em;
   text-transform: uppercase;
   color: var(--muted);
@@ -458,7 +474,7 @@ select {
   background: none;
   color: var(--ink-soft);
   font-weight: 700;
-  font-size: 12.5px;
+  font-size: calc(12.5px * var(--fs-chrome));
   letter-spacing: 0.03em;
   padding: 11px 4px;
   border-radius: 10px;
@@ -522,7 +538,7 @@ label.check {
   display: flex;
   align-items: center;
   gap: 10px;
-  font-size: 14px;
+  font-size: calc(14px * var(--fs));
   cursor: pointer;
   margin-top: 12px;
 }

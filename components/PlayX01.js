@@ -122,12 +122,11 @@ export default function PlayX01({ game, resume, onProgress, onFinish, onQuit }) 
   };
 
   const avg = (u) => (s.darts[u] ? ((s.points[u] / s.darts[u]) * 3).toFixed(1) : "0.0");
-  const cols = Math.min(players.length, 2);
 
   return (
     <div className="fade">
       <div className="between mb-12">
-        <div className="display" style={{ fontSize: 17 }}>
+        <div className="display" style={{ fontSize: "calc(17px * var(--fs))" }}>
           {start} · {config.doubleOut ? "double out" : "straight out"}
         </div>
         <button className="btn btn-danger" style={{ padding: "7px 12px" }} onClick={onQuit}>
@@ -135,7 +134,16 @@ export default function PlayX01({ game, resume, onProgress, onFinish, onQuit }) 
         </button>
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: `repeat(${cols},1fr)`, gap: 10, marginBottom: 12 }}>
+      <div
+        style={{
+          display: "grid",
+          // two side-by-side normally; drops to one per row once the score
+          // text is scaled up enough that two no longer fit
+          gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, calc(120px * var(--fs))), 1fr))",
+          gap: 10,
+          marginBottom: 12,
+        }}
+      >
         {players.map((u) => {
           const active = u === cur;
           const shown = active ? remaining : s.scores[u];
@@ -154,7 +162,7 @@ export default function PlayX01({ game, resume, onProgress, onFinish, onQuit }) 
               </div>
               <div
                 className="num"
-                style={{ fontSize: 44, lineHeight: 1.05, marginTop: 2, color: shown <= 40 ? "var(--red)" : "var(--ink)" }}
+                style={{ fontSize: "calc(44px * var(--fs))", lineHeight: 1.05, marginTop: 2, color: shown <= 40 ? "var(--red)" : "var(--ink)" }}
               >
                 {shown}
               </div>
@@ -169,13 +177,13 @@ export default function PlayX01({ game, resume, onProgress, onFinish, onQuit }) 
       <div className="card">
         <div className="between" style={{ marginBottom: 8 }}>
           <span className="tag">{cur} — dart {Math.min(turnDarts.length + 1, 3)} of 3</span>
-          <span style={{ minHeight: 16, color: "var(--red)", fontSize: 12, fontWeight: 600 }}>{msg}</span>
+          <span style={{ minHeight: 16, color: "var(--red)", fontSize: "calc(12px * var(--fs))", fontWeight: 600 }}>{msg}</span>
         </div>
 
         <div className="flex-wrap" style={{ minHeight: 34, marginBottom: 8 }}>
           {turnDarts.length === 0 && <span className="tag">tap a multiplier, then a number</span>}
           {turnDarts.map((d, i) => (
-            <span key={i} className="btn" style={{ padding: "5px 10px", fontSize: 13 }}>
+            <span key={i} className="btn" style={{ padding: "5px 10px", fontSize: "calc(13px * var(--fs))" }}>
               {dartLabel(d)}
             </span>
           ))}
@@ -196,7 +204,7 @@ export default function PlayX01({ game, resume, onProgress, onFinish, onQuit }) 
 
         <div className="grid-5">
           {Array.from({ length: 20 }, (_, i) => i + 1).map((n) => (
-            <button key={n} className="chip" style={{ fontSize: 15, padding: "12px 0" }} onClick={() => addDart({ n, mult })}>
+            <button key={n} className="chip" style={{ fontSize: "calc(15px * var(--fs))", padding: "12px 0" }} onClick={() => addDart({ n, mult })}>
               {n}
             </button>
           ))}

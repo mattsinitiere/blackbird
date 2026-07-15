@@ -134,7 +134,7 @@ export default function PlayCricket({ game, resume, onProgress, onFinish, onQuit
   return (
     <div className="fade">
       <div className="between mb-12">
-        <div className="display" style={{ fontSize: 17 }}>
+        <div className="display" style={{ fontSize: "calc(17px * var(--fs))" }}>
           Cricket · {variantLabel}
         </div>
         <button className="btn btn-danger" style={{ padding: "7px 12px" }} onClick={onQuit}>
@@ -199,7 +199,7 @@ export default function PlayCricket({ game, resume, onProgress, onFinish, onQuit
             <button
               key={t}
               className="chip"
-              style={{ fontSize: 16, padding: "15px 0", opacity: darts.length >= 3 ? 0.4 : 1 }}
+              style={{ fontSize: "calc(16px * var(--fs))", padding: "15px 0", opacity: darts.length >= 3 ? 0.4 : 1 }}
               onClick={() => addDart(t)}
             >
               {t === "B" ? "Bull" : t}
@@ -212,7 +212,7 @@ export default function PlayCricket({ game, resume, onProgress, onFinish, onQuit
             <button
               key={i}
               className="btn"
-              style={{ padding: "5px 10px", fontSize: 13 }}
+              style={{ padding: "5px 10px", fontSize: "calc(13px * var(--fs))" }}
               onClick={() => removeDart(i)}
             >
               {d.ring === 1 ? "S" : d.ring === 2 ? "D" : "T"}

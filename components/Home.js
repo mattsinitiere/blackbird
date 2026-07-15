@@ -21,7 +21,7 @@ export default function Home({ setView, stats, elo, players, gameCount, openProf
 
       <button
         className="btn btn-primary"
-        style={{ width: "100%", fontSize: 16, padding: 16 }}
+        style={{ width: "100%", fontSize: "calc(16px * var(--fs))", padding: 16 }}
         onClick={() => setView("setup")}
       >
         Start a game
@@ -44,7 +44,7 @@ export default function Home({ setView, stats, elo, players, gameCount, openProf
           >
             <div
               className="num"
-              style={{ fontSize: 20, width: 24, color: i === 0 ? "var(--amber)" : "var(--muted)" }}
+              style={{ fontSize: "calc(20px * var(--fs))", width: "calc(24px * var(--fs))", color: i === 0 ? "var(--amber)" : "var(--muted)" }}
             >
               {i + 1}
             </div>
@@ -54,7 +54,7 @@ export default function Home({ setView, stats, elo, players, gameCount, openProf
                 {r.s ? `${r.s.wins}-${r.s.games - r.s.wins} · avg ${r.s.x01.threeDartAvg.toFixed(1)}` : "no games"}
               </div>
             </div>
-            <div className="num" style={{ fontSize: 17, color: "var(--accent)" }}>
+            <div className="num" style={{ fontSize: "calc(17px * var(--fs))", color: "var(--accent)" }}>
               {Math.round(r.elo)}
             </div>
           </div>

@@ -57,14 +57,14 @@ export default function Matchup({ usernames, elo, results, stats, back }) {
               Predicted win likelihood (Elo)
             </div>
             <div className="row" style={{ alignItems: "center" }}>
-              <span className="num" style={{ fontSize: 30, color: "var(--accent)" }}>
+              <span className="num" style={{ fontSize: "calc(30px * var(--fs))", color: "var(--accent)" }}>
                 {(pA * 100).toFixed(0)}%
               </span>
               <div className="bar">
                 <div style={{ width: `${pA * 100}%`, background: "var(--accent)" }} />
                 <div style={{ width: `${(1 - pA) * 100}%`, background: "var(--red)" }} />
               </div>
-              <span className="num" style={{ fontSize: 30, color: "var(--red)" }}>
+              <span className="num" style={{ fontSize: "calc(30px * var(--fs))", color: "var(--red)" }}>
                 {((1 - pA) * 100).toFixed(0)}%
               </span>
             </div>
@@ -87,9 +87,9 @@ export default function Matchup({ usernames, elo, results, stats, back }) {
                 Never played each other — prediction is Elo-only and rough.
               </p>
             ) : (
-              <div className="num" style={{ fontSize: 22 }}>
+              <div className="num" style={{ fontSize: "calc(22px * var(--fs))" }}>
                 {a} {h2h.aw} — {h2h.bw} {b}{" "}
-                <span className="tag" style={{ fontSize: 12 }}>
+                <span className="tag" style={{ fontSize: "calc(12px * var(--fs-chrome))" }}>
                   ({h2h.n} games)
                 </span>
               </div>
@@ -102,7 +102,7 @@ export default function Matchup({ usernames, elo, results, stats, back }) {
             </div>
             <div className="row">
               <div style={{ flex: 1, textAlign: "center" }}>
-                <div className="num" style={{ fontSize: 24 }}>
+                <div className="num" style={{ fontSize: "calc(24px * var(--fs))" }}>
                   {stats[a]?.x01.threeDartAvg.toFixed(1) || "—"}
                 </div>
                 <div className="tag" style={{ marginTop: 2 }}>
@@ -110,7 +110,7 @@ export default function Matchup({ usernames, elo, results, stats, back }) {
                 </div>
               </div>
               <div style={{ flex: 1, textAlign: "center" }}>
-                <div className="num" style={{ fontSize: 24 }}>
+                <div className="num" style={{ fontSize: "calc(24px * var(--fs))" }}>
                   {stats[b]?.x01.threeDartAvg.toFixed(1) || "—"}
                 </div>
                 <div className="tag" style={{ marginTop: 2 }}>

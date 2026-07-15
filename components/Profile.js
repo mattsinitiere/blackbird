@@ -107,13 +107,13 @@ export default function Profile({ user, stats, elo, results, onOpenAccount, back
           <div
             key={i}
             className="between"
-            style={{ padding: "8px 0", borderBottom: "1px solid var(--line)", fontSize: 14 }}
+            style={{ padding: "8px 0", borderBottom: "1px solid var(--line)", fontSize: "calc(14px * var(--fs))" }}
           >
             <span style={{ flex: 1, minWidth: 0 }}>
               <span style={{ display: "block" }}>
                 {label(r)} vs {(r.opponents || []).join(", ") || "solo"}
               </span>
-              <span className="tag" style={{ textTransform: "none", letterSpacing: 0, fontSize: 11 }}>
+              <span className="tag" style={{ textTransform: "none", letterSpacing: 0, fontSize: "calc(11px * var(--fs-chrome))" }}>
                 {fmtDate(r.completedAt)}
               </span>
             </span>

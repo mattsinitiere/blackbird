@@ -35,7 +35,7 @@ export function Mini({ label, value }) {
   return (
     <div className="mini">
       <div className="num">{value}</div>
-      <div className="tag" style={{ marginTop: 2, fontSize: 10 }}>
+      <div className="tag" style={{ marginTop: 2, fontSize: "calc(10px * var(--fs-chrome))" }}>
         {label}
       </div>
     </div>
@@ -55,7 +55,7 @@ export function BackBar({ back, title }) {
           <path d="M15 18l-6-6 6-6" />
         </svg>
       </button>
-      <div className="display" style={{ fontSize: 19 }}>
+      <div className="display" style={{ fontSize: "calc(19px * var(--fs))" }}>
         {title}
       </div>
     </div>
