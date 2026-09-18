@@ -2,7 +2,8 @@
 
 import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { supabase, isConfigured } from "@/lib/supabase";
-import { getPlayers, addPlayer as dbAddPlayer, linkPlayerAuth as dbLinkPlayerAuth, setPlayerHidden as dbSetPlayerHidden, setPlayerColor as dbSetPlayerColor, getGameResults, recordGame } from "@/lib/db";
+import { getPlayers, addPlayer as dbAddPlayer, linkPlayerAuth as dbLinkPlayerAuth, setPlayerHidden as dbSetPlayerHidden, setPlayerColor as dbSetPlayerColor, updatePlayerProfile as dbUpdatePlayerProfile, getGameResults, recordGame } from "@/lib/db";
+import { normalizeHandle, validateHandle } from "@/lib/profile";
 import { computeStats, eloMapFromPlayers, applyEloUpdate } from "@/lib/stats";
 import { ACCENTS, ADMIN_EMAIL, defaultPlayerColor } from "@/lib/constants";
 import { applyFontScale } from "@/lib/prefs";
@@ -10,7 +11,7 @@ import { applySkin } from "@/lib/skins";
 import { makeCastCode, openCastChannel, castAvailable, stripHistory } from "@/lib/cast";
 import { buildSummary } from "@/lib/summary";
 import { rematchGame } from "@/lib/games";
-import { Logo, GearIcon, CastIcon, PlayerBadge, Modal } from "@/components/ui";
+import { Logo, GearIcon, CastIcon, PlayerBadge, Modal, pressProps } from "@/components/ui";
 import Auth from "@/components/Auth";
 import Home from "@/components/Home";
 import Setup from "@/components/Setup";
@@ -243,19 +244,36 @@ export default function Page() {
   }, [session, refresh]);
 
   const backfillRan = useRef(false);
+  const handleAdoptTried = useRef(false);
   useEffect(() => {
     if (!session || !dataReady) return;
     const meName = (session.user?.user_metadata?.display_name || "").trim();
     const meId = session.user?.id;
     if (!meName || !meId) return;
-    const existing = players.find((p) => p.username.toLowerCase() === meName.toLowerCase());
+    // the handle chosen at sign-up rides along in auth metadata until a
+    // player row exists to hold it
+    const metaHandle = normalizeHandle(session.user?.user_metadata?.handle);
+    const wantHandle = metaHandle && validateHandle(metaHandle).ok ? metaHandle : null;
+    const existing =
+      players.find((p) => p.authId === meId) ||
+      players.find((p) => p.username.toLowerCase() === meName.toLowerCase());
     if (existing) {
       if (!existing.authId) {
-        (async () => { await dbLinkPlayerAuth(existing.username, meId); await refresh(); })();
+        (async () => {
+          await dbLinkPlayerAuth(existing.username, meId);
+          if (!existing.handle && wantHandle) await dbUpdatePlayerProfile(existing.username, { handle: wantHandle });
+          await refresh();
+        })();
+      } else if (!existing.handle && wantHandle && !handleAdoptTried.current) {
+        handleAdoptTried.current = true;
+        (async () => {
+          const r = await dbUpdatePlayerProfile(existing.username, { handle: wantHandle });
+          if (r.ok) await refresh();
+        })();
       }
     } else {
       (async () => {
-        await dbAddPlayer(meName, false, meId);
+        await dbAddPlayer(meName, false, meId, wantHandle);
         await refresh();
       })();
       return;
@@ -313,6 +331,19 @@ export default function Page() {
     await dbSetPlayerColor(username, color);
     await refresh();
   }, [refresh]);
+
+  const updatePlayerProfile = useCallback(async (username, patch) => {
+    const r = await dbUpdatePlayerProfile(username, patch);
+    if (r.ok) await refresh();
+    return r;
+  }, [refresh]);
+
+  // the signed-in account's own player row: by account link first, then by name
+  const myPlayer = useMemo(() => {
+    const uid = session?.user?.id;
+    const name = (session?.user?.user_metadata?.display_name || "").trim().toLowerCase();
+    return players.find((p) => p.authId === uid) || players.find((p) => p.username.toLowerCase() === name) || null;
+  }, [players, session]);
 
   const saveMatch = useCallback(async (match, eloAfter) => {
     setSaveState("saving");
@@ -474,6 +505,22 @@ export default function Page() {
             <p className="subtle" style={{ margin: 0, color: "var(--red)" }}>{loadError}</p>
           </div>
         )}
+        {view === "home" && myPlayer && !myPlayer.handle && (
+          <div
+            className="card pad-sm mb-12 clickable"
+            style={{ display: "flex", alignItems: "center", gap: 12, borderColor: "var(--accent)" }}
+            {...pressProps(() => setView("account"))}
+          >
+            <PlayerBadge username={myPlayer.username} color={playerColors[myPlayer.username]} size={28} showName={false} />
+            <div style={{ flex: 1 }}>
+              <div style={{ fontWeight: 700 }}>Pick your @handle</div>
+              <div className="tag" style={{ textTransform: "none", letterSpacing: 0, marginTop: 2 }}>
+                It&apos;s how friends will find you. Takes ten seconds.
+              </div>
+            </div>
+            <span className="tag" style={{ color: "var(--accent)" }}>Set up</span>
+          </div>
+        )}
         {notice && view === "home" && (
           <div className="card mb-12" style={{ borderColor: "var(--amber)" }}>
             <p className="subtle" style={{ margin: 0, color: "var(--amber)" }}>{notice}</p>
@@ -544,6 +591,7 @@ export default function Page() {
         {view === "profile" && profileUser && (
           <Profile
             user={profileUser}
+            player={players.find((p) => p.username === profileUser) || null}
             stats={stats[profileUser]}
             elo={elo[profileUser]}
             results={results}
@@ -570,6 +618,8 @@ export default function Page() {
             addPlayer={addPlayer}
             setPlayerHidden={setPlayerHidden}
             setPlayerColor={setPlayerColor}
+            updatePlayerProfile={updatePlayerProfile}
+            myPlayer={myPlayer}
             playerColors={playerColors}
             isAdmin={isAdmin}
             onOpenAdmin={() => setView("admin")}

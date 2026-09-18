@@ -3,12 +3,54 @@ import { LineChart } from "./Charts";
 import PlayerCard from "./PlayerCard";
 import { playerTimeline } from "@/lib/stats";
 
-export default function Profile({ user, stats, elo, results, onOpenAccount, back, playerColors }) {
+function ProfileHeader({ user, player, playerColors, sub }) {
+  return (
+    <div style={{ marginBottom: 16 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+        <PlayerBadge username={user} color={playerColors?.[user]} size={48} showName={false} />
+        <div style={{ minWidth: 0 }}>
+          <div className="display" style={{ fontSize: "calc(22px * var(--fs))", lineHeight: 1.1 }}>{user}</div>
+          {player?.handle && (
+            <div style={{ fontWeight: 700, fontSize: "calc(14px * var(--fs))", color: "var(--accent)", marginTop: 2 }}>
+              @{player.handle}
+            </div>
+          )}
+          {sub && (
+            <div className="tag" style={{ textTransform: "none", letterSpacing: 0, marginTop: 2 }}>{sub}</div>
+          )}
+        </div>
+      </div>
+      {(player?.bio || player?.location) && (
+        <div style={{ marginTop: 10, paddingLeft: 60 }}>
+          {player.bio && (
+            <div style={{ fontSize: "calc(14px * var(--fs))", color: "var(--ink)", lineHeight: 1.4 }}>{player.bio}</div>
+          )}
+          {player.location && (
+            <div className="tag" style={{ textTransform: "none", letterSpacing: 0, marginTop: 4, display: "inline-flex", alignItems: "center", gap: 4 }}>
+              <PinIcon /> {player.location}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function PinIcon() {
+  return (
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M12 21s7-6.5 7-11a7 7 0 1 0-14 0c0 4.5 7 11 7 11z" />
+      <circle cx="12" cy="10" r="2.5" />
+    </svg>
+  );
+}
+
+export default function Profile({ user, player, stats, elo, results, onOpenAccount, back, playerColors }) {
   if (!stats) {
     return (
       <div className="fade">
         <BackBar back={back} />
-        <div className="display" style={{ fontSize: "calc(22px * var(--fs))", marginBottom: 12 }}>{user}</div>
+        <ProfileHeader user={user} player={player} playerColors={playerColors} />
         <p className="subtle">No games logged yet.</p>
       </div>
     );
@@ -62,17 +104,14 @@ export default function Profile({ user, stats, elo, results, onOpenAccount, back
     <div className="fade">
       <BackBar back={back} />
 
-      <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 16 }}>
-        <PlayerBadge username={user} color={playerColors?.[user]} size={40} showName={false} />
-        <div>
-          <div className="display" style={{ fontSize: "calc(22px * var(--fs))" }}>{user}</div>
-          <div className="tag" style={{ textTransform: "none", letterSpacing: 0, marginTop: 2 }}>
-            {wins}-{losses} · {stats.games} games · {stats.winPct.toFixed(0)}% win
-          </div>
-        </div>
-      </div>
+      <ProfileHeader
+        user={user}
+        player={player}
+        playerColors={playerColors}
+        sub={`${wins}-${losses} · ${stats.games} games · ${stats.winPct.toFixed(0)}% win`}
+      />
 
-      <PlayerCard user={user} stats={stats} elo={elo} onOpenAccount={onOpenAccount} playerColors={playerColors} />
+      <PlayerCard user={user} handle={player?.handle} stats={stats} elo={elo} onOpenAccount={onOpenAccount} playerColors={playerColors} />
 
       <div className="grid-3 mb-12">
         <Stat label="Elo" value={Math.round(elo || 1000)} />
