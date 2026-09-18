@@ -1,4 +1,5 @@
 import { createClient } from "@supabase/supabase-js";
+import { normalizeHandle, validateHandle } from "@/lib/profile";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -64,20 +65,29 @@ export async function POST(req) {
       }));
       let players;
       let hasAuthIdCol = true;
-      const res1 = await admin
+      // newest column set first; older databases fall through
+      const res0 = await admin
         .from("players")
-        .select("username, hidden, created_at, auth_id")
+        .select("username, hidden, created_at, auth_id, handle")
         .order("created_at", { ascending: true });
-      if (res1.error) {
-        hasAuthIdCol = false;
-        const res2 = await admin
-          .from("players")
-          .select("username, hidden, created_at")
-          .order("created_at", { ascending: true });
-        if (res2.error) throw res2.error;
-        players = res2.data;
+      if (!res0.error) {
+        players = res0.data;
       } else {
-        players = res1.data;
+        const res1 = await admin
+          .from("players")
+          .select("username, hidden, created_at, auth_id")
+          .order("created_at", { ascending: true });
+        if (res1.error) {
+          hasAuthIdCol = false;
+          const res2 = await admin
+            .from("players")
+            .select("username, hidden, created_at")
+            .order("created_at", { ascending: true });
+          if (res2.error) throw res2.error;
+          players = res2.data;
+        } else {
+          players = res1.data;
+        }
       }
 
       if (hasAuthIdCol) {
@@ -103,6 +113,7 @@ export async function POST(req) {
           hidden: !!p.hidden,
           createdAt: p.created_at,
           authId: p.auth_id || null,
+          handle: p.handle || null,
         })),
       });
     }
@@ -207,6 +218,27 @@ export async function POST(req) {
       }
 
       return json({ ok: true });
+    }
+
+    if (action === "setHandle") {
+      // the service role bypasses the owner-only trigger, so the admin can
+      // fix or assign anyone's handle; the same format rules still apply
+      const { username, handle: rawHandle } = body;
+      if (!username) return json({ error: "Missing player." }, 400);
+      const handle = normalizeHandle(rawHandle);
+      const check = validateHandle(handle);
+      if (!check.ok) return json({ error: check.reason }, 400);
+      const { data: taken, error: te } = await admin
+        .from("players")
+        .select("username")
+        .ilike("handle", handle)
+        .neq("username", username)
+        .limit(1);
+      if (te) throw te;
+      if (taken && taken.length > 0) return json({ error: `@${handle} is already taken by ${taken[0].username}.` }, 400);
+      const { error } = await admin.from("players").update({ handle }).eq("username", username);
+      if (error) throw error;
+      return json({ ok: true, handle });
     }
 
     if (action === "linkPlayer") {
