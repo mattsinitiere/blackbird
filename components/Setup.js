@@ -1,18 +1,7 @@
 import { useState, useRef, useCallback } from "react";
 import { BackBar, PlayerBadge, ShuffleIcon, DragIcon } from "./ui";
 import { CRICKET_VARIANTS } from "@/lib/constants";
-
-const KILLER_NUMBERS = [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20];
-
-function assignKillerNumbers(players) {
-  const pool = [...KILLER_NUMBERS];
-  const out = {};
-  for (const p of players) {
-    const idx = Math.floor(Math.random() * pool.length);
-    out[p] = pool.splice(idx, 1)[0];
-  }
-  return out;
-}
+import { assignKillerNumbers, newGameId } from "@/lib/games";
 
 function useDragReorder(selected, setSelected) {
   const dragIdx = useRef(null);
@@ -138,7 +127,7 @@ export default function Setup({ players, onStart, back, me, playerColors }) {
     else if (gameType === "gotcha") config = { targetScore: gotchaTarget };
     else if (gameType === "killer") config = { numbers: assignKillerNumbers(selected), lives: killerLives };
     onStart({
-      id: Date.now().toString(36),
+      id: newGameId(),
       gameType,
       players: selected,
       config,

@@ -8,6 +8,8 @@ import { ACCENTS, ADMIN_EMAIL, defaultPlayerColor } from "@/lib/constants";
 import { applyFontScale } from "@/lib/prefs";
 import { applySkin } from "@/lib/skins";
 import { makeCastCode, openCastChannel, castAvailable, stripHistory } from "@/lib/cast";
+import { buildSummary } from "@/lib/summary";
+import { rematchGame } from "@/lib/games";
 import { Logo, GearIcon, CastIcon, PlayerBadge, Modal } from "@/components/ui";
 import Auth from "@/components/Auth";
 import Home from "@/components/Home";
@@ -29,6 +31,9 @@ import Records from "@/components/Records";
 import Account from "@/components/Account";
 import Admin from "@/components/Admin";
 import LoadingScreen from "@/components/LoadingScreen";
+import GameSummary from "@/components/GameSummary";
+
+const PLAY_VIEWS = { x01: "playX01", cricket: "playCricket", baseball: "playBaseball", aroundTheClock: "playAroundTheClock", killer: "playKiller", shanghai: "playShanghai", halveit: "playHalveIt", gotcha: "playGotcha", tictactoe: "playTicTacToe" };
 
 export default function Page() {
   const [authReady, setAuthReady] = useState(false);
@@ -119,6 +124,7 @@ export default function Page() {
       // is being played yet
       if (event === "hello") {
         if (liveGameRef.current && liveProgress.current) sendCastState();
+        else if (lastFinishedRef.current) castChannel.current && castChannel.current.send("finished", lastFinishedRef.current);
         else castChannel.current && castChannel.current.send("ended", {});
       }
     });
@@ -137,6 +143,13 @@ export default function Page() {
       if (castChannel.current) castChannel.current.close();
     };
   }, []);
+  // end-of-game summary: shown the moment a game finishes, while the
+  // result saves in the background. lastFinishedRef answers a TV that
+  // joins after the final dart.
+  const [finished, setFinished] = useState(null); // { summary, match, game, eloAfter }
+  const [saveState, setSaveState] = useState("idle"); // idle | saving | saved | error
+  const [saveError, setSaveError] = useState("");
+  const lastFinishedRef = useRef(null);
   const [profileUser, setProfileUser] = useState(null);
   // where a profile was opened from, so Back returns there (Home podium,
   // standings, records…) instead of always landing on the standings
@@ -301,6 +314,28 @@ export default function Page() {
     await refresh();
   }, [refresh]);
 
+  const saveMatch = useCallback(async (match, eloAfter) => {
+    setSaveState("saving");
+    setSaveError("");
+    try {
+      await recordGame({
+        gameId: match.gameId,
+        gameType: match.gameType,
+        config: match.config,
+        players: match.players,
+        winner: match.winner,
+        perPlayer: match.perPlayer,
+        eloAfter,
+        completedAt: match.completedAt,
+      });
+      await refresh();
+      setSaveState("saved");
+    } catch (e) {
+      setSaveState("error");
+      setSaveError(e?.message || "");
+    }
+  }, [refresh]);
+
   const finishMatch = useCallback(async (match) => {
     // block the play component's trailing onProgress (it re-renders while
     // we await the network below) from resurrecting the persisted game or
@@ -309,38 +344,40 @@ export default function Page() {
     if (castTimer.current) clearTimeout(castTimer.current);
     liveProgress.current = null;
     persistLive(null);
-    if (castChannel.current) {
-      castChannel.current.send("finished", { game: liveGameRef.current, winner: match.winner });
+    const game = liveGameRef.current;
+    const ranked = match.players.length >= 2;
+    const eloAfter = ranked ? applyEloUpdate(elo, match.players, match.winner) : null;
+    const summary = buildSummary({ match, game, eloBefore: ranked ? elo : null, eloAfter, colors: playerColors });
+    lastFinishedRef.current = { game, winner: match.winner, summary };
+    if (castChannel.current) castChannel.current.send("finished", lastFinishedRef.current);
+
+    // show the summary now; the save runs behind it
+    setLive(null);
+    setNotice("");
+    setFinished({ summary, match, game, eloAfter });
+    setView("summary");
+    if (!ranked) {
+      setSaveState("idle"); // solo practice — not saved
+      return;
     }
-    if (match.players.length >= 2) {
-      const winner = match.winner;
-      const nextElo = applyEloUpdate(elo, match.players, winner);
-      const gameId =
-        (typeof crypto !== "undefined" && crypto.randomUUID && crypto.randomUUID()) ||
-        `${Date.now()}-${Math.random().toString(16).slice(2)}`;
-      await recordGame({
-        gameId,
-        gameType: match.gameType,
-        config: match.config,
-        players: match.players,
-        winner,
-        perPlayer: match.perPlayer,
-        eloAfter: nextElo,
-        completedAt: match.completedAt,
-      });
-      await refresh();
-      setLive(null);
-      liveProgress.current = null;
-      setNotice("");
-      setView("leaderboard");
-    } else {
-      // solo practice — not saved
-      setLive(null);
-      liveProgress.current = null;
-      setNotice("Practice game finished — not saved to stats.");
-      setView("home");
-    }
-  }, [refresh, elo]);
+    match.gameId =
+      (typeof crypto !== "undefined" && crypto.randomUUID && crypto.randomUUID()) ||
+      `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+    await saveMatch(match, eloAfter);
+  }, [elo, playerColors, persistLive, saveMatch]);
+
+  const startGame = useCallback((game) => {
+    finishingRef.current = false;
+    liveProgress.current = null;
+    lastFinishedRef.current = null;
+    // sync the ref now: the play component's first onProgress fires
+    // before the ref-syncing effect on this same commit
+    liveGameRef.current = game;
+    persistLive(game, null);
+    setLive(game);
+    setFinished(null);
+    setView(PLAY_VIEWS[game.gameType] || "playX01");
+  }, [persistLive]);
 
   const openProfile = (u) => {
     if (view !== "profile") setProfileFrom(view);
@@ -356,6 +393,7 @@ export default function Page() {
   const quit = () => {
     setQuitAsk(false);
     finishingRef.current = true;
+    lastFinishedRef.current = null;
     if (castTimer.current) clearTimeout(castTimer.current);
     liveProgress.current = null;
     persistLive(null);
@@ -365,7 +403,6 @@ export default function Page() {
     setView("home");
   };
 
-  const PLAY_VIEWS = { x01: "playX01", cricket: "playCricket", baseball: "playBaseball", aroundTheClock: "playAroundTheClock", killer: "playKiller", shanghai: "playShanghai", halveit: "playHalveIt", gotcha: "playGotcha", tictactoe: "playTicTacToe" };
   const ALL_PLAY_VIEWS = Object.values(PLAY_VIEWS);
   const playViewFor = (gt) => PLAY_VIEWS[gt] || "playX01";
   const goPlay = () => setView(live ? playViewFor(live.gameType) : "setup");
@@ -451,20 +488,11 @@ export default function Page() {
             players={players}
             playerColors={playerColors}
             me={session.user?.user_metadata?.display_name || ""}
-            onStart={(game) => {
-              finishingRef.current = false;
-              liveProgress.current = null;
-              // sync the ref now: the play component's first onProgress fires
-              // before the ref-syncing effect on this same commit
-              liveGameRef.current = game;
-              persistLive(game, null);
-              setLive(game);
-              setView(playViewFor(game.gameType));
-            }}
+            onStart={startGame}
             back={() => setView("home")}
           />
         )}
-        {ALL_PLAY_VIEWS.includes(view) && live && castAvailable() && (
+        {((ALL_PLAY_VIEWS.includes(view) && live) || view === "summary") && castAvailable() && (
           <div className="card pad-sm mb-12" style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
             {castCode ? (
               <>
@@ -498,6 +526,18 @@ export default function Page() {
         {view === "playHalveIt" && live && <PlayHalveIt game={live} resume={liveProgress.current} onProgress={saveProgress} onFinish={finishMatch} onQuit={askQuit} castActive={!!castCode} playerColors={playerColors} />}
         {view === "playGotcha" && live && <PlayGotcha game={live} resume={liveProgress.current} onProgress={saveProgress} onFinish={finishMatch} onQuit={askQuit} castActive={!!castCode} playerColors={playerColors} />}
         {view === "playTicTacToe" && live && <PlayTicTacToe game={live} resume={liveProgress.current} onProgress={saveProgress} onFinish={finishMatch} onQuit={askQuit} castActive={!!castCode} playerColors={playerColors} />}
+        {view === "summary" && finished && (
+          <GameSummary
+            summary={finished.summary}
+            saveState={saveState}
+            saveError={saveError}
+            onRetrySave={() => saveMatch(finished.match, finished.eloAfter)}
+            onRematch={() => startGame(rematchGame(finished.game || { ...finished.match, id: "" }))}
+            onNewGame={() => setView("setup")}
+            onDone={() => setView(finished.summary.ranked ? "leaderboard" : "home")}
+            playerColors={playerColors}
+          />
+        )}
         {view === "leaderboard" && (
           <Leaderboard usernames={visibleUsernames} stats={stats} elo={elo} openProfile={openProfile} openRecords={() => setView("records")} back={() => setView("home")} playerColors={playerColors} />
         )}
@@ -561,7 +601,7 @@ export default function Page() {
       )}
       <nav className="nav">
         <button className={`navbtn ${view === "home" ? "active" : ""}`} onClick={() => setView("home")}>Home</button>
-        <button className={`navbtn ${view === "setup" || ALL_PLAY_VIEWS.includes(view) ? "active" : ""}`} onClick={goPlay}>Play{live ? " ●" : ""}</button>
+        <button className={`navbtn ${view === "setup" || view === "summary" || ALL_PLAY_VIEWS.includes(view) ? "active" : ""}`} onClick={goPlay}>Play{live ? " ●" : ""}</button>
         <button className={`navbtn ${["leaderboard", "profile", "records"].includes(view) ? "active" : ""}`} onClick={() => setView("leaderboard")}>Stats</button>
         <button className={`navbtn ${view === "matchup" ? "active" : ""}`} onClick={() => setView("matchup")}>Matchup</button>
       </nav>

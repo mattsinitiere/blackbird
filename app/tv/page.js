@@ -4,6 +4,7 @@ import { useState, useEffect, useRef, useCallback, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { openCastChannel, normalizeCastCode, castAvailable } from "@/lib/cast";
 import TVScoreboard from "@/components/tv/TVScoreboard";
+import TVSummary from "@/components/tv/TVSummary";
 
 /**
  * TV scoreboard screen. Open this page on anything that can show a
@@ -29,6 +30,7 @@ function TV() {
   const [game, setGame] = useState(null);
   const [snapshot, setSnapshot] = useState(null);
   const [winner, setWinner] = useState(null);
+  const [summary, setSummary] = useState(null);
   // false until anything arrives from the phone — used to tell a wrong
   // code apart from "right code, game not started yet"
   const [linked, setLinked] = useState(false);
@@ -79,14 +81,17 @@ function TV() {
           setGame(payload.game);
           setSnapshot(payload.snapshot);
           setWinner(null);
+          setSummary(null);
           setStatus("live");
         } else if (event === "finished") {
           setWinner(payload.winner);
+          setSummary(payload.summary || null);
           if (payload.game) setGame(payload.game);
           setStatus("finished");
         } else if (event === "ended") {
           setStatus("waiting");
           setSnapshot(null);
+          setSummary(null);
         } else if (event === "stopped") {
           // the phone stopped casting — back to the code-entry screen
           if (channel.current) channel.current.close();
@@ -142,12 +147,18 @@ function TV() {
   if (status === "finished") {
     return (
       <main className="tv">
-        <div className="tv-center">
-          <div className="tv-winner-label">winner</div>
-          <div className="tv-winner-name">{winner}</div>
-          <div className="tv-idle-sub">next game will appear automatically</div>
+        {summary ? (
+          <TVSummary summary={summary} />
+        ) : (
+          <div className="tv-center">
+            <div className="tv-winner-label">winner</div>
+            <div className="tv-winner-name">{winner}</div>
+          </div>
+        )}
+        <div className="tv-footer">
+          <span>Blackbird · code {code}</span>
+          <span>next game will appear automatically</span>
         </div>
-        <div className="tv-footer">Blackbird · code {code}</div>
       </main>
     );
   }

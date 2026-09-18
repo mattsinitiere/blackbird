@@ -913,6 +913,91 @@ label.check input {
   }
 }
 
+/* tv: end-of-game summary */
+.tv-summary {
+  gap: 1.6vw;
+}
+.tv-summary-hero {
+  text-align: center;
+}
+.tv-summary-hero .tv-winner-name {
+  font-size: clamp(44px, 7vw, 150px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.25em;
+}
+.tv-summary-elo {
+  margin-top: 0.4vw;
+  color: var(--ink-soft);
+  font-size: clamp(16px, 2.2vw, 40px);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.tv-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(var(--tv-players, 2), 1fr);
+  gap: 1.5vw;
+}
+.tv-summary-grid .tv-x01-name {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4em;
+}
+.tv-summary-delta {
+  font-size: 0.7em;
+  font-variant-numeric: tabular-nums;
+}
+.tv-summary-primary {
+  font-weight: 800;
+  font-size: clamp(40px, 6.5vw, 130px);
+  line-height: 1.05;
+  font-variant-numeric: tabular-nums;
+}
+.tv-summary-stats {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.3em 1em;
+  margin-top: 0.6vw;
+  color: var(--muted);
+  font-size: clamp(12px, 1.4vw, 26px);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-weight: 700;
+}
+.tv-summary-stats b {
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+.tv-summary-hl {
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 1.5vw;
+}
+.tv-summary-hl-item {
+  text-align: center;
+  min-width: 14vw;
+  padding: 1vw 1.6vw;
+  border-radius: 18px;
+  background: var(--surface);
+  border: 0.2vw solid var(--line);
+}
+.tv-summary-hl-value {
+  font-weight: 800;
+  color: var(--accent);
+  font-size: clamp(24px, 3.2vw, 64px);
+  line-height: 1.1;
+  font-variant-numeric: tabular-nums;
+}
+.tv-summary-hl-player {
+  color: var(--ink-soft);
+  font-weight: 700;
+  font-size: clamp(13px, 1.5vw, 28px);
+}
+
 /* tv style toggle + score-only display */
 .tv-style-btn {
   font-family: inherit;
