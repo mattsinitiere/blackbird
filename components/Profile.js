@@ -2,6 +2,8 @@ import { BackBar, Stat, Mini, PlayerBadge } from "./ui";
 import { LineChart } from "./Charts";
 import PlayerCard from "./PlayerCard";
 import { playerTimeline } from "@/lib/stats";
+import { gameName } from "@/lib/summary";
+import { playerLabel } from "@/lib/bots";
 
 function ProfileHeader({ user, player, playerColors, sub }) {
   return (
@@ -45,13 +47,78 @@ function PinIcon() {
   );
 }
 
-export default function Profile({ user, player, stats, elo, results, onOpenAccount, back, playerColors }) {
+function gameLabel(r) {
+  if (r.gameType === "x01") return `${r.config.startScore}`;
+  if (r.gameType === "baseball") return "Baseball";
+  if (r.gameType === "aroundTheClock") return "Clock";
+  if (r.gameType === "killer") return "Killer";
+  if (r.gameType === "shanghai") return "Shanghai";
+  if (r.gameType === "halveit") return "Halve It";
+  if (r.gameType === "gotcha") return "Gotcha";
+  if (r.gameType === "tictactoe") return "Tic-Tac-Toe";
+  if (r.gameType === "cricket") {
+    const v = r.config?.variant;
+    return v === "cutthroat" ? "Cricket·Cut" : v === "noscore" ? "Cricket·NS" : "Cricket";
+  }
+  return gameName(r.gameType);
+}
+
+function fmtDate(iso) {
+  if (!iso) return "";
+  try {
+    return new Date(iso).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
+  } catch {
+    return "";
+  }
+}
+
+/** Practice log: solo games, bot games and drills. Never counted in stats. */
+function PracticeCard({ rows }) {
+  const recent = rows.slice(-5).reverse();
+  const last = rows[rows.length - 1];
+  return (
+    <div className="card mb-12">
+      <h3 className="section-title">Practice</h3>
+      <div className="grid-3" style={{ gap: 8 }}>
+        <Mini label="Sessions" value={rows.length} />
+        <Mini label="Last" value={last ? fmtDate(last.completedAt) : "—"} />
+        <Mini label="Won" value={rows.filter((r) => r.winner === r.username).length} />
+      </div>
+      <div style={{ marginTop: 10 }}>
+        {recent.map((r, i) => (
+          <div key={i} className="between" style={{ padding: "6px 0", borderBottom: i < recent.length - 1 ? "1px solid var(--line)" : "none", fontSize: "calc(13px * var(--fs))" }}>
+            <span>
+              {gameLabel(r)}
+              {(r.opponents || []).length > 0 && (
+                <span className="tag" style={{ marginLeft: 6, textTransform: "none", letterSpacing: 0 }}>
+                  vs {(r.opponents || []).map(playerLabel).join(", ")}
+                </span>
+              )}
+            </span>
+            <span className="tag" style={{ textTransform: "none", letterSpacing: 0 }}>{fmtDate(r.completedAt)}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+export default function Profile({ user, player, stats, elo, results, practice = [], onOpenAccount, back, playerColors }) {
+  const myPractice = practice.filter((r) => r.username === user);
+
   if (!stats) {
     return (
       <div className="fade">
         <BackBar back={back} />
         <ProfileHeader user={user} player={player} playerColors={playerColors} />
-        <p className="subtle">No games logged yet.</p>
+        {myPractice.length === 0 ? (
+          <p className="subtle">No games logged yet.</p>
+        ) : (
+          <>
+            <p className="subtle mb-12">No ranked games yet.</p>
+            <PracticeCard rows={myPractice} />
+          </>
+        )}
       </div>
     );
   }
@@ -74,28 +141,6 @@ export default function Profile({ user, player, stats, elo, results, onOpenAccou
         r.stats.roundMarks.length > 0
     )
     .slice(-1)[0];
-
-  const label = (r) => {
-    if (r.gameType === "x01") return `${r.config.startScore}`;
-    if (r.gameType === "baseball") return "Baseball";
-    if (r.gameType === "aroundTheClock") return "Clock";
-    if (r.gameType === "killer") return "Killer";
-    if (r.gameType === "shanghai") return "Shanghai";
-    if (r.gameType === "halveit") return "Halve It";
-    if (r.gameType === "gotcha") return "Gotcha";
-    if (r.gameType === "tictactoe") return "Tic-Tac-Toe";
-    const v = r.config?.variant;
-    return v === "cutthroat" ? "Cricket·Cut" : v === "noscore" ? "Cricket·NS" : "Cricket";
-  };
-
-  const fmtDate = (iso) => {
-    if (!iso) return "";
-    try {
-      return new Date(iso).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
-    } catch {
-      return "";
-    }
-  };
 
   const wins = stats.wins;
   const losses = stats.games - stats.wins;
@@ -260,6 +305,8 @@ export default function Profile({ user, player, stats, elo, results, onOpenAccou
       </div>
       )}
 
+      {myPractice.length > 0 && <PracticeCard rows={myPractice} />}
+
       <div className="card">
         <h3 className="section-title">Recent</h3>
         {recent.length === 0 && <span className="tag">none</span>}
@@ -271,7 +318,7 @@ export default function Profile({ user, player, stats, elo, results, onOpenAccou
           >
             <span style={{ flex: 1, minWidth: 0 }}>
               <span style={{ display: "block" }}>
-                {label(r)} vs {(r.opponents || []).length > 0 ? (r.opponents || []).map((opp, oi) => (
+                {gameLabel(r)} vs {(r.opponents || []).length > 0 ? (r.opponents || []).map((opp, oi) => (
                   <span key={oi}>{oi > 0 && ", "}<PlayerBadge username={opp} color={playerColors?.[opp]} size={16} /></span>
                 )) : "solo"}
               </span>

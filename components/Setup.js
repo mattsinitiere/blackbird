@@ -423,7 +423,7 @@ export default function Setup({ players, onStart, back, me, playerColors }) {
 
         {solo && !needsTwo && (
           <p className="tag" style={{ marginTop: 10, color: "var(--amber)", textTransform: "none", letterSpacing: 0 }}>
-            Solo practice — this game won&apos;t be saved to stats or the leaderboard.
+            Solo practice — saved to your practice log, not to stats or the leaderboard.
           </p>
         )}
       </div>

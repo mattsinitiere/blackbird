@@ -172,7 +172,8 @@ Key design points:
 5. **Score the game** on the live screen. Cricket shows the classic marks
    grid, points, a **live MPR column**, and the current **round number**;
    there's full undo (per dart and per turn) and a dartboard heat view of the
-   turn. Solo games are practice and are not saved.
+   turn. Solo games are practice: saved to your practice log on the profile,
+   never counted in stats, Elo or the leaderboard.
 6. **Finish** — the winner is detected automatically and the **game
    summary** opens right away: winner, Elo before → after, ranked player
    cards with the key numbers for that game, and highlights. Elo is

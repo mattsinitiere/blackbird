@@ -120,21 +120,22 @@ export default function GameSummary({ summary, saveState, saveError, onRetrySave
 }
 
 function SaveLine({ ranked, saveState, saveError, onRetry }) {
+  const where = ranked ? "stats" : "your practice log";
   let text;
   let color = "var(--muted)";
-  if (!ranked) text = "Practice game — not saved to stats.";
-  else if (saveState === "saving") text = "Saving to stats…";
+  if (saveState === "saving") text = `Saving to ${where}…`;
   else if (saveState === "saved") {
-    text = "Saved to stats.";
+    text = ranked ? "Saved to stats." : "Saved to your practice log — not counted in stats.";
     color = "var(--accent)";
   } else if (saveState === "error") {
     text = `Couldn't save: ${saveError || "network error"}`;
     color = "var(--red)";
-  } else return null;
+  } else if (!ranked) text = "Practice game — not counted in stats.";
+  else return null;
   return (
     <div className="between mb-12" style={{ padding: "0 4px" }}>
       <span className="tag" style={{ textTransform: "none", letterSpacing: 0, color }}>{text}</span>
-      {saveState === "error" && ranked && (
+      {saveState === "error" && (
         <button className="btn" style={{ padding: "6px 12px" }} onClick={onRetry}>Retry</button>
       )}
     </div>

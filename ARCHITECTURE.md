@@ -264,8 +264,11 @@ page.js.finishMatch  computes Elo, writes rows, refreshes, resets view
   **resume** the live game if the user navigates away and back, and the
   **TV-cast publisher** (§9). It is an in-memory checkpoint only — a page
   reload loses the live game (ROADMAP #24).
-- **Solo games are practice**: `finishMatch` skips persistence for fewer
-  than 2 players.
+- **Solo games are practice**: `lib/practice.js` `isRankedMatch` decides
+  (two or more real players, no bot, not a drill). Practice games are
+  saved with `result = 'practice'` and the player's Elo unchanged; the
+  shell splits fetched rows into competitive and practice lists so stats,
+  standings and Elo never see them.
 - All three engines share an **undo pattern**: a `history` array of
   deep-cloned state snapshots per committed turn; undo pops the current
   uncommitted dart first, then restores the last snapshot.

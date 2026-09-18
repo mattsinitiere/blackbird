@@ -10,6 +10,7 @@ import { applyFontScale } from "@/lib/prefs";
 import { applySkin } from "@/lib/skins";
 import { makeCastCode, openCastChannel, castAvailable, stripHistory } from "@/lib/cast";
 import { buildSummary } from "@/lib/summary";
+import { isRankedMatch, splitResults } from "@/lib/practice";
 import { rematchGame } from "@/lib/games";
 import { Logo, GearIcon, CastIcon, PlayerBadge, Modal, pressProps } from "@/components/ui";
 import Auth from "@/components/Auth";
@@ -50,7 +51,9 @@ export default function Page() {
 
   const [dataReady, setDataReady] = useState(false);
   const [players, setPlayers] = useState([]);
-  const [results, setResults] = useState([]);
+  const [allResults, setAllResults] = useState([]);
+  // competitive rows drive stats/Elo/standings; practice rows feed the practice log
+  const { competitive: results, practice } = useMemo(() => splitResults(allResults), [allResults]);
   const [loadError, setLoadError] = useState("");
 
   const [view, setView] = useState("home");
@@ -218,7 +221,7 @@ export default function Page() {
     try {
       const [p, r] = await Promise.all([getPlayers(), getGameResults()]);
       setPlayers(p);
-      setResults(r);
+      setAllResults(r);
       setLoadError("");
     } catch (e) {
       setLoadError(e.message || "Failed to load data.");
@@ -345,7 +348,7 @@ export default function Page() {
     return players.find((p) => p.authId === uid) || players.find((p) => p.username.toLowerCase() === name) || null;
   }, [players, session]);
 
-  const saveMatch = useCallback(async (match, eloAfter) => {
+  const saveMatch = useCallback(async (match, eloAfter, ranked) => {
     setSaveState("saving");
     setSaveError("");
     try {
@@ -356,7 +359,9 @@ export default function Page() {
         players: match.players,
         winner: match.winner,
         perPlayer: match.perPlayer,
+        ranked,
         eloAfter,
+        currentElo: elo,
         completedAt: match.completedAt,
       });
       await refresh();
@@ -365,7 +370,7 @@ export default function Page() {
       setSaveState("error");
       setSaveError(e?.message || "");
     }
-  }, [refresh]);
+  }, [refresh, elo]);
 
   const finishMatch = useCallback(async (match) => {
     // block the play component's trailing onProgress (it re-renders while
@@ -376,7 +381,7 @@ export default function Page() {
     liveProgress.current = null;
     persistLive(null);
     const game = liveGameRef.current;
-    const ranked = match.players.length >= 2;
+    const ranked = isRankedMatch(match);
     const eloAfter = ranked ? applyEloUpdate(elo, match.players, match.winner) : null;
     const summary = buildSummary({ match, game, eloBefore: ranked ? elo : null, eloAfter, colors: playerColors });
     lastFinishedRef.current = { game, winner: match.winner, summary };
@@ -385,16 +390,13 @@ export default function Page() {
     // show the summary now; the save runs behind it
     setLive(null);
     setNotice("");
-    setFinished({ summary, match, game, eloAfter });
+    setFinished({ summary, match, game, eloAfter, ranked });
     setView("summary");
-    if (!ranked) {
-      setSaveState("idle"); // solo practice — not saved
-      return;
-    }
+    // ranked games save win/loss + Elo; solo, bot and drill games save as practice
     match.gameId =
       (typeof crypto !== "undefined" && crypto.randomUUID && crypto.randomUUID()) ||
       `${Date.now()}-${Math.random().toString(16).slice(2)}`;
-    await saveMatch(match, eloAfter);
+    await saveMatch(match, eloAfter, ranked);
   }, [elo, playerColors, persistLive, saveMatch]);
 
   const startGame = useCallback((game) => {
@@ -578,7 +580,7 @@ export default function Page() {
             summary={finished.summary}
             saveState={saveState}
             saveError={saveError}
-            onRetrySave={() => saveMatch(finished.match, finished.eloAfter)}
+            onRetrySave={() => saveMatch(finished.match, finished.eloAfter, finished.ranked)}
             onRematch={() => startGame(rematchGame(finished.game || { ...finished.match, id: "" }))}
             onNewGame={() => setView("setup")}
             onDone={() => setView(finished.summary.ranked ? "leaderboard" : "home")}
@@ -595,6 +597,7 @@ export default function Page() {
             stats={stats[profileUser]}
             elo={elo[profileUser]}
             results={results}
+            practice={practice}
             onOpenAccount={
               profileUser === (session.user?.user_metadata?.display_name || "")
                 ? () => setView("account")
@@ -614,7 +617,7 @@ export default function Page() {
           <Account
             user={session.user}
             players={players}
-            results={results}
+            results={allResults}
             addPlayer={addPlayer}
             setPlayerHidden={setPlayerHidden}
             setPlayerColor={setPlayerColor}

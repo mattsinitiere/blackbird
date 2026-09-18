@@ -2,30 +2,10 @@ import { useState, useMemo } from "react";
 import { Stat, PlayerBadge, pressProps } from "./ui";
 import { BarChart } from "./Charts";
 import { BASE_ELO } from "@/lib/constants";
+import { gamesPerWeek } from "@/lib/stats";
 
 const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
 const WEEKS = 13; // ~3 months
-
-/** Unique games per week over the last ~3 months, oldest bucket first. */
-function gamesPerWeek(results) {
-  const seen = new Map();
-  for (const r of results) {
-    if (r.gameId && !seen.has(r.gameId)) seen.set(r.gameId, new Date(r.completedAt));
-  }
-  const now = new Date();
-  const end = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
-  const buckets = Array.from({ length: WEEKS }, (_, i) => ({
-    x: i + 1,
-    y: 0,
-    date: new Date(end.getTime() - (WEEKS - i) * WEEK_MS).toISOString(),
-  }));
-  for (const d of seen.values()) {
-    const weeksAgo = Math.floor((end.getTime() - d.getTime()) / WEEK_MS);
-    const idx = WEEKS - 1 - weeksAgo;
-    if (idx >= 0 && idx < WEEKS) buckets[idx].y++;
-  }
-  return buckets;
-}
 
 function computeHighlights(results) {
   const cutoff = Date.now() - WEEKS * WEEK_MS;
