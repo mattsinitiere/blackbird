@@ -19,7 +19,7 @@ export default function TVSummary({ summary }) {
       <div className="tv-summary-hero">
         <div className="tv-winner-label">winner</div>
         <div className="tv-winner-name">
-          <PlayerBadge username={winner} color={winRow?.color || undefined} size={72} showName={false} /> {winner}
+          <PlayerBadge username={winner} color={winRow?.color || undefined} size={72} showName={false} /> {winRow?.name || winner}
         </div>
         {winRow?.elo && (
           <div className="tv-summary-elo">

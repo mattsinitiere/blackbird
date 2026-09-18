@@ -1,9 +1,12 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { Modal, PlayerBadge, UndoIcon } from "./ui";
 import DartBoard from "./DartBoard";
 import Celebration from "./Celebration";
 import { dartValue, dartLabel } from "@/lib/darts";
 import { getCheckoutPath, isCheckoutRange } from "@/lib/checkouts";
+import { botFor, playerLabel } from "@/lib/bots";
+import { pickX01Target, botThrow } from "@/lib/botStrategy";
+import { useBotTurn } from "@/lib/useBotTurn";
 
 export default function PlayX01({ game, resume, onProgress, onFinish, onQuit, castActive, playerColors }) {
   const { players, config } = game;
@@ -33,6 +36,7 @@ export default function PlayX01({ game, resume, onProgress, onFinish, onQuit, ca
   const [celeb, setCeleb] = useState(null);
   const [legsWon, setLegsWon] = useState(() => resume?.legsWon ?? players.reduce((o, u) => ((o[u] = 0), o), {}));
   const [legHistory, setLegHistory] = useState(() => resume?.legHistory ?? []);
+  const doneRef = useRef(false); // set once onFinish fires; stops a trailing bot throw
 
   useEffect(() => {
     onProgress && onProgress({ s, turn, turnDarts, mult, msg, history, legsWon, legHistory });
@@ -43,6 +47,7 @@ export default function PlayX01({ game, resume, onProgress, onFinish, onQuit, ca
   const remaining = s.scores[cur] - turnSum;
 
   const finishGame = useCallback((ns, winner) => {
+    doneRef.current = true;
     const perPlayer = {};
     players.forEach((u) => {
       perPlayer[u] = {
@@ -110,7 +115,7 @@ export default function PlayX01({ game, resume, onProgress, onFinish, onQuit, ca
         setS(blank());
         setHistory([]);
         setTurn(0);
-        setMsg(`${cur} wins leg ${newLegsWon[cur]}!`);
+        setMsg(`${playerLabel(cur)} wins leg ${newLegsWon[cur]}!`);
         return;
       }
       finishGame(ns, cur);
@@ -151,6 +156,19 @@ export default function PlayX01({ game, resume, onProgress, onFinish, onQuit, ca
     });
   };
 
+  // a bot at the oche throws by itself through addDart, one dart at a time
+  const bot = botFor(cur);
+  useBotTurn({
+    active: !!bot && !doneRef.current,
+    key: `${turn}:${turnDarts.length}:${legHistory.length}`,
+    throwOne: () => {
+      const target = pickX01Target({ remaining, doubleOut: !!config.doubleOut, checkout: bot.checkout });
+      const land = botThrow(bot, target);
+      addDart({ n: land.n, mult: land.mult });
+    },
+  });
+  const botLock = bot ? { opacity: 0.5, pointerEvents: "none" } : undefined;
+
   const avg = (u) => (s.darts[u] ? ((s.points[u] / s.darts[u]) * 3).toFixed(1) : "0.0");
   const checkoutHint = config.doubleOut && isCheckoutRange(remaining) && turnDarts.length < 3 ? getCheckoutPath(remaining) : null;
 
@@ -164,7 +182,7 @@ export default function PlayX01({ game, resume, onProgress, onFinish, onQuit, ca
           </div>
           {isLegs && (
             <div className="tag" style={{ marginTop: 2 }}>
-              Best of {legs} — {players.map(u => `${u} ${legsWon[u]}`).join(" · ")}
+              Best of {legs} — {players.map(u => `${playerLabel(u)} ${legsWon[u]}`).join(" · ")}
             </div>
           )}
         </div>
@@ -225,8 +243,9 @@ export default function PlayX01({ game, resume, onProgress, onFinish, onQuit, ca
       <div className="card">
         <div className="between" style={{ marginBottom: 8 }}>
           <span className="tag">
-            {cur} — dart {Math.min(turnDarts.length + 1, 3)} of 3
+            {playerLabel(cur)} — dart {Math.min(turnDarts.length + 1, 3)} of 3
             {castActive ? ` · ${remaining} left` : ""}
+            {bot ? " · throwing…" : ""}
           </span>
           <span style={{ minHeight: 16, color: "var(--red)", fontSize: "calc(12px * var(--fs))", fontWeight: 600 }}>{msg}</span>
         </div>
@@ -240,6 +259,7 @@ export default function PlayX01({ game, resume, onProgress, onFinish, onQuit, ca
           ))}
         </div>
 
+        <div style={botLock}>
         <div className="row mb-12">
           {[1, 2, 3].map((m) => (
             <button
@@ -269,6 +289,7 @@ export default function PlayX01({ game, resume, onProgress, onFinish, onQuit, ca
         <button className="chip chip-undo" onClick={undo} disabled={!turnDarts.length && !history.length}>
           <UndoIcon /> Undo
         </button>
+        </div>
 
         {!castActive && (
           <div style={{ marginTop: 14 }}>

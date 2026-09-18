@@ -10,7 +10,8 @@ import { applyFontScale } from "@/lib/prefs";
 import { applySkin } from "@/lib/skins";
 import { makeCastCode, openCastChannel, castAvailable, stripHistory } from "@/lib/cast";
 import { buildSummary } from "@/lib/summary";
-import { isRankedMatch, splitResults } from "@/lib/practice";
+import { isRankedMatch, splitResults, botLadder } from "@/lib/practice";
+import { botColors } from "@/lib/bots";
 import { rematchGame } from "@/lib/games";
 import { Logo, GearIcon, CastIcon, PlayerBadge, Modal, pressProps } from "@/components/ui";
 import Auth from "@/components/Auth";
@@ -309,9 +310,11 @@ export default function Page() {
   const stats = useMemo(() => computeStats(results), [results]);
   const elo = useMemo(() => eloMapFromPlayers(players), [players]);
   const playerColors = useMemo(
-    () => Object.fromEntries(players.map((p) => [p.username, p.color || defaultPlayerColor(p.username)])),
+    () => ({ ...botColors(), ...Object.fromEntries(players.map((p) => [p.username, p.color || defaultPlayerColor(p.username)])) }),
     [players]
   );
+  const myName = (session?.user?.user_metadata?.display_name || "").trim();
+  const ladder = useMemo(() => botLadder(practice, myName), [practice, myName]);
   const gameCount = useMemo(() => new Set(results.map((r) => r.gameId)).size, [results]);
 
   const isAdmin = useMemo(
@@ -540,6 +543,7 @@ export default function Page() {
             players={players}
             playerColors={playerColors}
             me={session.user?.user_metadata?.display_name || ""}
+            ladder={ladder}
             onStart={startGame}
             back={() => setView("home")}
           />

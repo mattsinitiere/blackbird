@@ -1,9 +1,12 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { X01_TARGETS, CRICKET_VALUE } from "@/lib/constants";
 import { markSymbol } from "@/lib/darts";
 import DartBoard from "./DartBoard";
 import Celebration from "./Celebration";
 import { PlayerBadge, UndoIcon } from "./ui";
+import { botFor, playerLabel } from "@/lib/bots";
+import { pickCricketTarget, botThrow } from "@/lib/botStrategy";
+import { useBotTurn } from "@/lib/useBotTurn";
 
 const numOf = (t) => (t === "B" ? 25 : Number(t));
 
@@ -30,6 +33,8 @@ export default function PlayCricket({ game, resume, onProgress, onFinish, onQuit
   const [ring, setRing] = useState(() => resume?.ring ?? 1);
   const [history, setHistory] = useState(() => resume?.history ?? []);
   const [celeb, setCeleb] = useState(null);
+  const [botThrows, setBotThrows] = useState(0); // darts the bot has thrown this visit, misses included
+  const doneRef = useRef(false);
 
   useEffect(() => {
     onProgress && onProgress({ state, turn, darts, ring, history });
@@ -38,15 +43,17 @@ export default function PlayCricket({ game, resume, onProgress, onFinish, onQuit
   const cur = players[turn % players.length];
   const allClosed = (marks) => X01_TARGETS.every((t) => marks[t] >= 3);
 
-  const addDart = (target) => {
+  const addDart = (target, ringOverride) => {
     if (darts.length >= 3) return;
     const maxRing = target === "B" ? 2 : 3;
-    setDarts((d) => [...d, { target, ring: Math.min(ring, maxRing) }]);
+    const r = ringOverride || ring;
+    setDarts((d) => [...d, { target, ring: Math.min(r, maxRing) }]);
     setRing(1); // back to Single after every dart
   };
   const removeDart = (i) => setDarts((d) => d.filter((_, idx) => idx !== i));
 
   const finish = (ns, winner) => {
+    doneRef.current = true;
     const perPlayer = {};
     players.forEach((u) => {
       perPlayer[u] = {
@@ -148,6 +155,28 @@ export default function PlayCricket({ game, resume, onProgress, onFinish, onQuit
     });
   };
 
+  // a bot at the oche throws three darts (misses count) then ends its turn
+  const bot = botFor(cur);
+  useBotTurn({
+    active: !!bot && !celeb && !doneRef.current,
+    key: `${turn}:${botThrows}`,
+    throwOne: () => {
+      if (botThrows >= 3) {
+        setBotThrows(0);
+        endTurn();
+        return;
+      }
+      const target =
+        pickCricketTarget({ variant, marks: state[cur].marks, others: players.filter((o) => o !== cur).map((o) => state[o].marks) }) ||
+        { n: 20, mult: 3 };
+      const land = botThrow(bot, target);
+      const t = land.n === 25 ? "B" : String(land.n);
+      if (X01_TARGETS.includes(t)) addDart(t, land.mult);
+      setBotThrows((b) => b + 1);
+    },
+  });
+  const botLock = bot ? { opacity: 0.5, pointerEvents: "none" } : undefined;
+
   const variantLabel =
     variant === "cutthroat" ? "Cutthroat" : variant === "noscore" ? "No-score" : "Score";
 
@@ -215,8 +244,9 @@ export default function PlayCricket({ game, resume, onProgress, onFinish, onQuit
 
       <div className="card">
         <div className="tag" style={{ marginBottom: 10 }}>
-          {cur} — tap ring, then target
+          {playerLabel(cur)} — {bot ? `throwing… dart ${Math.min(botThrows + 1, 3)} of 3` : "tap ring, then target"}
         </div>
+        <div style={botLock}>
         <div className="row mb-12">
           {[1, 2, 3].map((rr) => (
             <button
@@ -265,6 +295,7 @@ export default function PlayCricket({ game, resume, onProgress, onFinish, onQuit
           <button className="btn btn-primary" style={{ flex: 2 }} onClick={endTurn}>
             End turn
           </button>
+        </div>
         </div>
 
         {!castActive && (

@@ -1,7 +1,10 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { BASEBALL_INNINGS } from "@/lib/constants";
 import DartBoard from "./DartBoard";
 import { PlayerBadge, UndoIcon } from "./ui";
+import { botFor, playerLabel } from "@/lib/bots";
+import { pickBaseballTarget, botThrow } from "@/lib/botStrategy";
+import { useBotTurn } from "@/lib/useBotTurn";
 
 export default function PlayBaseball({ game, resume, onProgress, onFinish, onQuit, castActive, playerColors }) {
   const { players } = game;
@@ -13,6 +16,7 @@ export default function PlayBaseball({ game, resume, onProgress, onFinish, onQui
   const [turn, setTurn] = useState(() => resume?.turn ?? 0);
   const [turnDarts, setTurnDarts] = useState(() => resume?.turnDarts ?? []);
   const [history, setHistory] = useState(() => resume?.history ?? []);
+  const doneRef = useRef(false);
 
   useEffect(() => {
     onProgress && onProgress({ state, turn, turnDarts, history });
@@ -50,6 +54,7 @@ export default function PlayBaseball({ game, resume, onProgress, onFinish, onQui
       const leaders = players.filter((u) => ns[u].total === max);
       if (leaders.length === 1 || n === 1) {
         const winner = leaders[0] || cur;
+        doneRef.current = true;
         const perPlayer = {};
         players.forEach((u) => (perPlayer[u] = { runs: ns[u].total, darts: ns[u].log }));
         onFinish({
@@ -80,6 +85,18 @@ export default function PlayBaseball({ game, resume, onProgress, onFinish, onQui
       return h.slice(0, -1);
     });
   };
+
+  // a bot at the oche aims the triple of the inning's number
+  const bot = botFor(cur);
+  useBotTurn({
+    active: !!bot && !doneRef.current,
+    key: `${turn}:${turnDarts.length}`,
+    throwOne: () => {
+      const land = botThrow(bot, pickBaseballTarget(target));
+      addDart(land.n === target ? land.mult : 0);
+    },
+  });
+  const botLock = bot ? { opacity: 0.5, pointerEvents: "none" } : undefined;
 
   const colCount = Math.max(inning, BASEBALL_INNINGS);
   const cols = Array.from({ length: colCount }, (_, i) => i + 1);
@@ -132,11 +149,12 @@ export default function PlayBaseball({ game, resume, onProgress, onFinish, onQui
       <div className="card">
         <div className="between" style={{ marginBottom: 10 }}>
           <span className="tag">
-            Inning {isExtra ? `${inning} (extra · ${target})` : inning} — {cur}, dart {Math.min(turnDarts.length + 1, 3)} of 3
+            Inning {isExtra ? `${inning} (extra · ${target})` : inning} — {playerLabel(cur)}, dart {Math.min(turnDarts.length + 1, 3)} of 3{bot ? " · throwing…" : ""}
           </span>
           <span className="num" style={{ color: "var(--amber)" }}>{liveRuns}</span>
         </div>
 
+        <div style={botLock}>
         <div className="grid-4">
           <button className="chip" onClick={() => addDart(1)}>Single</button>
           <button className="chip" onClick={() => addDart(2)}>Double</button>
@@ -158,6 +176,7 @@ export default function PlayBaseball({ game, resume, onProgress, onFinish, onQui
         <button className="chip chip-undo" style={{ marginTop: 12 }} onClick={undo} disabled={!turnDarts.length && !history.length}>
           <UndoIcon /> Undo
         </button>
+        </div>
 
         {!castActive && (
           <div style={{ marginTop: 14 }}>

@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { defaultPlayerColor } from "@/lib/constants";
+import { playerLabel } from "@/lib/bots";
 
 /**
  * Logo: shows your own image from /public/logo.png if present.
@@ -162,6 +163,7 @@ function isLight(hex) {
 export function PlayerBadge({ username, color, size = 24, showName = true }) {
   const bg = color || defaultPlayerColor(username);
   const fg = isLight(bg) ? "#333" : "#fff";
+  const label = playerLabel(username);
   return (
     <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
       <span
@@ -181,9 +183,9 @@ export function PlayerBadge({ username, color, size = 24, showName = true }) {
           userSelect: "none",
         }}
       >
-        {username.charAt(0).toUpperCase()}
+        {label.charAt(0).toUpperCase()}
       </span>
-      {showName && <span style={{ fontWeight: 700 }}>{username}</span>}
+      {showName && <span style={{ fontWeight: 700 }}>{label}</span>}
     </span>
   );
 }

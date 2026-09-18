@@ -25,6 +25,7 @@ export default function GameSummary({ summary, saveState, saveError, onRetrySave
   if (!summary) return null;
   const { winner, title, rows, highlights, ranked, durationMin, totalDarts } = summary;
   const winRow = rows.find((r) => r.isWinner) || rows[0];
+  const winName = winRow?.name || winner;
   const colorOf = (r) => playerColors?.[r.u] || r.color || undefined;
 
   const meta = [];
@@ -33,14 +34,14 @@ export default function GameSummary({ summary, saveState, saveError, onRetrySave
 
   return (
     <div className="fade">
-      {celeb && <Celebration type="win" label={`${winner} wins`} onDone={() => setCeleb(false)} />}
+      {celeb && <Celebration type="win" label={`${winName} wins`} onDone={() => setCeleb(false)} />}
 
       <div className="card mb-12" style={{ textAlign: "center", borderColor: "var(--accent)", background: "var(--accent-soft)" }}>
         <div className="tag" style={{ color: "var(--accent)" }}>Winner</div>
         <div style={{ display: "flex", justifyContent: "center", margin: "12px 0 8px" }}>
           <PlayerBadge username={winner} color={colorOf(winRow)} size={64} showName={false} />
         </div>
-        <div className="display" style={{ fontSize: "calc(28px * var(--fs))", lineHeight: 1.1 }}>{winner}</div>
+        <div className="display" style={{ fontSize: "calc(28px * var(--fs))", lineHeight: 1.1 }}>{winName}</div>
         {winRow?.elo && (
           <div className="num" style={{ marginTop: 6, fontSize: "calc(15px * var(--fs))", color: "var(--ink-soft)" }}>
             {winRow.elo.before} → {winRow.elo.after}{" "}
