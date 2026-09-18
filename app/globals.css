@@ -1233,6 +1233,88 @@ label.check input {
   color: #ffffff;
 }
 
+/* --- Twitter / X: timeline-style, white, blue accents, clean dividers. --- */
+[data-skin="twitter"] {
+  --bg: #ffffff;
+  --surface: #ffffff;
+  --surface-2: #f7f9f9;
+  --ink: #0f1419;
+  --ink-soft: #536471;
+  --muted: #8b98a5;
+  --line: #eff3f4;
+  --line-strong: #cfd9de;
+  --accent: #1d9bf0;
+  --accent-hover: #1a8cd8;
+  --accent-soft: rgba(29, 155, 240, 0.1);
+  --red: #f4212e;
+  --amber: #ffd400;
+  --radius: 16px;
+  --radius-sm: 12px;
+  --shadow: none;
+  --font-display-stack: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --font-body-stack: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+}
+[data-skin="twitter"] .app {
+  background: var(--bg);
+}
+[data-skin="twitter"] .brand-title {
+  color: var(--accent);
+  font-weight: 800;
+}
+[data-skin="twitter"] .card {
+  border-color: var(--line);
+  border-radius: var(--radius);
+  box-shadow: none;
+}
+[data-skin="twitter"] .btn {
+  border-radius: 999px;
+  font-weight: 700;
+}
+[data-skin="twitter"] .btn-primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #ffffff;
+}
+[data-skin="twitter"] .btn-toggle-on {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #ffffff;
+}
+[data-skin="twitter"] .chip {
+  border-radius: 999px;
+  background: var(--surface-2);
+  border-color: var(--line-strong);
+}
+[data-skin="twitter"] .nav {
+  border-radius: 999px;
+  border-color: var(--line);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+[data-skin="twitter"] .navbtn {
+  border-radius: 999px;
+}
+[data-skin="twitter"] .navbtn.active {
+  background: var(--accent);
+  color: #ffffff;
+}
+[data-skin="twitter"] .section-title {
+  font-weight: 800;
+  color: var(--ink);
+}
+[data-skin="twitter"] .tag {
+  color: var(--ink-soft);
+}
+[data-skin="twitter"] .stat,
+[data-skin="twitter"] .mini {
+  border-color: var(--line);
+  background: var(--surface);
+}
+[data-skin="twitter"] .input,
+[data-skin="twitter"] .select {
+  border-color: var(--line-strong);
+  border-radius: var(--radius-sm);
+}
+
 /* ---------- seasonal loading-screen flourishes ---------- */
 .load-fx {
   position: fixed;
