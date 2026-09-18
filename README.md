@@ -1,11 +1,12 @@
 # Blackbird Dart Scoring System
 
 Blackbird is a mobile-first web app for scoring darts with your league or
-friends. It scores **X01 (501 / 301 / 701)**, **Cricket** (Standard, Cutthroat,
-and No-score), and **Baseball**, keeps every player's stats in a shared
-Postgres database, and layers on leaderboards, player profiles with trend
-charts, an **Elo matchup predictor**, and an **AI chat** tab that answers
-free-form questions about your league.
+friends. It scores **X01 (501 / 301 / 701, single leg or best-of)**,
+**Cricket** (Standard, Cutthroat, and No-score), **Baseball**, **Around the
+Clock**, **Killer**, **Shanghai**, **Halve It**, **Gotcha**, and
+**Tic-Tac-Toe**, keeps every player's stats in a shared Postgres database,
+and layers on leaderboards, an end-of-game summary (mirrored on the TV),
+player profiles with trend charts, and an **Elo matchup predictor**.
 
 Everyone signs in with email/password, scores games on their phone, and the
 stats sync instantly for the whole group. No game data is kept in
@@ -52,8 +53,19 @@ localStorage — Postgres is the single source of truth.
   drawn in one color per theme — held for 1–3 seconds. Seasonal touches:
   confetti and a party hat on the wordmark every September 11, falling
   snow all December (preview any day with `?occasion=birthday|snow`).
-- **Games**: X01 with optional double-out, Cricket (3 variants), Baseball
-  (9 innings + extra innings on ties).
+- **Games**: X01 with optional double-out and best-of legs, Cricket (3
+  variants), Baseball (9 innings + extra innings on ties), Around the
+  Clock, Killer, Shanghai, Halve It, Gotcha, and Tic-Tac-Toe.
+- **Game summary**: every finished game lands on a summary screen — the
+  winner with their Elo before/after, ranked player cards with that game's
+  key numbers (3-dart average, MPR, runs, lives…), highlights (highest
+  turn, checkout, best MPR…), and **Rematch** / New Game / View Standings.
+  The summary appears the instant the last dart lands; the result saves in
+  the background with a visible saving/saved/failed status and a Retry
+  button. When casting, the TV shows the same summary large.
+- **Safe scoring**: the multiplier snaps back to Single after every dart,
+  Undo sits on its own row under the keypad, and Quit asks before
+  discarding a game in progress.
 - **Cricket MPR**: live **marks-per-round** for every player while the game is
   being played, per-round mark history saved with each game, career MPR and
   best-game MPR on profiles, and an MPR-over-time chart.
@@ -67,11 +79,6 @@ localStorage — Postgres is the single source of truth.
   turn, best leg, highest checkout, MPR, average runs, and more.
 - **Elo**: every multi-player game updates a shared Elo rating; the Matchup tab
   predicts win probability between any two players.
-- **AI chat**: a conversational chat interface (like ChatGPT) backed by a
-  serverless route that sends league stats to the AI provider of your choice
-  (OpenAI, Gemini, Groq, or Anthropic). Supports free-form questions,
-  league overviews, player profiles, and head-to-head analysis. Messages
-  have a copy button and dates are returned in readable format.
 - **Player card export**: a canvas-rendered PNG stat card with player avatar,
   Elo, record, and key stats — auto-downloads on desktop and opens the
   share sheet on mobile.
@@ -121,8 +128,8 @@ theming, security — end to end.)*
 Key design points:
 
 - **The app is client-rendered.** `app/page.js` is one client component that
-  swaps between views (Home, Setup, live game screens, Leaderboard, Profile,
-  Matchup, Insights, Account, Admin). Live game state lives in React state and
+  swaps between views (Home, Setup, live game screens, Game Summary,
+  Leaderboard, Profile, Matchup, Account, Admin). Live game state lives in React state and
   is checkpointed in-memory so you can navigate away and resume.
 - **Scoring math runs in the browser.** When a game finishes, one row per
   player is written to `game_results` with that player's full game stats as
@@ -131,8 +138,9 @@ Key design points:
   stats, timelines, and head-to-head records from the raw `game_results` rows
   on every load — there are no denormalized aggregate tables to migrate.
 - **Two server routes exist only to protect secrets**: the AI key
-  (`/api/insights`) and the Supabase service-role key (`/api/admin`). Both
-  verify the caller's Supabase session token first.
+  (`/api/insights`, kept for the retired AI chat tab) and the Supabase
+  service-role key (`/api/admin`). Both verify the caller's Supabase session
+  token first.
 
 ## How the app works
 
@@ -141,8 +149,9 @@ Key design points:
    every launch while auth and data load behind it.
 2. **Sign in** (Supabase email/password). Your display name is auto-added to
    the shared `players` list so everyone can pick you as an opponent.
-3. **Setup** a game: pick the game type and options (start score + double-out
-   for X01, variant for Cricket), and pick 1+ players.
+3. **Setup** a game: pick the game type and options (start score, double-out
+   and legs for X01, variant for Cricket, and so on), pick 1+ players, and
+   drag to set the throw order.
 4. **Cast to a TV (optional)** — tap **Cast to TV** on the live screen to
    get a 4-character code, open the app's `/tv` page on the TV (smart TV
    browser, AirPlayed Safari window, or Chromecast tab-cast) and enter the
@@ -160,11 +169,17 @@ Key design points:
    grid, points, a **live MPR column**, and the current **round number**;
    there's full undo (per dart and per turn) and a dartboard heat view of the
    turn. Solo games are practice and are not saved.
-6. **Finish** — the winner is detected automatically, Elo is updated pairwise
-   (winner vs each loser), and a `game_results` row is inserted per player.
+6. **Finish** — the winner is detected automatically and the **game
+   summary** opens right away: winner, Elo before → after, ranked player
+   cards with the key numbers for that game, and highlights. Elo is
+   updated pairwise (winner vs each loser) and a `game_results` row is
+   inserted per player while you look at the summary; if the save fails
+   you get a Retry button and nothing is lost. Any TV that is casting
+   switches to the same summary. **Rematch** starts the same game again
+   (Killer redraws numbers).
 7. **Browse stats** — Leaderboard (sortable by Elo/X01/Cricket MPR), Profiles
    (trend charts + per-game history), Matchup (Elo win probability +
-   head-to-head), AI Chat (free-form questions), and your Player Card.
+   head-to-head), and your Player Card.
 
 ### Cricket MPR details
 
@@ -204,9 +219,19 @@ The `stats` JSONB per game type:
 
 | Game | Fields |
 |------|--------|
-| x01 | `dartsThrown`, `pointsScored`, `highestTurn`, `checkout`, `finalScore`, `darts` (full dart log), `dartPos` (per-dart-position sums) |
+| x01 | `dartsThrown`, `pointsScored`, `highestTurn`, `checkout`, `finalScore`, `legsWon` (best-of only), `darts` (full dart log), `dartPos` (per-dart-position sums) |
 | cricket | `marks`, `rounds`, `roundMarks[]` (marks each round), `mpr`, `pointsScored`, `darts` (full dart log) |
 | baseball | `runs`, `darts` |
+| aroundTheClock | `dartsThrown`, `targetsHit`, `darts` |
+| killer | `dartsThrown`, `livesRemaining`, `isKiller`, `darts` |
+| shanghai | `totalScore`, `roundScores[]`, `dartsThrown`, `shanghai`, `darts` |
+| halveit | `finalScore`, `halves`, `dartsThrown`, `darts` |
+| gotcha | `finalScore`, `resetsDealt`, `resetsReceived`, `dartsThrown`, `darts` |
+| tictactoe | `squaresClaimed`, `dartsThrown`, `darts` |
+
+`lib/summary.js` turns these same fields into the end-of-game summary, so a
+new game type only needs a `describe` case there to get a summary screen
+and a TV summary for free.
 
 Because `stats` is JSONB, adding new per-game fields (like `roundMarks`)
 requires **no SQL migration** — old rows simply lack the new keys and the
@@ -223,7 +248,7 @@ through the admin route with the service-role key.
 |----------|-------|---------|
 | `NEXT_PUBLIC_SUPABASE_URL` | client | Supabase project URL |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | client | Supabase anon key (public by design; RLS protects data) |
-| `AI_PROVIDER` | server | `openai` (default), `gemini`, `groq`, or `anthropic` |
+| `AI_PROVIDER` | server | `openai` (default), `gemini`, `groq`, or `anthropic` — only used by the retired `/api/insights` route |
 | `GEMINI_API_KEY` / `GROQ_API_KEY` / `OPENAI_API_KEY` / `ANTHROPIC_API_KEY` | server | key for the chosen provider |
 | `AI_MODEL` | server | optional model override |
 | `SUPABASE_SERVICE_ROLE_KEY` | server | required only for the Admin panel |
@@ -247,7 +272,10 @@ Push this repo to GitHub. Every later `git push` to `main` redeploys Vercel.
 6. After everyone has signed up, turn **OFF** "Allow new users to sign up" to
    lock it to your group.
 
-## 3. Pick an AI provider for the Insights tab
+## 3. Pick an AI provider (optional)
+
+The AI chat tab has been retired from the UI, but the `/api/insights`
+route is still deployed. Skip this step unless you plan to bring it back.
 
 | Provider | Cost | Get a key | Default model |
 |----------|------|-----------|---------------|
@@ -278,7 +306,7 @@ npm test                     # scoring-core + parser + conformance suite
 ## 6. On phones
 Open the Vercel URL, sign in. iPhone Safari → Share → **Add to Home Screen**;
 Android Chrome → menu → **Add to home screen**. Data syncs via Supabase; the
-app refreshes when it regains focus, and the ↻ button forces a refresh.
+app refreshes every time it regains focus.
 
 ## Security notes
 
@@ -293,7 +321,7 @@ app refreshes when it regains focus, and the ↻ button forces a refresh.
 ## Known limitations (by design)
 
 - X01 double-out is trusted, not verified (you enter darts per turn).
-- One leg per match.
+- Best-of legs are X01 only.
 - Multiplayer Elo updates the winner pairwise; losers aren't ranked vs each
   other.
 - Cricket games recorded before v1.2 have game totals (`marks`, `rounds`) but
@@ -314,18 +342,22 @@ app/
 components/
   Auth.js                 sign in / sign up
   Home.js                 landing view: podium/list leaderboard + highlights
-  Setup.js                game type, options, player picker
-  PlayX01.js              X01 scorer (per-dart entry, checkout tracking)
+  Setup.js                game type, options, player picker (drag to reorder)
+  PlayX01.js              X01 scorer (per-dart entry, checkout tracking, legs)
   PlayCricket.js          cricket scorer (marks grid, live MPR, per-round log)
   PlayBaseball.js         baseball scorer (9 innings + extras)
+  PlayAroundTheClock.js   / PlayKiller.js / PlayShanghai.js / PlayHalveIt.js
+  PlayGotcha.js / PlayTicTacToe.js   the other game scorers
+  GameSummary.js          end-of-game summary: winner, Elo, stats, rematch
   Leaderboard.js          sortable standings (Elo / X01 / Cricket MPR)
   Profile.js              player page: trend charts + game history
   PlayerCard.js           shareable stat card (canvas export with avatar)
   Matchup.js              Elo win-probability predictor + head-to-head
-  Insights.js             AI chat interface over league stats
+  Insights.js             AI chat interface (retired from the nav; unused)
   Account.js              profile settings, player color, theme, font scale
   Admin.js                admin panel (accounts, players, resets)
-  tv/TVScoreboard.js      big-screen cricket/X01/baseball scoreboards
+  tv/TVScoreboard.js      big-screen live scoreboards for every game
+  tv/TVSummary.js         big-screen end-of-game summary
   Charts.js               dependency-free SVG line + bar charts
   DartBoard.js            SVG dartboard with highlights/hits
   ui.js                   shared UI: Logo, PlayerBadge, BackBar, Stat, Modal
@@ -333,6 +365,8 @@ lib/
   supabase.js             Supabase client
   cast.js                 TV-cast transport (Realtime broadcast + local)
   darts.js                shared dart/mark formatting helpers
+  summary.js              builds the end-of-game summary from a finished match
+  games.js                rematch + killer-number helpers
   db.js                   data access (players, game_results)
   stats.js                Elo math, career stats, timelines, head-to-head
   constants.js            targets, cricket values, Elo constants, player colors
@@ -342,7 +376,8 @@ packages/
   scoring-core/           pure event-sourced scoring reducer (x01,
                           cricket, baseball) for the hardware bridge
 tests/                    node --test suite: reducer units, parser units,
-                          app-vs-reducer conformance fixtures (npm test)
+                          summary builder, app-vs-reducer conformance
+                          fixtures (npm test)
 tools/                    Prodigy capture/inventory scripts (see tools/README.md)
 supabase/
   schema.sql              run once in the Supabase SQL editor
