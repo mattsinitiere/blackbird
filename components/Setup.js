@@ -105,10 +105,10 @@ function BotIcon({ size = "1em" }) {
   );
 }
 
-export default function Setup({ players, onStart, back, me, playerColors, ladder = [] }) {
+export default function Setup({ players, onStart, back, me, playerColors, ladder = [], initial = null }) {
   const meName = (me || "").trim();
   const [selected, setSelected] = useState(meName ? [meName] : []);
-  const [gameType, setGameType] = useState("x01");
+  const [gameType, setGameType] = useState(initial?.gameType || "x01");
   const [startScore, setStartScore] = useState(501);
   const [doubleOut, setDoubleOut] = useState(true);
   const [legs, setLegs] = useState(1);
@@ -120,7 +120,7 @@ export default function Setup({ players, onStart, back, me, playerColors, ladder
   const [scoringTarget, setScoringTarget] = useState(20);
   const [scoringTurns, setScoringTurns] = useState(10);
   // a bot opponent: exactly one human vs one bot, saved as practice
-  const [botId, setBotId] = useState(null);
+  const [botId, setBotId] = useState(initial?.bot || null);
 
   const add = (u) => {
     setBotId(null); // a second person means friends, not the bot

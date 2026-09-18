@@ -4,6 +4,7 @@ import PlayerCard from "./PlayerCard";
 import { playerTimeline } from "@/lib/stats";
 import { gameName } from "@/lib/summary";
 import { playerLabel } from "@/lib/bots";
+import { computePractice } from "@/lib/practice";
 
 function ProfileHeader({ user, player, playerColors, sub }) {
   return (
@@ -72,21 +73,29 @@ function fmtDate(iso) {
   }
 }
 
-/** Practice log: solo games, bot games and drills. Never counted in stats. */
-function PracticeCard({ rows }) {
-  const recent = rows.slice(-5).reverse();
-  const last = rows[rows.length - 1];
+/** Practice section: solo games, bot games and drills. Never counted in stats. */
+function PracticeCard({ rows, me, onOpen }) {
+  const p = computePractice(rows, me);
+  const tiles = [
+    { label: "Sessions", value: p.count },
+    { label: "This week", value: p.thisWeek },
+    { label: "Bot level", value: p.bots.level },
+  ];
+  if (p.drills.bobs27.pb) tiles.push({ label: "Bob's 27 best", value: p.drills.bobs27.pb.value });
+  if (p.drills.checkoutDrill.pb) tiles.push({ label: "Checkouts best", value: p.drills.checkoutDrill.pb.value });
+  if (p.drills.scoringDrill.pb) tiles.push({ label: "Scoring best", value: p.drills.scoringDrill.pb.value.toFixed(1) });
+  if (p.x01.bestAvg > 0) tiles.push({ label: "Solo X01 avg", value: p.x01.bestAvg.toFixed(1) });
   return (
     <div className="card mb-12">
       <h3 className="section-title">Practice</h3>
       <div className="grid-3" style={{ gap: 8 }}>
-        <Mini label="Sessions" value={rows.length} />
-        <Mini label="Last" value={last ? fmtDate(last.completedAt) : "—"} />
-        <Mini label="Won" value={rows.filter((r) => r.winner === r.username).length} />
+        {tiles.map((t) => (
+          <Mini key={t.label} label={t.label} value={t.value} />
+        ))}
       </div>
       <div style={{ marginTop: 10 }}>
-        {recent.map((r, i) => (
-          <div key={i} className="between" style={{ padding: "6px 0", borderBottom: i < recent.length - 1 ? "1px solid var(--line)" : "none", fontSize: "calc(13px * var(--fs))" }}>
+        {p.recent.slice(0, 5).map((r, i) => (
+          <div key={i} className="between" style={{ padding: "6px 0", borderBottom: "1px solid var(--line)", fontSize: "calc(13px * var(--fs))" }}>
             <span>
               {gameLabel(r)}
               {(r.opponents || []).length > 0 && (
@@ -99,11 +108,16 @@ function PracticeCard({ rows }) {
           </div>
         ))}
       </div>
+      {onOpen && (
+        <button className="btn mt-12" style={{ width: "100%" }} onClick={onOpen}>
+          Practice hub: bots, drills &amp; trends
+        </button>
+      )}
     </div>
   );
 }
 
-export default function Profile({ user, player, stats, elo, results, practice = [], onOpenAccount, back, playerColors }) {
+export default function Profile({ user, player, stats, elo, results, practice = [], onOpenPractice, onOpenAccount, back, playerColors }) {
   const myPractice = practice.filter((r) => r.username === user);
 
   if (!stats) {
@@ -116,7 +130,7 @@ export default function Profile({ user, player, stats, elo, results, practice = 
         ) : (
           <>
             <p className="subtle mb-12">No ranked games yet.</p>
-            <PracticeCard rows={myPractice} />
+            <PracticeCard rows={myPractice} me={user} onOpen={onOpenPractice} />
           </>
         )}
       </div>
@@ -305,7 +319,7 @@ export default function Profile({ user, player, stats, elo, results, practice = 
       </div>
       )}
 
-      {myPractice.length > 0 && <PracticeCard rows={myPractice} />}
+      {myPractice.length > 0 && <PracticeCard rows={myPractice} me={user} onOpen={onOpenPractice} />}
 
       <div className="card">
         <h3 className="section-title">Recent</h3>

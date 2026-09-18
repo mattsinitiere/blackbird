@@ -6,7 +6,10 @@ friends. It scores **X01 (501 / 301 / 701, single leg or best-of)**,
 Clock**, **Killer**, **Shanghai**, **Halve It**, **Gotcha**, and
 **Tic-Tac-Toe**, keeps every player's stats in a shared Postgres database,
 and layers on leaderboards, an end-of-game summary (mirrored on the TV),
-player profiles with trend charts, and an **Elo matchup predictor**.
+player profiles with trend charts, and an **Elo matchup predictor**. On
+your own you can run **practice drills** (Bob's 27, checkouts, scoring) or
+climb a ladder of eight **bot opponents** that throw for themselves; all
+of that lands in a personal practice log, never in the league stats.
 
 Everyone signs in with email/password, scores games on their phone, and the
 stats sync instantly for the whole group. No game data is kept in
@@ -59,6 +62,15 @@ localStorage — Postgres is the single source of truth.
 - **Games**: X01 with optional double-out and best-of legs, Cricket (3
   variants), Baseball (9 innings + extra innings on ties), Around the
   Clock, Killer, Shanghai, Halve It, Gotcha, and Tic-Tac-Toe.
+- **Practice**: solo games, three drills (Bob's 27; a checkout drill of
+  random 41–170 finishes with the out-chart shown; a scoring drill at one
+  number) and **bots** for X01, Cricket and Baseball. Eight bots, Rook
+  (32 average) to Blackbird (100), throw one dart every 0.75 s through a
+  real-geometry simulator, so the weak ones spray into 1 and 5 and the
+  strong ones find trebles and doubles. Beat a bot to unlock the next. A
+  **Practice hub** (Home → Practice & Bots) has the ladder, drill
+  launchers, sessions per week, personal bests and trend charts. Practice
+  never touches stats, Elo or the standings.
 - **Game summary**: every finished game lands on a summary screen — the
   winner with their Elo before/after, ranked player cards with that game's
   key numbers (3-dart average, MPR, runs, lives…), highlights (highest
@@ -237,6 +249,16 @@ The `stats` JSONB per game type:
 | halveit | `finalScore`, `halves`, `dartsThrown`, `darts` |
 | gotcha | `finalScore`, `resetsDealt`, `resetsReceived`, `dartsThrown`, `darts` |
 | tictactoe | `squaresClaimed`, `dartsThrown`, `darts` |
+| bobs27 | `finalScore`, `doublesHit`, `roundsCompleted`, `busted`, `dartsThrown`, `darts` |
+| checkoutDrill | `finishes`, `hit`, `dartsPerHit`, `highestCheckout`, `results[]` (target, darts, hit), `dartsThrown`, `darts` |
+| scoringDrill | `total`, `turns`, `avgPerTurn`, `trebles`, `onTarget`, `hitRate`, `bestVisit`, `visits[]`, `dartsThrown`, `darts` |
+
+`result` is `'win'` or `'loss'` for ranked games (two or more people, no
+bot, not a drill) and **`'practice'`** for everything else: solo games,
+games against a bot and drills. Practice rows keep the player's Elo
+unchanged in `elo_after`, name the bot in `opponents` (`bot:rook` …) and
+`config.bot`, and are split off before any stats, standings or Elo code
+sees them. Bots never get a row of their own.
 
 `lib/summary.js` turns these same fields into the end-of-game summary, so a
 new game type only needs a `describe` case there to get a summary screen
@@ -358,6 +380,8 @@ components/
   PlayBaseball.js         baseball scorer (9 innings + extras)
   PlayAroundTheClock.js   / PlayKiller.js / PlayShanghai.js / PlayHalveIt.js
   PlayGotcha.js / PlayTicTacToe.js   the other game scorers
+  PlayBobs27.js / PlayCheckoutDrill.js / PlayScoringDrill.js   practice drills
+  Practice.js             practice hub: bot ladder, drill launchers, PBs, trends
   GameSummary.js          end-of-game summary: winner, Elo, stats, rematch
   Leaderboard.js          sortable standings (Elo / X01 / Cricket MPR)
   Profile.js              player page: trend charts + game history
@@ -376,6 +400,14 @@ lib/
   cast.js                 TV-cast transport (Realtime broadcast + local)
   darts.js                shared dart/mark formatting helpers
   summary.js              builds the end-of-game summary from a finished match
+  practice.js             ranked-vs-practice rule, practice rows, bot ladder, practice stats
+  bots.js                 the bot roster (accuracy, checkout knowledge, colours)
+  botStrategy.js          what a bot aims at in X01 / cricket / baseball
+  board.js                real dartboard geometry (mm): point → segment, bed centres
+  simulator.js            Gaussian throw simulator + seeded rng
+  useBotTurn.js           React hook that throws a bot's visit one dart at a time
+  drills.js               Bob's 27 / checkout / scoring drill rules
+  checkouts.js            out-chart (string table + parsed darts)
   games.js                rematch + killer-number helpers
   db.js                   data access (players, game_results)
   stats.js                Elo math, career stats, timelines, head-to-head
@@ -386,7 +418,9 @@ packages/
   scoring-core/           pure event-sourced scoring reducer (x01,
                           cricket, baseball) for the hardware bridge
 tests/                    node --test suite: reducer units, parser units,
-                          summary builder, app-vs-reducer conformance
+                          summary builder, practice rules, drills, board
+                          geometry, bot strategy, simulator calibration
+                          (Monte Carlo), app-vs-reducer conformance
                           fixtures (npm test)
 tools/                    Prodigy capture/inventory scripts (see tools/README.md)
 supabase/

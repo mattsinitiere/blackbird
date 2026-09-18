@@ -86,7 +86,7 @@ function HighlightIcon({ type }) {
   return <svg {...props}><circle cx="9" cy="9" r="7" /><path d="M6 6l6 6M12 6l-6 6" /></svg>;
 }
 
-export default function Home({ setView, stats, elo, players, gameCount, results, openProfile, playerColors }) {
+export default function Home({ setView, openSetup, stats, elo, players, gameCount, results, openProfile, playerColors }) {
   const visible = players.filter((p) => !p.hidden);
   const weekly = gamesPerWeek(results || []);
   const [boardMode, setBoardMode] = useState("podium");
@@ -113,11 +113,18 @@ export default function Home({ setView, stats, elo, players, gameCount, results,
       </div>
 
       <button
-        className="btn btn-primary mb-12"
+        className="btn btn-primary"
         style={{ width: "100%", fontSize: "calc(16px * var(--fs))", padding: 16 }}
-        onClick={() => setView("setup")}
+        onClick={() => (openSetup ? openSetup(null) : setView("setup"))}
       >
         Start a Game
+      </button>
+      <button
+        className="btn mb-12"
+        style={{ width: "100%", fontSize: "calc(15px * var(--fs))", padding: 13, marginTop: 8 }}
+        onClick={() => setView("practice")}
+      >
+        Practice &amp; Bots
       </button>
 
       <div className="card mb-12">

@@ -34,6 +34,7 @@ import Profile from "@/components/Profile";
 import Matchup from "@/components/Matchup";
 
 import Records from "@/components/Records";
+import Practice from "@/components/Practice";
 import Account from "@/components/Account";
 import Admin from "@/components/Admin";
 import LoadingScreen from "@/components/LoadingScreen";
@@ -162,6 +163,12 @@ export default function Page() {
   // where a profile was opened from, so Back returns there (Home podium,
   // standings, records…) instead of always landing on the standings
   const [profileFrom, setProfileFrom] = useState("leaderboard");
+  // what Setup opens preselected with (from the practice hub); the key remounts it
+  const [setupInitial, setSetupInitial] = useState(null);
+  const openSetup = (initial = null) => {
+    setSetupInitial(initial ? { ...initial, key: Date.now() } : null);
+    setView("setup");
+  };
   const [notice, setNotice] = useState("");
   // Quit asks first: a single mis-tap at the board must not wipe a leg
   const [quitAsk, setQuitAsk] = useState(false);
@@ -444,7 +451,7 @@ export default function Page() {
 
   const ALL_PLAY_VIEWS = Object.values(PLAY_VIEWS);
   const playViewFor = (gt) => PLAY_VIEWS[gt] || "playX01";
-  const goPlay = () => setView(live ? playViewFor(live.gameType) : "setup");
+  const goPlay = () => (live ? setView(playViewFor(live.gameType)) : openSetup(null));
   const askQuit = () => setQuitAsk(true);
 
   if (!isConfigured) {
@@ -536,17 +543,22 @@ export default function Page() {
         )}
 
         {view === "home" && (
-          <Home setView={setView} stats={stats} elo={elo} players={players} gameCount={gameCount} results={results} openProfile={openProfile} playerColors={playerColors} />
+          <Home setView={setView} openSetup={openSetup} stats={stats} elo={elo} players={players} gameCount={gameCount} results={results} openProfile={openProfile} playerColors={playerColors} />
         )}
         {view === "setup" && (
           <Setup
+            key={setupInitial?.key || "default"}
+            initial={setupInitial}
             players={players}
             playerColors={playerColors}
             me={session.user?.user_metadata?.display_name || ""}
             ladder={ladder}
             onStart={startGame}
-            back={() => setView("home")}
+            back={() => setView(setupInitial ? "practice" : "home")}
           />
+        )}
+        {view === "practice" && (
+          <Practice practice={practice} me={myName} onStart={openSetup} back={() => setView("home")} playerColors={playerColors} />
         )}
         {((ALL_PLAY_VIEWS.includes(view) && live) || view === "summary") && castAvailable() && (
           <div className="card pad-sm mb-12" style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
@@ -608,6 +620,7 @@ export default function Page() {
             elo={elo[profileUser]}
             results={results}
             practice={practice}
+            onOpenPractice={profileUser === myName ? () => setView("practice") : null}
             onOpenAccount={
               profileUser === (session.user?.user_metadata?.display_name || "")
                 ? () => setView("account")
@@ -663,7 +676,7 @@ export default function Page() {
         </Modal>
       )}
       <nav className="nav">
-        <button className={`navbtn ${view === "home" ? "active" : ""}`} onClick={() => setView("home")}>Home</button>
+        <button className={`navbtn ${["home", "practice"].includes(view) ? "active" : ""}`} onClick={() => setView("home")}>Home</button>
         <button className={`navbtn ${view === "setup" || view === "summary" || ALL_PLAY_VIEWS.includes(view) ? "active" : ""}`} onClick={goPlay}>Play{live ? " ●" : ""}</button>
         <button className={`navbtn ${["leaderboard", "profile", "records"].includes(view) ? "active" : ""}`} onClick={() => setView("leaderboard")}>Stats</button>
         <button className={`navbtn ${view === "matchup" ? "active" : ""}`} onClick={() => setView("matchup")}>Matchup</button>

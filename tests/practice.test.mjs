@@ -96,3 +96,32 @@ test("splitResults separates practice rows and keeps order", () => {
   assert.deepEqual(practice.map((r) => r.id), [2, 4]);
   assert.deepEqual(splitResults(undefined), { competitive: [], practice: [] });
 });
+
+test("computePractice: counts, personal bests, trends and ladder", async () => {
+  const { computePractice } = await import("../lib/practice.js");
+  const me = "Matt";
+  const day = (d) => `2026-09-${String(d).padStart(2, "0")}T20:00:00.000Z`;
+  const rows = [
+    { username: me, result: "practice", gameType: "bobs27", stats: { finalScore: 41 }, completedAt: day(1), opponents: [], winner: me },
+    { username: me, result: "practice", gameType: "bobs27", stats: { finalScore: 65 }, completedAt: day(10), opponents: [], winner: me },
+    { username: me, result: "practice", gameType: "checkoutDrill", stats: { hit: 3, dartsPerHit: 6 }, completedAt: day(11), opponents: [], winner: me },
+    { username: me, result: "practice", gameType: "checkoutDrill", stats: { hit: 3, dartsPerHit: 4.5 }, completedAt: day(12), opponents: [], winner: me },
+    { username: me, result: "practice", gameType: "scoringDrill", stats: { avgPerTurn: 52.3 }, completedAt: day(15), opponents: [], winner: me },
+    { username: me, result: "practice", gameType: "x01", stats: { pointsScored: 501, dartsThrown: 21 }, completedAt: day(16), opponents: [], winner: me },
+    { username: me, result: "practice", gameType: "x01", stats: { pointsScored: 501, dartsThrown: 18 }, completedAt: day(17), opponents: ["bot:rook"], winner: me },
+    { username: "Sam", result: "practice", gameType: "bobs27", stats: { finalScore: 99 }, completedAt: day(17), opponents: [], winner: "Sam" },
+  ];
+  const p = computePractice(rows, me, new Date("2026-09-18T12:00:00Z"));
+  assert.equal(p.count, 7);
+  assert.equal(p.thisWeek, 5);
+  assert.equal(p.drills.bobs27.count, 2);
+  assert.equal(p.drills.bobs27.pb.value, 65);
+  assert.deepEqual(p.drills.bobs27.series.map((s) => s.y), [41, 65]);
+  assert.equal(p.drills.checkoutDrill.pb.stats.dartsPerHit, 4.5, "tie on hits broken by fewer darts per hit");
+  assert.equal(p.drills.scoringDrill.pb.value, 52.3);
+  assert.equal(p.x01.count, 2);
+  assert.equal(p.x01.bestAvg, 83.5);
+  assert.deepEqual(p.bots, { ...p.bots, games: 1, wins: 1, level: 2 });
+  assert.equal(p.recent[0].completedAt, day(17));
+  assert.equal(p.recent.length, 7);
+});

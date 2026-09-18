@@ -179,10 +179,12 @@ Decisions and analysis from the September 2026 planning sessions. This
 section is the source of truth for the "make Blackbird a real service"
 direction; earlier sections above stay as the feature backlog.
 
-### Where the app stands (v1.5)
+### Where the app stands (v1.6)
 
-- Nine game types, TV cast, Elo, profiles, records, matchup predictor,
-  PWA, end-of-game summary mirrored on the TV.
+- Nine game types plus three practice drills, TV cast, Elo, profiles,
+  records, matchup predictor, PWA, end-of-game summary mirrored on the
+  TV, @handles, a practice log, and an eight-bot ladder for X01, Cricket
+  and Baseball.
 - **Single-tenant by construction.** One `players` table, one
   `game_results` table, RLS says any signed-in user can read everything
   and update any player. Anyone who signs up joins *the* league. The
@@ -216,7 +218,14 @@ direction; earlier sections above stay as the feature backlog.
   (~$29.99–34.99) pushed hardest, web billing via Stripe. Founding-league
   members are grandfathered to Premium for life.
 
-### Single-player modes
+### Single-player modes — done (v1.6)
+
+Shipped as planned, with two deliberate deviations: the bottom bot
+averages 32 rather than 30 (a Gaussian thrower cannot average 30 at T20
+without missing the board outright), and the ladder keeps a per-bot
+W–L record plus "highest bot beaten" instead of a separate bot rating,
+until there is data to tune one. Premium gating is not built (there is
+no entitlement system yet); the full ladder is free.
 
 1. **Save practice games** (`result = 'practice'`, excluded from Elo and
    standings; Practice section on the profile with trends and PBs).
@@ -295,11 +304,11 @@ and the bot exist. Don't build online play vs strangers yet.
 
 | Step | Work | Sessions |
 |---|---|---|
-| 1 | Save practice, practice section on profile | 1 |
+| 1 | Save practice, practice section on profile | done |
 | 2 | Handles, profiles, friends, RLS rewrite (own rows + friends' rows), scoped fetching, migration | 2–3 |
 | 3 | Apple/Google/email, password reset, landing page, terms + privacy, admin email out of the client bundle | 1–2 |
 | 4 | Friend invites, QR, share sheet | 1 |
-| 5 | Bot ladder | 2–3 |
+| 5 | Bot ladder (+ drills, practice hub) | done |
 | 6 | Stripe Premium, entitlements, grandfathering | 2 |
 | 7 | Monitoring, Supabase Pro, email provider | 1 |
 | Later | Leagues | 3–4 |

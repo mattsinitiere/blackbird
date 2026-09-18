@@ -86,6 +86,9 @@ components/
   PlayX01.js              X01 engine + UI (per-dart entry)
   PlayCricket.js          cricket engine + UI (marks, MPR, variants)
   PlayBaseball.js         baseball engine + UI (9 innings + extras)
+  PlayBobs27.js / PlayCheckoutDrill.js / PlayScoringDrill.js
+                          practice drills (always saved as practice)
+  Practice.js             practice hub: bot ladder, drills, PBs, trends
   Leaderboard.js          standings by Elo / X01 avg / cricket MPR
   Profile.js              player page: trend charts, per-game history
   PlayerCard.js           canvas-rendered shareable stat card (PNG export)
@@ -104,6 +107,15 @@ lib/
   stats.js                Elo math, career stats, timelines, H2H, replay
   cast.js                 TV-cast transport (Realtime + local test mode)
   darts.js                shared dart/mark formatting
+  practice.js             isRankedMatch, buildResultRows, splitResults,
+                          botLadder, computePractice
+  bots.js                 bot roster: sigma (mm), checkout knowledge, colours
+  botStrategy.js          per-game aim selection + botThrow
+  board.js                dartboard geometry in mm (segmentAt, aimPoint)
+  simulator.js            Gaussian landing error, seeded rng
+  useBotTurn.js           hook that fires a bot's next dart on a timer
+  drills.js               drill rules (Bob's 27, checkout, scoring)
+  checkouts.js            out-chart + parseCheckout
   skins.js                experimental skin registry + applier
   occasions.js            date-triggered splash flourishes
   prefs.js                font-scale preference
@@ -199,9 +211,13 @@ Three tables (full DDL in `supabase/schema.sql`):
   default 1000), `created_at`.
 - **`game_results`** — **one row per player per finished game**:
   `game_id` (uuid shared by the rows of one game), `username`, `game_type`,
-  `config` (jsonb), `winner`, `result` ('win'/'loss'), `opponents` (jsonb
-  array), `stats` (jsonb, per-player performance), `elo_after`,
-  `completed_at`.
+  `config` (jsonb), `winner`, `result` ('win'/'loss', or 'practice' for
+  solo, bot and drill games), `opponents` (jsonb array; a bot appears as
+  its id, e.g. `bot:rook`), `stats` (jsonb, per-player performance),
+  `elo_after` (unchanged on practice rows), `completed_at`. Bots never get
+  a row; `lib/practice.js` owns the ranked-vs-practice rule and the row
+  shaping, and `page.js` splits fetched rows into competitive and practice
+  lists so stats, standings and Elo only ever see the former.
 - **`matches`** — legacy one-row-per-game table; kept only for the admin
   "rebuild from old games" migration (`stats.js: replayMatchesToResults`).
   New games never write to it.
@@ -295,6 +311,25 @@ still has the number open (i.e. while they can score); dead darts count 0.
 Each turn's effective marks are appended to `roundMarks`, so every game
 stores its round-by-round history; live MPR (`markCount / rounds`) renders
 in the scoreboard during play and on the TV.
+
+### Bots
+
+A bot is a player id with the `bot:` prefix (`lib/bots.js`), so it rides
+through `players`, `perPlayer`, the turn cursor and the cast payload like
+anyone else; `PlayerBadge` and the summaries render it by name. When the
+current player is a bot, `lib/useBotTurn.js` fires one throw after 0.75 s
+each time the visit key (turn + darts thrown) changes. The throw picks a
+target (`lib/botStrategy.js`: the out-chart in X01 with a per-bot chance
+of "not knowing" the setup shot, the highest open number then scoring
+numbers in cricket, the inning's triple in baseball), samples a landing
+with the bot's `sigma` through the real board geometry
+(`lib/board.js`, `lib/simulator.js`) and calls the component's own
+`addDart`, so busts, checkouts, legs, undo snapshots and the TV cast all
+behave exactly as for a person. The keypad is locked while the bot
+throws. Each bot's `sigma` was fitted so aiming at T20 reproduces its
+nominal 3-dart average; `tests/simulator.test.mjs` re-checks that by
+Monte Carlo. The ladder (`botLadder`) is derived from practice rows: a
+bot unlocks once the one below it has been beaten.
 
 ### Baseball (`PlayBaseball.js`)
 
@@ -476,8 +511,13 @@ websockets — that gets a manual smoke test after deploy.
 
 - **New game type**: build `PlayNewGame.js` honoring the §8 contract, add
   the option in `Setup.js`, register the view in `page.js` (three
-  touchpoints), add a stats bucket in `lib/stats.js`, and optionally a
-  `TVScoreboard` view. No DB work.
+  touchpoints), add a `GAME_NAMES` entry and `describe` case in
+  `lib/summary.js`, add a stats bucket in `lib/stats.js` (competitive
+  games only), and optionally a `TVScoreboard` view. No DB work. A new
+  **drill** is the same minus the stats bucket, plus its id in
+  `PRACTICE_ONLY` (`lib/practice.js`) and a metric in `computePractice`;
+  publish its engine under `state` in `onProgress` and the generic TV
+  view renders it.
 - **New skin**: add an entry in `lib/skins.js` and a `[data-skin="x"]`
   block at the end of `globals.css`. Pure CSS.
 - **New seasonal occasion**: one date check in `lib/occasions.js`, one
