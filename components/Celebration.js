@@ -42,7 +42,7 @@ export default function Celebration({ type, label, onDone }) {
         ))}
       </div>
       <div className="celeb-text">
-        <div className="celeb-big">{type === "180" ? "180!" : type === "shanghai" ? "SHANGHAI!" : type === "halved" ? "HALVED!" : type === "reset" ? "RESET!" : label || "Nice!"}</div>
+        <div className="celeb-big">{type === "win" ? "WINNER!" : type === "180" ? "180!" : type === "shanghai" ? "SHANGHAI!" : type === "halved" ? "HALVED!" : type === "reset" ? "RESET!" : label || "Nice!"}</div>
         {label && type !== "halved" && type !== "reset" && <div className="celeb-sub">{label}</div>}
       </div>
     </div>
