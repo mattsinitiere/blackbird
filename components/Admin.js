@@ -3,6 +3,7 @@ import { BackBar, PlayerBadge } from "./ui";
 import { supabase } from "@/lib/supabase";
 import { SKINS } from "@/lib/skins";
 import { defaultPlayerColor } from "@/lib/constants";
+import { normalizeHandle, validateHandle } from "@/lib/profile";
 
 function DotsIcon() {
   return (
@@ -85,6 +86,8 @@ export default function Admin({ stats, addPlayer, back, refreshData, playerColor
   const [editing, setEditing] = useState(null);
   const [renaming, setRenaming] = useState(null);
   const [renameTo, setRenameTo] = useState("");
+  const [handling, setHandling] = useState(null); // username whose @handle is being edited
+  const [handleTo, setHandleTo] = useState("");
   const [skin, setSkin] = useState("default");
 
   useEffect(() => {
@@ -257,6 +260,26 @@ export default function Admin({ stats, addPlayer, back, refreshData, playerColor
     }
   };
 
+  const setHandle = async (username) => {
+    const handle = normalizeHandle(handleTo);
+    const check = validateHandle(handle);
+    if (!check.ok) { setErr(check.reason); return; }
+    setBusy("p:" + username);
+    setErr("");
+    try {
+      await callAdmin({ action: "setHandle", username, handle });
+      flash(`${username} is now @${handle}.`);
+      setHandling(null);
+      setHandleTo("");
+      await load();
+      refreshData && refreshData();
+    } catch (er) {
+      setErr(er.message);
+    } finally {
+      setBusy("");
+    }
+  };
+
   const linkPlayer = async (username, authId) => {
     setBusy("p:" + username);
     setErr("");
@@ -382,6 +405,8 @@ export default function Admin({ stats, addPlayer, back, refreshData, playerColor
               const key = p ? "p:" + p.username : "u:" + acct.id;
               const busyHere = busy === key || busy === "p:" + username || (acct && busy === acct.id);
               const isRenaming = renaming === username;
+              const isHandling = handling === username;
+              const handleCheck = isHandling ? validateHandle(normalizeHandle(handleTo)) : { ok: true };
               const isEditing = editing === username;
               const hasAccount = !!acct;
               const hasPlayer = !!p;
@@ -389,7 +414,8 @@ export default function Admin({ stats, addPlayer, back, refreshData, playerColor
 
               const menuItems = [];
               if (hasPlayer) {
-                menuItems.push({ label: "Rename", action: () => { setRenaming(username); setRenameTo(username); } });
+                menuItems.push({ label: "Rename", action: () => { setHandling(null); setRenaming(username); setRenameTo(username); } });
+                menuItems.push({ label: p.handle ? "Change handle" : "Set handle", action: () => { setRenaming(null); setHandling(username); setHandleTo(p.handle || ""); } });
                 menuItems.push({ label: p.hidden ? "Show on leaderboard" : "Hide from leaderboard", action: () => togglePlayerHidden(username, p.hidden) });
                 menuItems.push({ label: "Reset score", danger: true, action: () => resetScore(username, s.games) });
                 menuItems.push({ label: "Remove player", danger: true, action: () => removePlayer(username) });
@@ -427,12 +453,38 @@ export default function Admin({ stats, addPlayer, back, refreshData, playerColor
                         </button>
                         <button className="btn" style={{ flex: "none" }} onClick={() => setRenaming(null)}>Cancel</button>
                       </div>
+                    ) : isHandling ? (
+                      <div className="row" style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ position: "relative", flex: 1, minWidth: 0 }}>
+                          <span aria-hidden="true" style={{ position: "absolute", left: 14, top: "50%", transform: "translateY(-50%)", color: "var(--muted)", fontWeight: 700 }}>@</span>
+                          <input
+                            className="input"
+                            value={handleTo}
+                            autoCapitalize="none"
+                            autoCorrect="off"
+                            spellCheck={false}
+                            style={{ paddingLeft: 30, borderColor: handleTo && !handleCheck.ok ? "var(--red)" : undefined }}
+                            onChange={(e) => setHandleTo(normalizeHandle(e.target.value))}
+                            onKeyDown={(e) => { if (e.key === "Enter" && handleCheck.ok) setHandle(username); if (e.key === "Escape") setHandling(null); }}
+                            placeholder="handle"
+                            aria-label={`Handle for ${username}`}
+                            autoFocus
+                          />
+                        </div>
+                        <button className="btn btn-primary" style={{ flex: "none", minWidth: 64 }} disabled={busyHere || !handleCheck.ok || handleTo === (p?.handle || "")} onClick={() => setHandle(username)}>
+                          {busyHere ? "…" : "Save"}
+                        </button>
+                        <button className="btn" style={{ flex: "none" }} onClick={() => setHandling(null)}>Cancel</button>
+                      </div>
                     ) : (
                       <>
                         <PlayerBadge username={username} color={color} size={32} showName={false} />
                         <div style={{ flex: 1, minWidth: 0 }}>
                           <div style={{ fontWeight: 800, fontSize: "calc(16px * var(--fs))", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                             {username}
+                            {p?.handle && (
+                              <span style={{ fontWeight: 700, fontSize: "calc(13px * var(--fs))", color: "var(--accent)", marginLeft: 8 }}>@{p.handle}</span>
+                            )}
                           </div>
                           <div style={{ display: "flex", gap: 6, marginTop: 3, flexWrap: "wrap" }}>
                             {hasAccount && (

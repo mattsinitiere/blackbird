@@ -86,7 +86,8 @@ localStorage — Postgres is the single source of truth.
   Elo, record, and key stats — auto-downloads on desktop and opens the
   share sheet on mobile.
 - **Admin panel**: the configured admin account can manage login accounts,
-  hide/delete players, reset scores, and try experimental full-app skins
+  rename players, set or change anyone's @handle, hide/delete players,
+  reset scores, and try experimental full-app skins
   (theme lab — applies only to the admin's own account).
 - **Smooth animations**: buttons, cards, and navigation have spring-like
   transitions with press feedback across the entire UI.
