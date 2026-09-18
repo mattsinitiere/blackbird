@@ -101,6 +101,9 @@ test("every game type produces a row with a primary value", () => {
     halveit: { finalScore: 120, halves: 1, dartsThrown: 27 },
     gotcha: { finalScore: 301, resetsDealt: 1, resetsReceived: 0, dartsThrown: 24 },
     tictactoe: { squaresClaimed: 3, dartsThrown: 9 },
+    bobs27: { finalScore: 61, doublesHit: 9, roundsCompleted: 21, busted: false, dartsThrown: 63 },
+    checkoutDrill: { finishes: 10, hit: 4, dartsPerHit: 5.5, highestCheckout: 121, dartsThrown: 78 },
+    scoringDrill: { total: 410, turns: 10, avgPerTurn: 41, trebles: 3, hitRate: 70, bestVisit: 100, dartsThrown: 30 },
   };
   for (const [gameType, pp] of Object.entries(cases)) {
     const s = buildSummary({ match: { gameType, config: {}, players: ["A", "B"], winner: "A", perPlayer: { A: pp, B: pp } } });
@@ -108,4 +111,39 @@ test("every game type produces a row with a primary value", () => {
     assert.notEqual(s.rows[0].primary.value, "", gameType);
     assert.ok(s.rows[0].stats.length >= 1, gameType);
   }
+});
+
+test("drill summaries: titles, ranking and highlights", () => {
+  assert.equal(gameTitle("checkoutDrill", { count: 20 }), "Checkout Drill · 20 finishes");
+  assert.equal(gameTitle("scoringDrill", { target: 25, turns: 5 }), "Scoring Drill · Bull · 5 visits");
+  assert.equal(gameTitle("bobs27"), "Bob's 27");
+
+  // a busted Bob's 27 player ranks below anyone still standing, whatever the score
+  const bobs = buildSummary({
+    match: {
+      gameType: "bobs27",
+      config: {},
+      players: ["A", "B"],
+      winner: "B",
+      perPlayer: { A: { finalScore: 0, doublesHit: 12, busted: true, dartsThrown: 30 }, B: { finalScore: 5, doublesHit: 3, busted: false, dartsThrown: 63 } },
+    },
+  });
+  assert.deepEqual(bobs.rows.map((r) => r.u), ["B", "A"]);
+  assert.equal(bobs.ranked, false);
+  assert.ok(bobs.rows[1].stats.some((st) => st.label === "busted"));
+  assert.deepEqual(bobs.highlights.map((h) => [h.label, h.player]), [["Most doubles", "A"]]);
+
+  // checkout drill: more hits wins, fewer darts breaks the tie
+  const co = buildSummary({
+    match: {
+      gameType: "checkoutDrill",
+      config: { count: 5 },
+      players: ["A", "B"],
+      winner: "B",
+      perPlayer: { A: { finishes: 5, hit: 3, dartsThrown: 40, highestCheckout: 100 }, B: { finishes: 5, hit: 3, dartsThrown: 33, highestCheckout: 80 } },
+    },
+  });
+  assert.deepEqual(co.rows.map((r) => r.u), ["B", "A"]);
+  assert.equal(co.rows[0].primary.label, "of 5");
+  assert.deepEqual(co.highlights.map((h) => [h.label, h.value, h.player]), [["Highest checkout", 100, "A"]]);
 });

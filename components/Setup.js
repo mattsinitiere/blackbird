@@ -2,6 +2,8 @@ import { useState, useRef, useCallback } from "react";
 import { BackBar, PlayerBadge, ShuffleIcon, DragIcon } from "./ui";
 import { CRICKET_VARIANTS } from "@/lib/constants";
 import { assignKillerNumbers, newGameId } from "@/lib/games";
+import { PRACTICE_ONLY } from "@/lib/practice";
+import { SCORING_TARGETS, SCORING_TURNS, scoringTargetLabel } from "@/lib/drills";
 
 function useDragReorder(selected, setSelected) {
   const dragIdx = useRef(null);
@@ -93,6 +95,9 @@ export default function Setup({ players, onStart, back, me, playerColors }) {
   const [shanghaiMode, setShanghaiMode] = useState("beginner");
   const [gotchaTarget, setGotchaTarget] = useState(301);
   const [killerLives, setKillerLives] = useState(3);
+  const [checkoutCount, setCheckoutCount] = useState(10);
+  const [scoringTarget, setScoringTarget] = useState(20);
+  const [scoringTurns, setScoringTurns] = useState(10);
 
   const add = (u) => setSelected((s) => (s.length < 4 && !s.includes(u) ? [...s, u] : s));
   const remove = (u) => setSelected((s) => s.filter((x) => x !== u));
@@ -115,6 +120,7 @@ export default function Setup({ players, onStart, back, me, playerColors }) {
   const rosterOptions = eligible.filter((u) => !selected.includes(u));
 
   const solo = selected.length === 1;
+  const drill = PRACTICE_ONLY.has(gameType);
   const needsTwo = gameType === "tictactoe" || gameType === "killer" || gameType === "gotcha";
   const exactTwo = gameType === "tictactoe";
   const canStart = exactTwo ? selected.length === 2 : needsTwo ? selected.length >= 2 : selected.length >= 1;
@@ -126,6 +132,8 @@ export default function Setup({ players, onStart, back, me, playerColors }) {
     else if (gameType === "shanghai") config = { mode: shanghaiMode };
     else if (gameType === "gotcha") config = { targetScore: gotchaTarget };
     else if (gameType === "killer") config = { numbers: assignKillerNumbers(selected), lives: killerLives };
+    else if (gameType === "checkoutDrill") config = { count: checkoutCount };
+    else if (gameType === "scoringDrill") config = { target: scoringTarget, turns: scoringTurns };
     onStart({
       id: newGameId(),
       gameType,
@@ -163,6 +171,87 @@ export default function Setup({ players, onStart, back, me, playerColors }) {
             </button>
           ))}
         </div>
+
+        <div className="tag mb-12 mt-12">Practice Drills</div>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 8 }}>
+          {[
+            ["bobs27", "Bob's 27"],
+            ["checkoutDrill", "Checkouts"],
+            ["scoringDrill", "Scoring"],
+          ].map(([k, l]) => (
+            <button
+              key={k}
+              className={`btn ${gameType === k ? "btn-primary" : ""}`}
+              style={{ padding: "10px 6px", fontSize: "calc(13px * var(--fs))", lineHeight: 1.2, width: "100%" }}
+              onClick={() => setGameType(k)}
+            >
+              {l}
+            </button>
+          ))}
+        </div>
+
+        {gameType === "bobs27" && (
+          <p className="tag mt-12" style={{ textTransform: "none", letterSpacing: 0 }}>
+            Start on 27. Three darts at D1, then D2 up to D20, then the double bull. Each double
+            hit adds twice the number; miss all three and it&apos;s taken away. Drop to 0 and you&apos;re out.
+          </p>
+        )}
+
+        {gameType === "checkoutDrill" && (
+          <div className="mt-12">
+            <div className="tag" style={{ marginBottom: 6 }}>Finishes</div>
+            <div className="row">
+              {[5, 10, 20].map((v) => (
+                <button
+                  key={v}
+                  className={`btn ${checkoutCount === v ? "btn-toggle-on" : ""}`}
+                  style={{ flex: 1 }}
+                  onClick={() => setCheckoutCount(v)}
+                >
+                  {v}
+                </button>
+              ))}
+            </div>
+            <p className="tag" style={{ marginTop: 8, textTransform: "none", letterSpacing: 0 }}>
+              Random double-out finishes from 41 to 170. Up to nine darts each; a bust puts you
+              back where the visit started. The out-chart is shown while you throw.
+            </p>
+          </div>
+        )}
+
+        {gameType === "scoringDrill" && (
+          <div className="mt-12">
+            <div className="tag" style={{ marginBottom: 6 }}>Target</div>
+            <div className="row">
+              {SCORING_TARGETS.map((v) => (
+                <button
+                  key={v}
+                  className={`btn ${scoringTarget === v ? "btn-toggle-on" : ""}`}
+                  style={{ flex: 1 }}
+                  onClick={() => setScoringTarget(v)}
+                >
+                  {scoringTargetLabel(v)}
+                </button>
+              ))}
+            </div>
+            <div className="tag" style={{ marginTop: 12, marginBottom: 6 }}>Visits</div>
+            <div className="row">
+              {SCORING_TURNS.map((v) => (
+                <button
+                  key={v}
+                  className={`btn ${scoringTurns === v ? "btn-toggle-on" : ""}`}
+                  style={{ flex: 1 }}
+                  onClick={() => setScoringTurns(v)}
+                >
+                  {v}
+                </button>
+              ))}
+            </div>
+            <p className="tag" style={{ marginTop: 8, textTransform: "none", letterSpacing: 0 }}>
+              Three darts a visit at one number. Only darts in that number score.
+            </p>
+          </div>
+        )}
 
         {gameType === "x01" && (
           <div className="mt-12">
@@ -421,9 +510,9 @@ export default function Setup({ players, onStart, back, me, playerColors }) {
           </p>
         )}
 
-        {solo && !needsTwo && (
+        {(drill || (solo && !needsTwo)) && (
           <p className="tag" style={{ marginTop: 10, color: "var(--amber)", textTransform: "none", letterSpacing: 0 }}>
-            Solo practice — saved to your practice log, not to stats or the leaderboard.
+            {drill ? "Drill — saved to your practice log, never to stats or the leaderboard." : "Solo practice — saved to your practice log, not to stats or the leaderboard."}
           </p>
         )}
       </div>
@@ -434,7 +523,7 @@ export default function Setup({ players, onStart, back, me, playerColors }) {
         style={{ width: "100%", fontSize: "calc(15px * var(--fs))", padding: 15 }}
         onClick={start}
       >
-        {canStart ? (solo && !needsTwo ? "Start Practice" : "Start Game") : exactTwo ? "Pick exactly 2 players" : needsTwo ? "Pick at least 2 players" : "Pick at least 1 player"}
+        {canStart ? (drill ? "Start Drill" : solo && !needsTwo ? "Start Practice" : "Start Game") : exactTwo ? "Pick exactly 2 players" : needsTwo ? "Pick at least 2 players" : "Pick at least 1 player"}
       </button>
     </div>
   );

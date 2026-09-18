@@ -25,6 +25,9 @@ import PlayShanghai from "@/components/PlayShanghai";
 import PlayHalveIt from "@/components/PlayHalveIt";
 import PlayGotcha from "@/components/PlayGotcha";
 import PlayTicTacToe from "@/components/PlayTicTacToe";
+import PlayBobs27 from "@/components/PlayBobs27";
+import PlayCheckoutDrill from "@/components/PlayCheckoutDrill";
+import PlayScoringDrill from "@/components/PlayScoringDrill";
 import Leaderboard from "@/components/Leaderboard";
 import Profile from "@/components/Profile";
 import Matchup from "@/components/Matchup";
@@ -35,7 +38,7 @@ import Admin from "@/components/Admin";
 import LoadingScreen from "@/components/LoadingScreen";
 import GameSummary from "@/components/GameSummary";
 
-const PLAY_VIEWS = { x01: "playX01", cricket: "playCricket", baseball: "playBaseball", aroundTheClock: "playAroundTheClock", killer: "playKiller", shanghai: "playShanghai", halveit: "playHalveIt", gotcha: "playGotcha", tictactoe: "playTicTacToe" };
+const PLAY_VIEWS = { x01: "playX01", cricket: "playCricket", baseball: "playBaseball", aroundTheClock: "playAroundTheClock", killer: "playKiller", shanghai: "playShanghai", halveit: "playHalveIt", gotcha: "playGotcha", tictactoe: "playTicTacToe", bobs27: "playBobs27", checkoutDrill: "playCheckoutDrill", scoringDrill: "playScoringDrill" };
 
 export default function Page() {
   const [authReady, setAuthReady] = useState(false);
@@ -575,6 +578,9 @@ export default function Page() {
         {view === "playHalveIt" && live && <PlayHalveIt game={live} resume={liveProgress.current} onProgress={saveProgress} onFinish={finishMatch} onQuit={askQuit} castActive={!!castCode} playerColors={playerColors} />}
         {view === "playGotcha" && live && <PlayGotcha game={live} resume={liveProgress.current} onProgress={saveProgress} onFinish={finishMatch} onQuit={askQuit} castActive={!!castCode} playerColors={playerColors} />}
         {view === "playTicTacToe" && live && <PlayTicTacToe game={live} resume={liveProgress.current} onProgress={saveProgress} onFinish={finishMatch} onQuit={askQuit} castActive={!!castCode} playerColors={playerColors} />}
+        {view === "playBobs27" && live && <PlayBobs27 game={live} resume={liveProgress.current} onProgress={saveProgress} onFinish={finishMatch} onQuit={askQuit} castActive={!!castCode} playerColors={playerColors} />}
+        {view === "playCheckoutDrill" && live && <PlayCheckoutDrill game={live} resume={liveProgress.current} onProgress={saveProgress} onFinish={finishMatch} onQuit={askQuit} castActive={!!castCode} playerColors={playerColors} />}
+        {view === "playScoringDrill" && live && <PlayScoringDrill game={live} resume={liveProgress.current} onProgress={saveProgress} onFinish={finishMatch} onQuit={askQuit} castActive={!!castCode} playerColors={playerColors} />}
         {view === "summary" && finished && (
           <GameSummary
             summary={finished.summary}

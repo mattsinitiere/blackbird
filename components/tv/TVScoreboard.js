@@ -20,6 +20,9 @@ export default function TVScoreboard({ game, snapshot }) {
   if (game.gameType === "halveit") return <TVGeneric game={game} snapshot={snapshot} title="Halve It" />;
   if (game.gameType === "gotcha") return <TVGeneric game={game} snapshot={snapshot} title="Gotcha" />;
   if (game.gameType === "tictactoe") return <TVGeneric game={game} snapshot={snapshot} title="Tic-Tac-Toe" />;
+  if (game.gameType === "bobs27") return <TVGeneric game={game} snapshot={snapshot} title="Bob's 27" />;
+  if (game.gameType === "checkoutDrill") return <TVGeneric game={game} snapshot={snapshot} title="Checkout Drill" />;
+  if (game.gameType === "scoringDrill") return <TVGeneric game={game} snapshot={snapshot} title="Scoring Drill" />;
   return null;
 }
 
