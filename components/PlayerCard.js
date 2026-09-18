@@ -87,7 +87,7 @@ function paintBackground(ctx, W, H, pal) {
   ctx.globalAlpha = 1;
 }
 
-function drawCard(user, stats, elo, playerColor) {
+function drawCard(user, stats, elo, playerColor, handle) {
   const W = 1080;
   const H = 1350;
   const pal = themePalette();
@@ -132,6 +132,11 @@ function drawCard(user, stats, elo, playerColor) {
   const nameSize = fitFont(ctx, user, W - 220, 90, "800");
   ctx.font = `800 ${nameSize}px ${FONT}`;
   ctx.fillText(user, cx, 370);
+  if (handle) {
+    ctx.fillStyle = pal.accent;
+    ctx.font = `700 30px ${FONT}`;
+    ctx.fillText(`@${handle}`, cx, 410);
+  }
 
   // ELO
   ctx.fillStyle = pal.accent;
@@ -195,7 +200,7 @@ function drawCard(user, stats, elo, playerColor) {
   return canvas;
 }
 
-export default function PlayerCard({ user, stats, elo, onOpenAccount, playerColors }) {
+export default function PlayerCard({ user, handle, stats, elo, onOpenAccount, playerColors }) {
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState("");
 
@@ -205,7 +210,7 @@ export default function PlayerCard({ user, stats, elo, onOpenAccount, playerColo
     try {
       await ensureFont();
       const color = playerColors?.[user] || defaultPlayerColor(user);
-      const canvas = drawCard(user, stats, elo, color);
+      const canvas = drawCard(user, stats, elo, color, handle);
       const blob = await new Promise((res) => canvas.toBlob(res, "image/png"));
       if (!blob) throw new Error("Could not create image.");
       const file = new File([blob], `${user}-blackbird.png`, { type: "image/png" });

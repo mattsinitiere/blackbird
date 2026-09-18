@@ -1,10 +1,14 @@
 import { useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { Logo } from "./ui";
+import { normalizeHandle, suggestHandle, validateHandle } from "@/lib/profile";
 
 export default function Auth() {
   const [mode, setMode] = useState("signin");
   const [displayName, setDisplayName] = useState("");
+  const [handle, setHandle] = useState("");
+  const [handleTouched, setHandleTouched] = useState(false);
+  const handleCheck = mode === "signup" && handle ? validateHandle(handle) : { ok: true };
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [msg, setMsg] = useState("");
@@ -13,6 +17,14 @@ export default function Auth() {
   const submit = async () => {
     if (!email || !password) {
       setMsg("Enter an email and password.");
+      return;
+    }
+    if (mode === "signup" && !displayName.trim()) {
+      setMsg("Enter a display name.");
+      return;
+    }
+    if (mode === "signup" && handle && !handleCheck.ok) {
+      setMsg(handleCheck.reason);
       return;
     }
     setBusy(true);
@@ -25,7 +37,7 @@ export default function Auth() {
         const { data, error } = await supabase.auth.signUp({
           email,
           password,
-          options: { data: { display_name: displayName.trim() } },
+          options: { data: { display_name: displayName.trim(), handle: handle || suggestHandle(displayName) } },
         });
         if (error) throw error;
         if (!data.session) {
@@ -73,13 +85,44 @@ export default function Auth() {
 
           <div className="stack-8">
             {mode === "signup" && (
-              <input
-                className="input"
-                type="text"
-                placeholder="display name"
-                value={displayName}
-                onChange={(e) => setDisplayName(e.target.value)}
-              />
+              <>
+                <input
+                  className="input"
+                  type="text"
+                  placeholder="display name"
+                  value={displayName}
+                  onChange={(e) => {
+                    setDisplayName(e.target.value);
+                    if (!handleTouched) setHandle(suggestHandle(e.target.value));
+                  }}
+                />
+                <div style={{ position: "relative" }}>
+                  <span
+                    aria-hidden="true"
+                    style={{ position: "absolute", left: 14, top: "50%", transform: "translateY(-50%)", color: "var(--muted)", fontWeight: 700 }}
+                  >
+                    @
+                  </span>
+                  <input
+                    className="input"
+                    type="text"
+                    placeholder="handle"
+                    autoCapitalize="none"
+                    autoCorrect="off"
+                    spellCheck={false}
+                    style={{ paddingLeft: 30, borderColor: handle && !handleCheck.ok ? "var(--red)" : undefined }}
+                    value={handle}
+                    onChange={(e) => {
+                      setHandleTouched(true);
+                      setHandle(normalizeHandle(e.target.value));
+                    }}
+                    aria-label="Handle"
+                  />
+                </div>
+                <p className="tag" style={{ margin: 0, textTransform: "none", letterSpacing: 0, color: handle && !handleCheck.ok ? "var(--red)" : undefined }}>
+                  {handle && !handleCheck.ok ? handleCheck.reason : "Your @handle is how friends find you. Letters, numbers, underscores."}
+                </p>
+              </>
             )}
             <input
               className="input"

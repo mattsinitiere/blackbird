@@ -36,6 +36,9 @@ localStorage — Postgres is the single source of truth.
 
 ## What it is (at a glance)
 
+- **Profiles and @handles**: every player has a unique `@handle` chosen at
+  sign-up (or from the Account page), a bio and a home bar/town, shown on
+  their profile and stat card. Only the owning account can edit them.
 - **Player avatars and colors**: every player gets a colored circle badge
   with their initial letter, shown next to their name throughout the app.
   Colors are deterministic by default (a hash of the username) and can be
@@ -205,8 +208,12 @@ Key design points:
 Run `supabase/schema.sql` once in the Supabase SQL editor. Three tables:
 
 - **`players`** — one row per dart player (a name, not a login):
-  `username` (unique), `hidden` (kept out of standings), `color` (optional
-  hex color for their avatar badge), `elo` (current rating), `created_at`.
+  `username` (unique display name), `handle` (unique `@handle`, 3–20 chars
+  of `a-z 0-9 _`), `bio`, `location`, `hidden` (kept out of standings),
+  `color` (optional hex color for their avatar badge), `elo` (current
+  rating), `auth_id` (the login account that owns the row, once claimed),
+  `created_at`. A trigger lets only the owning account edit `handle`,
+  `bio` and `location`.
 - **`game_results`** — one row **per player per finished game**: `game_id`
   (shared by all rows of one game), `username`, `game_type`
   (`x01` | `cricket` | `baseball`), `config`, `winner`, `result`
@@ -265,7 +272,8 @@ Push this repo to GitHub. Every later `git push` to `main` redeploys Vercel.
 ## 2. Supabase (database + login)
 1. https://supabase.com → **New project** (set + save a DB password).
 2. **SQL Editor → New query** → paste all of `supabase/schema.sql` → **Run**.
-3. Run `supabase/migration-add-color.sql` to add the player color column.
+3. Run `supabase/migration-add-color.sql`, `migration-add-auth-id.sql` and
+   `migration-add-profile.sql` (player colors, account links, @handles).
 4. **Settings → API** → copy **Project URL** and the **anon public** key.
 5. **Authentication → Providers → Email**: enabled. Turn **OFF** "Confirm
    email" so accounts work instantly on phones.

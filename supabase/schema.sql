@@ -9,7 +9,12 @@ create table if not exists players (
   username text unique not null,
   created_at timestamptz not null default now(),
   hidden boolean not null default false,
-  elo numeric not null default 1000
+  elo numeric not null default 1000,
+  color text,                              -- avatar color (hex)
+  auth_id uuid,                            -- owning login account, once claimed
+  handle text,                             -- @handle, unique (see migration-add-profile.sql)
+  bio text,
+  location text
 );
 
 -- Matches: one row per completed game.
@@ -66,3 +71,7 @@ create policy "members read results"
   on game_results for select to authenticated using (true);
 create policy "members add results"
   on game_results for insert to authenticated with check (true);
+
+-- Profile fields: unique @handle + owner-only edits.
+-- (Full details and the backfill live in migration-add-profile.sql; run that
+-- file too on a fresh install.)

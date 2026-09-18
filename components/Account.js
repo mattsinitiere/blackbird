@@ -1,10 +1,119 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { BackBar, PlayerBadge } from "./ui";
 import { supabase } from "@/lib/supabase";
+import { isHandleAvailable } from "@/lib/db";
 import { ACCENTS, FONT_SCALES, PLAYER_COLORS, defaultPlayerColor } from "@/lib/constants";
 import { applyFontScale } from "@/lib/prefs";
+import { normalizeHandle, validateHandle, suggestHandle, BIO_MAX, LOCATION_MAX } from "@/lib/profile";
 
-export default function Account({ user, players, results, addPlayer, setPlayerHidden, setPlayerColor, playerColors, isAdmin, onOpenAdmin, signOut, back }) {
+/**
+ * @handle, bio and location editor for the signed-in account's own player
+ * row. Availability is checked live (debounced) against the players table.
+ */
+function ProfileEditor({ player, updatePlayerProfile, playerColors }) {
+  const [handle, setHandle] = useState(player.handle || suggestHandle(player.username));
+  const [bio, setBio] = useState(player.bio || "");
+  const [location, setLocation] = useState(player.location || "");
+  const [avail, setAvail] = useState(null); // null unknown | true | false
+  const [msg, setMsg] = useState("");
+  const [good, setGood] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const timer = useRef(null);
+
+  const check = validateHandle(handle);
+  const unchanged =
+    handle === (player.handle || "") && bio === (player.bio || "") && location === (player.location || "");
+
+  useEffect(() => {
+    if (!check.ok || handle === player.handle) {
+      setAvail(null);
+      return;
+    }
+    if (timer.current) clearTimeout(timer.current);
+    timer.current = setTimeout(async () => {
+      const ok = await isHandleAvailable(handle, player.username);
+      setAvail(ok);
+    }, 350);
+    return () => timer.current && clearTimeout(timer.current);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [handle]);
+
+  const save = async () => {
+    setBusy(true);
+    setMsg("");
+    const r = await updatePlayerProfile(player.username, { handle, bio: bio.trim(), location: location.trim() });
+    setGood(r.ok);
+    setMsg(r.ok ? "Profile saved." : r.reason);
+    setBusy(false);
+  };
+
+  const handleProblem = !check.ok ? check.reason : avail === false ? "That handle is taken." : "";
+  const canSave = !busy && !unchanged && check.ok && avail !== false;
+
+  return (
+    <div className="card mb-12">
+      <div className="tag" style={{ marginBottom: 10 }}>Profile</div>
+
+      <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 14 }}>
+        <PlayerBadge username={player.username} color={playerColors?.[player.username]} size={44} showName={false} />
+        <div style={{ minWidth: 0 }}>
+          <div className="display" style={{ fontSize: "calc(18px * var(--fs))" }}>{player.username}</div>
+          <div className="tag" style={{ textTransform: "none", letterSpacing: 0, color: "var(--accent)" }}>
+            {handle ? `@${handle}` : "no handle yet"}
+          </div>
+        </div>
+      </div>
+
+      <div className="tag" style={{ marginBottom: 6 }}>Handle</div>
+      <div style={{ position: "relative" }}>
+        <span aria-hidden="true" style={{ position: "absolute", left: 14, top: "50%", transform: "translateY(-50%)", color: "var(--muted)", fontWeight: 700 }}>@</span>
+        <input
+          className="input"
+          value={handle}
+          autoCapitalize="none"
+          autoCorrect="off"
+          spellCheck={false}
+          style={{ paddingLeft: 30, borderColor: handleProblem ? "var(--red)" : avail === true ? "var(--accent)" : undefined }}
+          onChange={(e) => setHandle(normalizeHandle(e.target.value))}
+          aria-label="Handle"
+        />
+      </div>
+      <p className="tag" style={{ margin: "6px 0 0", textTransform: "none", letterSpacing: 0, color: handleProblem ? "var(--red)" : avail === true ? "var(--accent)" : undefined }}>
+        {handleProblem || (avail === true ? "Available." : "3–20 characters: letters, numbers, underscores. Friends find you by it.")}
+      </p>
+
+      <div className="tag" style={{ margin: "14px 0 6px" }}>Bio</div>
+      <textarea
+        className="input"
+        rows={2}
+        maxLength={BIO_MAX}
+        value={bio}
+        placeholder="Double-out enthusiast. Tuesday league at the Longhorn."
+        onChange={(e) => setBio(e.target.value)}
+        style={{ resize: "vertical", fontFamily: "inherit" }}
+      />
+      <div className="tag" style={{ textAlign: "right", marginTop: 4 }}>{bio.length}/{BIO_MAX}</div>
+
+      <div className="tag" style={{ margin: "10px 0 6px" }}>Location</div>
+      <input
+        className="input"
+        maxLength={LOCATION_MAX}
+        value={location}
+        placeholder="Home bar or town"
+        onChange={(e) => setLocation(e.target.value)}
+      />
+
+      {msg && (
+        <p className="subtle" style={{ marginBottom: 0, color: good ? "var(--accent)" : "var(--red)" }}>{msg}</p>
+      )}
+      <button className="btn btn-primary mt-12" style={{ width: "100%" }} onClick={save} disabled={!canSave}>
+        {busy ? "Saving…" : "Save Profile"}
+      </button>
+    </div>
+  );
+}
+
+export default function Account({ user, players, results, addPlayer, setPlayerHidden, setPlayerColor, updatePlayerProfile, myPlayer: myPlayerProp, playerColors, isAdmin, onOpenAdmin, signOut, back }) {
   const meta = user?.user_metadata || {};
   const [name, setName] = useState(meta.display_name || "");
   const [theme, setTheme] = useState(meta.theme === "dark" ? "dark" : "light");
@@ -67,7 +176,7 @@ export default function Account({ user, players, results, addPlayer, setPlayerHi
   };
 
   const trimmed = name.trim();
-  const myPlayer = players.find((p) => p.username.toLowerCase() === trimmed.toLowerCase());
+  const myPlayer = myPlayerProp || players.find((p) => p.username.toLowerCase() === trimmed.toLowerCase());
   const isPlayer = !!myPlayer;
   const [hideBusy, setHideBusy] = useState(false);
 
@@ -153,6 +262,10 @@ export default function Account({ user, players, results, addPlayer, setPlayerHi
           {busy ? "Saving…" : "Save Display Name"}
         </button>
       </div>
+
+      {myPlayer && updatePlayerProfile && (
+        <ProfileEditor key={myPlayer.username} player={myPlayer} updatePlayerProfile={updatePlayerProfile} playerColors={playerColors} />
+      )}
 
       <div className="card mb-12">
         <div className="tag" style={{ marginBottom: 10 }}>
