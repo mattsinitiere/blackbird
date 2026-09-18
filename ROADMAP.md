@@ -170,3 +170,199 @@ Per the user, this is a **planning document only for now** — nothing gets buil
 1. **Automated (existing harness)**: extend the Playwright + mock-Supabase scripts in the session scratchpad — launch two pages in one browser context with the `BroadcastChannel` local transport: page A signs in, starts a cricket game, taps Cast, reads the code; page B opens `/tv`, enters the code; assert the TV shows the players, then throw turns on A and assert marks/MPR/round update on B; finish the game and assert the winner screen. Screenshot the TV views at 1920×1080 for the README.
 2. **Real-transport smoke test**: after deploy, open the production `/tv` on a laptop and the app on a phone, pair, and play a few turns over actual Supabase Realtime (checks the prod websocket path the local transport can't).
 3. **Regression**: run the existing verify scripts (home, profile, cricket flow) to confirm the `castActive` prop changes nothing when casting is off; `npm run build` must stay clean.
+
+---
+
+## Planning log — September 2026: from friends-league app to a service
+
+Decisions and analysis from the September 2026 planning sessions. This
+section is the source of truth for the "make Blackbird a real service"
+direction; earlier sections above stay as the feature backlog.
+
+### Where the app stands (v1.5)
+
+- Nine game types, TV cast, Elo, profiles, records, matchup predictor,
+  PWA, end-of-game summary mirrored on the TV.
+- **Single-tenant by construction.** One `players` table, one
+  `game_results` table, RLS says any signed-in user can read everything
+  and update any player. Anyone who signs up joins *the* league. The
+  admin is a hardcoded email shipped in the client bundle. Sharing the
+  app with strangers requires the identity/visibility work below first.
+
+### Decisions taken
+
+- **Leagues are deferred.** The social model is **accounts + friends**:
+  one player profile per account, mutual friend requests, friends can
+  see each other's full stats and pick each other for games. Leagues
+  (membership, league-only standings, seasons) come later on top.
+- **Profiles are social-media style**: `@handle` (globally unique),
+  display name, avatar (colour + initial now, photo later via Supabase
+  Storage), bio, home town/bar. Private by default; a public-profile
+  toggle later.
+- **Elo stays one personal rating per player** across all rated games.
+  Per-league Elo only if leagues ask for it.
+- **Sign-in: Apple, Google, and email** via Supabase Auth. Email gets
+  password reset (missing today) and confirmation turned back on. Apple
+  needs the paid developer program and only becomes mandatory when a
+  native iOS app offers other social logins, so launch web with Google +
+  email first.
+- **Practice and bot games never touch competitive averages or Elo.**
+  They save as `practice` and feed a separate practice section.
+- **Domain**: blackbird.com is taken. Checked available (Sept 2026):
+  blackbirddarts.com / .app / .io, blackbird-darts.com, playblackbird.com
+  / .app, getblackbird.app, blackbirdscoring.com. Recommendation:
+  register blackbirddarts.com + .app, run on .com, redirect .app.
+- **Premium**: free core, paid tier ~$3.99–4.99/mo with an annual option
+  (~$29.99–34.99) pushed hardest, web billing via Stripe. Founding-league
+  members are grandfathered to Premium for life.
+
+### Single-player modes
+
+1. **Save practice games** (`result = 'practice'`, excluded from Elo and
+   standings; Practice section on the profile with trends and PBs).
+2. **Bot ladder, chess.com style**: 8–10 named bots at fixed 3-dart
+   averages (~30 → 100+), each with avatar and personality. Simulator
+   aims at a target and samples the landing point with a level-scaled
+   error radius mapped through the dartboard geometry, so a weak bot
+   going for T20 lands in 1 and 5 like a human; checkout knowledge scales
+   with level. Each bot calibrated by a Monte Carlo test in the suite.
+   Separate bot rating + record per bot; beat one to unlock the next.
+   Cricket bots use the same model with a cricket strategy. Free: 2–3
+   bots; Premium: full ladder.
+3. **Drills as game types** (one file each + a `lib/summary.js` case):
+   Bob's 27, checkout challenge (random 41–170 finishes, darts to
+   finish), scoring drill (N turns at 20s, per-dart accuracy). Around the
+   Clock and Shanghai already exist and just need saving.
+4. **Practice dashboard**: PBs per drill, weekly practice count, trends.
+
+### Free vs Premium (proposed)
+
+| | Free | Premium |
+|---|---|---|
+| Games | X01, Cricket, Baseball, Around the Clock | All modes + drills |
+| Bot opponent | 2 levels | Full ladder |
+| Friends | Unlimited | Unlimited |
+| Leagues (later) | Join any, create 1 (≤8 players) | Unlimited, seasons, schedules |
+| Stats | Averages, win %, MPR, Elo, 30-day trends | Per-dart, checkout %, number heatmaps, full history, export |
+| TV cast, practice saving | Yes | Yes |
+
+Rules: never gate the core scoring loop or TV cast (that is what spreads
+the app); enforce entitlements in RLS/server, not only in the UI; keep
+billing web-only (an App Store build must use Apple IAP, 15–30 % cut).
+
+### Costs and pricing math
+
+- One-time/yearly: domain ~$35/yr; Apple Developer Program $99/yr (defer
+  until the iOS app); Google OAuth free; Stripe free (per-transaction).
+- Monthly floor: Vercel Pro already paid per seat (Blackbird adds $0);
+  Supabase Free until a few hundred active users (pauses only after 7
+  idle days; 200 Realtime connections), then Pro $25/mo; transactional
+  email free at Resend's tier (Supabase's built-in auth mailer is
+  rate-limited to a handful/hour); Sentry free.
+  → **cheap floor ≈ domain + Claude plan**; full production floor
+  ≈ $55–75/mo; $100–200/mo at ~10k MAU.
+- Stripe nets ~$4.50 of $4.99 or ~$3.55 of $3.99. Freemium converts
+  2–5 %: 1,000 MAU → 20–50 subs → $90–225/mo. ~15 subs cover servers.
+  Price by market, not cost; expect hobby-scale revenue until several
+  thousand users.
+- Development = the owner's Claude plan; remaining scope ≈ 11–15 working
+  sessions (a freelancer would quote 150–300 h).
+
+### App Store path
+
+No rewrite. In order of effort: (1) stay a PWA (installable, no store,
+iOS supports web push); (2) wrap with Capacitor — same code, both stores,
+but Apple rejects thin wrappers, so add push, haptics, Sign in with
+Apple, offline, share sheet (~2–3 sessions, needs a Mac/Xcode; Google
+Play accepts a PWA wrapper for a one-time $25); (3) React Native rewrite
+— not worth it. Recommendation: PWA now, Capacitor once demand is proven.
+
+### Market positioning
+
+Pros and serious leagues already run DartConnect; the top end is moving
+to camera auto-scoring (Scolia); DartCounter has millions of consumer
+users; Nakka n01 is the free X01 tracker. **Do not pitch pros.** The
+market is the group at the bar: amateur league players and hobby groups.
+Differentiators: TV mode with no hardware, group Elo/matchup/night
+summaries, party games (Killer, Gotcha, Halve It, Tic-Tac-Toe), no ads,
+and later hardware input. Pitches: hobby — "score any game, see who's
+really best, put it on the TV"; league — "league-night stats, MPR,
+checkouts and Elo without the subscription." Go-to-market: QR on the bar
+wall pointing at the TV mode, league organisers, r/Darts once profiles
+and the bot exist. Don't build online play vs strangers yet.
+
+### Sequence
+
+| Step | Work | Sessions |
+|---|---|---|
+| 1 | Save practice, practice section on profile | 1 |
+| 2 | Handles, profiles, friends, RLS rewrite (own rows + friends' rows), scoped fetching, migration | 2–3 |
+| 3 | Apple/Google/email, password reset, landing page, terms + privacy, admin email out of the client bundle | 1–2 |
+| 4 | Friend invites, QR, share sheet | 1 |
+| 5 | Bot ladder | 2–3 |
+| 6 | Stripe Premium, entitlements, grandfathering | 2 |
+| 7 | Monitoring, Supabase Pro, email provider | 1 |
+| Later | Leagues | 3–4 |
+
+Owner's side in parallel: buy the domain, Google OAuth client, Stripe
+account; Apple Developer Program when the iOS app is in reach.
+
+### Hardware: auto-scoring for any steel-tip board
+
+**Goal**: a premium retrofit that works on any wall-mounted bristle board
+and sells at a margin that recoups development in a small number of
+units.
+
+**What exists**: Autodarts (3 webcams on printed mounts, Pi/Linux, ~$150
+DIY, free software), Scolia (~$600 + subscription), Target Omni (~$400).
+The Prodigy D9000W ($1,000) is *also* a camera system: two cameras,
+**infrared illumination**, a vibration trigger, and triangulation — the
+IR is lighting, not a sensor. Nobody has made a non-camera sensor resolve
+an 8 mm treble ring; cameras are the only approach that ships.
+
+**Design**: Pi 5 + three IR-capable camera modules with IR-pass filters +
+850 nm LED ring + printed ring that clamps a 451 mm board (with or
+without a surround; cabinets excluded — say so on the box) + auto-
+calibration from the board image (people rotate boards). Speak the same
+event protocol as the Prodigy bridge so one parser and
+`packages/scoring-core` serve both.
+
+**Trigger lesson from the Prodigy**: loud music makes it log misses with
+no dart thrown — bass through the wall trips the vibration sensor, the
+cameras see no new dart, and it concludes "bounce-out". The manual admits
+stomping does the same. Rules for our rig: vibration may only *wake* the
+cameras, never create an event; nothing scores unless a camera sees a
+new dart; a miss registers only when a dart was seen arriving and not
+sticking (or trigger on frame differencing and drop the sensor, as
+Autodarts does). If a piezo stays: high-pass + noise-floor-tracking
+threshold, optionally a second sensor on the wall to subtract room
+vibration. "Works with the music on" goes on the box.
+Mitigations for the Prodigy itself: isolate the board from the wall
+(rubber pads, not the speaker wall, subwoofer off the floor); when
+Blackbird runs on the board, never auto-commit a board-reported miss —
+"music mode" toggle, on by default: board scores hits, players tap Miss.
+
+**Unit economics** (single-unit part prices): BOM ≈ $255 (Pi 5 8 GB $80,
+3 cameras $75, IR LEDs + driver $20, piezo/cables $25, PSU + SD $25,
+printed parts/enclosure $30). Per unit at $599 / $699: packaging +
+shipping $40, payment fees $18/$21, warranty reserve 5 %, ~2 h assembly
+$50 → contribution ≈ $205 / $300. A $5k development spend recoups at
+~17–25 units. Price ceiling is set by Scolia/Omni/Autodarts; the edges
+are IR (works in the dark), no subscription, no phone required, any
+wall-mounted board.
+
+**Plan**: (1) prototype ~$300, 2–3 months part-time, Python/OpenCV on
+the Pi (board detection → calibration, differencing on trigger, tip
+localisation, 3-camera voting, segment map); (2) the gate: 500 throws,
+≥98 % correct segments, no enclosure work before this passes; (3) five
+beta units on friends' boards; (4) batch of 25, sold as a **kit** first
+(lower regulatory, assembly and return exposure). Before any sale: a
+patent read on Escalade's two-camera/IR/vibration claims, and FCC
+responsibility for a finished product with custom LED boards.
+
+**Order**: finish the Prodigy bridge first (zero new hardware, proves the
+whole board→app pipeline, and its parser/event contract is exactly what
+the homebrew rig plugs into); the camera rig is an experiment against
+that contract; sell only after the gate and the betas. The app roadmap
+continues in parallel — the rig is only worth $699 if the software on
+the TV is worth watching.
