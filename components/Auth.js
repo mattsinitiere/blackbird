@@ -160,7 +160,7 @@ export default function Auth() {
         </div>
 
         <p className="tag" style={{ marginTop: 16, textAlign: "center", textTransform: "none", letterSpacing: 0 }}>
-          © 2026 Sinitiere Technology
+          © 2026 Sinitiere Labs
         </p>
       </div>
     </main>
