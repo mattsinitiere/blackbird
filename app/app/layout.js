@@ -1,7 +1,7 @@
 import RegisterSW from "@/components/RegisterSW";
 
 export const metadata = {
-  title: "Blackbird",
+  title: { absolute: "Blackbird" },
   robots: { index: false, follow: false },
 };
 

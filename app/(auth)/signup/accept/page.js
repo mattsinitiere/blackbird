@@ -2,7 +2,7 @@ import { Suspense } from "react";
 import SetPasswordForm from "@/components/auth/SetPasswordForm";
 
 export const metadata = {
-  title: "Welcome — Blackbird",
+  title: "Welcome",
   robots: { index: false, follow: false },
 };
 

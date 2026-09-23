@@ -2,7 +2,7 @@ import { Suspense } from "react";
 import SignInForm from "@/components/auth/SignInForm";
 
 export const metadata = {
-  title: "Sign in — Blackbird",
+  title: "Sign in",
   robots: { index: false, follow: false },
 };
 
