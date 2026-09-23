@@ -124,8 +124,8 @@ theming, security — end to end.)*
 │  (App Router, mostly client) │
 │                              │
 │  app/(marketing)  ── public  │
-│    home page, /privacy,      │
-│    /terms                    │
+│    home page, /profile,      │
+│    /privacy, /terms          │
 │  app/(auth)  ── /login,      │
 │    /signup, /reset (+accept/ │
 │    confirm)                  │
@@ -411,7 +411,8 @@ app/
   layout.js               root layout, metadata, Figtree via next/font
   fonts.js / fonts/       self-hosted Figtree (WOFF2, SIL OFL)
   globals.css             design system (tokens, light/dark, cards, nav, TV)
-  (marketing)/            public site: / (page.js), /privacy, /terms,
+  (marketing)/            public site: / (page.js), /profile (view + edit
+                          your player profile), /privacy, /terms,
                           marketing.css (mk- prefixed port of the site CSS)
   (auth)/                 /login, /signup, /signup/accept, /reset,
                           /reset/confirm

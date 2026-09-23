@@ -43,7 +43,7 @@ Guiding constraints that explain most design decisions:
 ┌──────────────────────────▼─────────────────────────────────┐
 │ Vercel — Next.js 14 (App Router)                           │
 │                                                            │
-│  app/(marketing)        public site: /, /privacy, /terms   │
+│  app/(marketing)        public site: /, /profile, /privacy…│
 │  app/(auth)             /login /signup /reset (+ accept)   │
 │  app/app/page.js        the entire interactive app (client)│
 │  app/tv/page.js         TV scoreboard (client, no auth)    │
@@ -83,6 +83,10 @@ app/
   (marketing)/page.js     the marketing home page (sections in
                           components/marketing)
   (marketing)/marketing.css  mk-prefixed port of the standalone site CSS
+  (marketing)/profile     the signed-in player's profile on the site: view
+                          and edit display name, handle, bio, location and
+                          colour (components/marketing/ProfilePage.js,
+                          lib/useMyPlayer.js); signed out → /login
   (marketing)/privacy, terms  draft legal pages
   (auth)/…                /login, /signup, /signup/accept, /reset,
                           /reset/confirm (server pages, client forms)
@@ -96,7 +100,8 @@ app/
   api/admin/route.js      admin ops via service role (verifies admin email)
   robots.js, sitemap.js   only / is indexable
 components/
-  marketing/              MarketingHeader + AuthNav (session-aware), Hero,
+  marketing/              MarketingHeader + AuthNav (session-aware: Sign out,
+                          avatar in the player's colour → /profile, Play), Hero,
                           DotGrid, ProductPreview, Capabilities, Features,
                           GameModes, TVSection/TVPreview/DartboardSvg,
                           SetupFlow, FAQ, Closing, Footer, LegalPage

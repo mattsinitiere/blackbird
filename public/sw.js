@@ -1,7 +1,7 @@
 const CACHE = "blackbird-v2";
 // the app shell is what must open offline; the public pages are always fresh
 const PRECACHE = ["/app", "/icon-192.png", "/icon-512.png"];
-const NEVER_CACHE = ["/api/", "/auth/", "/login", "/signup", "/reset"];
+const NEVER_CACHE = ["/api/", "/auth/", "/login", "/signup", "/reset", "/profile"];
 
 self.addEventListener("install", (e) => {
   e.waitUntil(caches.open(CACHE).then((c) => c.addAll(PRECACHE)));

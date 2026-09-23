@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
 import { supabase, isConfigured } from "@/lib/supabase";
 import { getPlayers, addPlayer as dbAddPlayer, linkPlayerAuth as dbLinkPlayerAuth, setPlayerHidden as dbSetPlayerHidden, setPlayerColor as dbSetPlayerColor, updatePlayerProfile as dbUpdatePlayerProfile, getGameResults, recordGame } from "@/lib/db";
 import { normalizeHandle, validateHandle } from "@/lib/profile";
@@ -14,7 +13,7 @@ import { buildSummary } from "@/lib/summary";
 import { isRankedMatch, splitResults, botLadder } from "@/lib/practice";
 import { botColors } from "@/lib/bots";
 import { rematchGame } from "@/lib/games";
-import { Logo, GearIcon, CastIcon, SparkleIcon, PlayerBadge, Modal, pressProps } from "@/components/ui";
+import { Logo, GearIcon, CastIcon, PlayerBadge, Modal, pressProps } from "@/components/ui";
 import Home from "@/components/Home";
 import Setup from "@/components/Setup";
 import PlayX01 from "@/components/PlayX01";
@@ -484,9 +483,9 @@ export default function Page() {
       <div className="scroll">
         <div className="container">
         <header className="header">
-          <Link href="/" aria-label="Blackbird home" style={{ flex: 1, display: "flex", alignItems: "center" }}>
+          <button type="button" className="brand-home" aria-label="Blackbird home" onClick={() => setView("home")}>
             <Logo variant="lockup" height={40} />
-          </Link>
+          </button>
           <button
             className="btn btn-sm"
             style={{ padding: "6px 11px", display: "inline-flex", alignItems: "center", justifyContent: "center" }}
@@ -684,9 +683,7 @@ export default function Page() {
         <button className={`navbtn ${view === "setup" || view === "summary" || ALL_PLAY_VIEWS.includes(view) ? "active" : ""}`} onClick={goPlay}>Play{live ? " ●" : ""}</button>
         <button className={`navbtn ${["leaderboard", "profile", "records"].includes(view) ? "active" : ""}`} onClick={() => setView("leaderboard")}>Stats</button>
         <button className={`navbtn ${view === "matchup" ? "active" : ""}`} onClick={() => setView("matchup")}>Matchup</button>
-        <button className={`navbtn navbtn-icon ${view === "ai" ? "active" : ""}`} onClick={() => setView("ai")} aria-label="Blackbird AI" title="Blackbird AI">
-          <SparkleIcon />
-        </button>
+        <button className={`navbtn ${view === "ai" ? "active" : ""}`} onClick={() => setView("ai")} aria-label="Blackbird AI">AI</button>
       </nav>
     </main>
   );

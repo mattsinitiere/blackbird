@@ -580,16 +580,15 @@ a:focus-visible {
   background: var(--accent);
   color: var(--on-accent);
 }
-.navbtn.navbtn-icon {
-  flex: 0 0 auto;
-  min-width: 64px;
-  display: inline-flex;
+.brand-home {
+  flex: 1;
+  display: flex;
   align-items: center;
-  justify-content: center;
-  color: var(--accent);
-}
-.navbtn.navbtn-icon.active {
-  color: var(--on-accent);
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: pointer;
+  text-align: left;
 }
 
 /* ---------- modal ---------- */
