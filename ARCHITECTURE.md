@@ -12,8 +12,8 @@ Blackbird is a private dart-scoring web app for a league of friends. One
 person scores each game on a phone; everyone's stats, Elo ratings, and
 history live in a shared Postgres database and are visible to the whole
 group instantly. Over time it has grown live TV scoreboards, per-round
-cricket MPR analytics, an AI insights tab, seasonal easter eggs, and an
-experimental theming system.
+cricket MPR analytics, seasonal easter eggs, a public marketing site with
+invite-only sign-up, and one design system shared by site and app.
 
 Guiding constraints that explain most design decisions:
 
@@ -43,8 +43,11 @@ Guiding constraints that explain most design decisions:
 ┌──────────────────────────▼─────────────────────────────────┐
 │ Vercel — Next.js 14 (App Router)                           │
 │                                                            │
-│  app/page.js            the entire interactive app (client)│
+│  app/(marketing)        public site: /, /privacy, /terms   │
+│  app/(auth)             /login /signup /reset (+ accept)   │
+│  app/app/page.js        the entire interactive app (client)│
 │  app/tv/page.js         TV scoreboard (client, no auth)    │
+│  app/api/signup/route.js     server-only: invite sign-up   │
 │  app/api/insights/route.js   server-only: AI provider call │
 │  app/api/admin/route.js      server-only: service-role ops │
 │                                                            │
@@ -62,25 +65,44 @@ Guiding constraints that explain most design decisions:
 └────────────────────────────────────────────────────────────┘
 ```
 
-Two API routes exist **only** to keep secrets off the client: the AI
-provider key (`/api/insights`) and the Supabase `service_role` key
-(`/api/admin`). Everything else — scoring, stats, Elo, casting — runs in
-the browser against Supabase with the public anon key + RLS.
+Three API routes exist **only** to keep secrets off the client: the AI
+provider key (`/api/insights`), and the Supabase `service_role` key
+(`/api/admin`, and `/api/signup` which also holds the invite code).
+Everything else — scoring, stats, Elo, casting — runs in the browser
+against Supabase with the public anon key + RLS.
 
 ## 3. Repository layout
 
 ```
 app/
-  layout.js               root layout, metadata, viewport
-  page.js                 THE app: splash gate, auth gate, view router,
-                          live-game state, TV-cast publisher
-  globals.css             the entire design system (tokens, components,
-                          themes, skins, TV styles, seasonal effects)
+  layout.js               root layout, metadata, viewport, Figtree font
+  fonts.js, fonts/        next/font/local config + WOFF2 files
+  globals.css             the design system (tokens, light + dark themes,
+                          components, TV styles, seasonal effects)
+  (marketing)/layout.js   public-site frame: header, footer, forces light
+  (marketing)/page.js     the marketing home page (sections in
+                          components/marketing)
+  (marketing)/marketing.css  mk-prefixed port of the standalone site CSS
+  (marketing)/privacy, terms  draft legal pages
+  (auth)/…                /login, /signup, /signup/accept, /reset,
+                          /reset/confirm (server pages, client forms)
+  app/page.js             THE app: splash gate, auth guard (redirects to
+                          /login), view router, live-game state, TV-cast
+                          publisher
+  app/layout.js           noindex + service-worker registration
   tv/page.js              TV scoreboard page (standalone, no auth)
+  api/signup/route.js     invite-code check → Supabase admin invite email
   api/insights/route.js   AI call (verifies Supabase JWT first)
   api/admin/route.js      admin ops via service role (verifies admin email)
+  robots.js, sitemap.js   only / is indexable
 components/
-  Auth.js                 sign in / sign up
+  marketing/              MarketingHeader + AuthNav (session-aware), Hero,
+                          DotGrid, ProductPreview, Capabilities, Features,
+                          GameModes, TVSection/TVPreview/DartboardSvg,
+                          SetupFlow, FAQ, Closing, Footer, LegalPage
+  auth/                   AuthCard, SignInForm, SignUpForm (invite),
+                          ResetRequestForm, SetPasswordForm
+  RegisterSW.js           registers /sw.js in production
   Home.js                 dashboard: stat tiles, games/week chart, top 5
   Setup.js                game type + options + player picker
   PlayX01.js              X01 engine + UI (per-dart entry)
@@ -94,8 +116,8 @@ components/
   PlayerCard.js           canvas-rendered shareable stat card (PNG export)
   Matchup.js              Elo win-probability + head-to-head
   Insights.js             AI Q&A over pre-aggregated league stats
-  Account.js              display name, theme, accent, text size
-  Admin.js                user management, resets, theme lab
+  Account.js              display name, theme, text size, player colour
+  Admin.js                user management, resets
   LoadingScreen.js        splash: wordmark + dartboard spinner + occasions
   Charts.js               dependency-free SVG LineChart + BarChart
   DartBoard.js            SVG dartboard (highlights + hit markers)
@@ -116,10 +138,13 @@ lib/
   useBotTurn.js           hook that fires a bot's next dart on a timer
   drills.js               drill rules (Bob's 27, checkout, scoring)
   checkouts.js            out-chart + parseCheckout
-  skins.js                experimental skin registry + applier
   occasions.js            date-triggered splash flourishes
   prefs.js                font-scale preference
-  constants.js            targets, cricket values, Elo K, accents…
+  constants.js            targets, cricket values, Elo K, player colours…
+  useSession.js           shared session hook for public pages
+  authRedirect.js         safeNext(): same-site post-login redirects only
+  siteUrl.js              absolute origin for canonical/sitemap links
+  marketing/games.js      the nine game-mode blurbs
   prodigy/parser.js       Prodigy D9000W protocol parser (CRLF line
                           framing, Dart:/Reset:/Clarity:/Metadata:)
 packages/
@@ -163,13 +188,17 @@ hand-rolled. This is deliberate: no supply-chain surface, no bundle bloat.
    a "Setup needed" card renders instead (the supabase client is `null`).
 4. **Auth resolution**: `supabase.auth.getSession()` reads the persisted
    session from localStorage (no network on the happy path). No session →
-   `Auth.js` (sign in / sign up).
+   `router.replace("/login?next=/app")` (or `/` right after signing out).
+   The forms under `components/auth` sign in with `signInWithPassword`;
+   sign-up is invite-only (`/api/signup` → admin invite email →
+   `/signup/accept` sets the password); reset is
+   `resetPasswordForEmail` → `/reset/confirm`.
 5. **Preference application** (effect on `session`): reads
    `user.user_metadata` and applies
-   - `theme` → `data-theme` attribute (`light` default / `dark` / `glass`)
-   - `accent` → inline `--accent` CSS var (skipped when a skin is active)
+   - `theme` → `data-theme` attribute (`light` default / `dark`)
    - `fontScale` → `--fs` and `--fs-chrome` vars (content vs chrome scaling)
-   - `skin` → `data-skin` attribute (admin theme lab, §11)
+   The brand accent is fixed by the design system; an older `accent` or
+   `skin` value in metadata is ignored.
 6. **Data load**: `getPlayers()` + `getGameResults()` in parallel — the app
    loads **all** result rows and derives everything client-side (§7). The
    splash shows "loading…" until both resolve. A visibility-change listener
@@ -180,7 +209,8 @@ hand-rolled. This is deliberate: no supply-chain surface, no bundle bloat.
 8. **Render**: view state machine in `page.js` (`home`, `setup`, `playX01`,
    `playCricket`, `playBaseball`, `leaderboard`, `profile`, `matchup`,
    `insights`, `account`, `admin`) — plain `useState`, no router; the whole
-   app is one URL.
+   app is one URL, `/app`. The public site at `/` reads the same session
+   through `lib/useSession.js` to swap Sign In / Sign Up for Play.
 
 ## 5. Identity & authorization model
 
@@ -188,9 +218,15 @@ hand-rolled. This is deliberate: no supply-chain surface, no bundle bloat.
   are distinct: a player is just a name that appears in games; an account
   gets linked to a player by its `display_name`. Guests can be added as
   players without accounts (optionally `hidden` from standings).
-- **Per-user preferences** live in `user_metadata` (theme, accent,
-  fontScale, display_name, experimental `skin`) — updated via
-  `supabase.auth.updateUser`, no custom tables.
+- **Per-user preferences** live in `user_metadata` (theme, fontScale,
+  display_name, handle) — updated via `supabase.auth.updateUser`, no
+  custom tables.
+- **Sign-up is invite-only.** Supabase self-service sign-up is off; the
+  public form posts to `/api/signup`, which compares the code against
+  `SIGNUP_INVITE_CODE` in constant time and calls
+  `auth.admin.inviteUserByEmail` with the display name and handle. Any
+  authenticated account can still read the whole league (the RLS posture
+  below), which is why the door is a shared code rather than open.
 - **RLS posture** (see `supabase/schema.sql`): any *authenticated* account
   may read and insert players/game_results and update players (needed for
   Elo write-back). Nothing is deletable or rewritable via the anon key —
@@ -198,7 +234,7 @@ hand-rolled. This is deliberate: no supply-chain surface, no bundle bloat.
 - **Admin** = the single email in `ADMIN_EMAIL` (checked client-side for UI
   and re-verified server-side in `/api/admin`, which is the only holder of
   the service-role key). Admin can manage accounts, delete/hide players,
-  reset scores, and use the theme lab.
+  reset scores.
 - The **TV page requires no login**: it only listens to broadcast state
   keyed by a room code (§9's threat model: worst case, a guessed code sees
   a scoreboard).
@@ -408,19 +444,29 @@ chronologically to regenerate rows and ratings.
 
 Everything visual flows from CSS custom properties in `globals.css`:
 
-- **Tokens**: `--bg/--surface/--ink/--muted/--line/--accent/--red/--amber`,
-  radii, shadow, font stacks.
-- **Themes** (user-selectable in Account): `light` (default), `dark`,
-  `glass` (translucent iOS-style) via `data-theme`; accent color and text
-  scale (`--fs` for content, gentler `--fs-chrome` for shell) are
-  per-account too.
-- **Skins** (admin theme lab, `lib/skins.js` + `data-skin`): experimental
-  full-app looks — Anduril (near-black squared monochrome console), Airbnb
-  (white/coral, pill buttons, gradient CTA), Uber (black-and-white
-  Helvetica utility). A skin owns the complete palette + geometry, beats
-  the theme (equal specificity, later in the file), and releases the
-  inline accent override. Stored only in the picking account's
-  `user_metadata.skin`; selection reloads the page.
+- **Tokens**: `--bg/--surface/--surface-2/--ink/--ink-soft/--muted/
+  --line/--line-strong`, `--accent/--accent-hover/--accent-soft/
+  --accent-line/--on-accent/--accent-glow`, `--live/--live-soft` (the
+  current thrower — the one non-brand colour), `--red/--amber`,
+  `--radius/--radius-sm/--radius-xs`, `--shadow/--shadow-sm/--shadow-lift`,
+  font stacks built on `--font-figtree` from `next/font`.
+- **Themes** (user-selectable in Account) via `data-theme`: `light` is the
+  marketing site's palette (navy `#1b1942` on `#fcfcfd`); `dark` is
+  derived from its TV preview (lavender `#a9a3dc` on `#101419`, navy text
+  on filled controls). The public pages force light. Text scale (`--fs`
+  for content, gentler `--fs-chrome` for shell) is per-account. The accent
+  is not user-adjustable.
+- **Shape language** (from the website): 1px borders with soft shadows,
+  7px buttons and inputs, 10px cards and nav, weight-500 headings,
+  uppercase tracked labels. Selected states fill with the accent; the
+  player at the oche gets `.card.is-live` (green).
+- **Marketing CSS** lives apart in `app/(marketing)/marketing.css`: every
+  class is `mk-` prefixed and element rules are scoped with
+  `:where(.mk-root)` (zero extra specificity), so both stylesheets can be
+  loaded at once after client-side navigation without leaking.
+- **Logo**: `Logo` in `ui.js` renders the official SVGs from
+  `public/brand` (lockup, wordmark, icon) and CSS shows the colour or
+  white file per theme.
 - **Responsive**: one codebase, three classes — phones (base), ≥900 px
   (wider container, two-column profile charts, centered nav), TV (`.tv`
   scope, vw-scaled).
@@ -447,13 +493,30 @@ Requires a valid session token AND the caller's email to equal
 RLS) for account listing/updating/deleting, player delete/hide, score
 resets, and the legacy-match rebuild.
 
+### `/api/signup` (POST)
+
+Invite-only account creation. Takes `{code, email, displayName, handle}`,
+compares `code` with `SIGNUP_INVITE_CODE` in constant time (with a small
+per-instance attempt limit on top of Supabase's own auth rate limits),
+validates the handle with `lib/profile.js`, then calls
+`auth.admin.inviteUserByEmail` with the service-role key. The emailed
+link lands on `/signup/accept`, where the new player chooses a password;
+accepting the invite also confirms the address. An email that already
+has an account gets a 409. Supabase's own "Allow new users to sign up"
+stays off, so nothing bypasses the code.
+
 ## 13. Build, deploy, environments
 
 - `git push` to `main` → Vercel builds (`next build`) and deploys
   production; other branches get preview URLs automatically.
 - Runtime configuration is entirely env vars (see README table):
-  Supabase URL/anon key (public), AI provider/key/model and service-role
-  key (server-only). No `.env` in the repo.
+  Supabase URL/anon key (public), AI provider/key/model, service-role key
+  and `SIGNUP_INVITE_CODE` (server-only), optional `SITE_URL`. No `.env`
+  in the repo.
+- `next.config.mjs` sends a Content-Security-Policy (same-origin plus the
+  Supabase REST and Realtime hosts; `'unsafe-inline'` only where Next's
+  hydration scripts and React's style attributes require it), nosniff,
+  frame denial, referrer and permissions policies on every response.
 - The Supabase schema is applied once by pasting `supabase/schema.sql`
   into the SQL editor; day-to-day feature work needs no DB changes thanks
   to the JSONB stats design.
@@ -518,8 +581,6 @@ websockets — that gets a manual smoke test after deploy.
   `PRACTICE_ONLY` (`lib/practice.js`) and a metric in `computePractice`;
   publish its engine under `state` in `onProgress` and the generic TV
   view renders it.
-- **New skin**: add an entry in `lib/skins.js` and a `[data-skin="x"]`
-  block at the end of `globals.css`. Pure CSS.
 - **New seasonal occasion**: one date check in `lib/occasions.js`, one
   particle layer/CSS block in `LoadingScreen.js`/`globals.css`.
 - **Bigger items**: see [ROADMAP.md](ROADMAP.md).

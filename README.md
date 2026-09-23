@@ -98,9 +98,13 @@ localStorage — Postgres is the single source of truth.
   Elo, record, and key stats — auto-downloads on desktop and opens the
   share sheet on mobile.
 - **Admin panel**: the configured admin account can manage login accounts,
-  rename players, set or change anyone's @handle, hide/delete players,
-  reset scores, and try experimental full-app skins
-  (theme lab — applies only to the admin's own account).
+  rename players, set or change anyone's @handle, hide/delete players and
+  reset scores.
+- **Public website + invite-only sign-up**: `/` is the marketing page
+  (features, game modes, TV mode, FAQ) with Sign In / Sign Up in the
+  header; once signed in the header shows Play instead. Sign-up asks for
+  a shared invite code and sends a Supabase invite email; the app itself
+  lives at `/app`.
 - **Smooth animations**: buttons, cards, and navigation have spring-like
   transitions with press feedback across the entire UI.
 
@@ -119,9 +123,18 @@ theming, security — end to end.)*
 │  Vercel — Next.js 14         │
 │  (App Router, mostly client) │
 │                              │
-│  app/page.js  ── the whole   │
+│  app/(marketing)  ── public  │
+│    home page, /privacy,      │
+│    /terms                    │
+│  app/(auth)  ── /login,      │
+│    /signup, /reset (+accept/ │
+│    confirm)                  │
+│  app/app/page.js ── the      │
 │    single-page app: auth     │
-│    gate, views, live games   │
+│    guard, views, live games  │
+│                              │
+│  app/api/signup/route.js     │  server-only: checks the invite
+│    → Supabase admin invite   │  code, sends the invite email
 │                              │
 │  app/api/insights/route.js   │  server-only: holds the AI key,
 │    → OpenAI/Gemini/Groq/     │  verifies the caller's Supabase
@@ -143,7 +156,7 @@ theming, security — end to end.)*
 
 Key design points:
 
-- **The app is client-rendered.** `app/page.js` is one client component that
+- **The app is client-rendered.** `app/app/page.js` is one client component that
   swaps between views (Home, Setup, live game screens, Game Summary,
   Leaderboard, Profile, Matchup, Account, Admin). Live game state lives in React state and
   is checkpointed in-memory so you can navigate away and resume.
@@ -282,8 +295,10 @@ through the admin route with the service-role key.
 | `AI_PROVIDER` | server | `openai` (default), `gemini`, `groq`, or `anthropic` — only used by the retired `/api/insights` route |
 | `GEMINI_API_KEY` / `GROQ_API_KEY` / `OPENAI_API_KEY` / `ANTHROPIC_API_KEY` | server | key for the chosen provider |
 | `AI_MODEL` | server | optional model override |
-| `SUPABASE_SERVICE_ROLE_KEY` | server | required only for the Admin panel |
+| `SUPABASE_SERVICE_ROLE_KEY` | server | Admin panel and invite sign-up (`/api/signup`) |
 | `ADMIN_EMAIL` | server | account allowed to use the Admin panel |
+| `SIGNUP_INVITE_CODE` | server | the shared code the public Sign Up page asks for; unset = sign-up closed |
+| `SITE_URL` | server | optional absolute origin for emailed links, canonical URL and sitemap (defaults to the Vercel production host) |
 
 Server-side variables have no `NEXT_PUBLIC_` prefix, so they never reach the
 browser.
@@ -299,10 +314,19 @@ Push this repo to GitHub. Every later `git push` to `main` redeploys Vercel.
 3. Run `supabase/migration-add-color.sql`, `migration-add-auth-id.sql` and
    `migration-add-profile.sql` (player colors, account links, @handles).
 4. **Settings → API** → copy **Project URL** and the **anon public** key.
-5. **Authentication → Providers → Email**: enabled. Turn **OFF** "Confirm
-   email" so accounts work instantly on phones.
-6. After everyone has signed up, turn **OFF** "Allow new users to sign up" to
-   lock it to your group.
+5. **Authentication → Providers → Email**: enabled, with "Confirm email"
+   **ON**. New players arrive through an invite email, and accepting it
+   confirms the address in the same step.
+6. **Authentication → Settings**: keep "Allow new users to sign up" **OFF**.
+   The public Sign Up page does not call Supabase sign-up directly; it posts
+   to `/api/signup`, which checks `SIGNUP_INVITE_CODE` and sends an invite
+   through the admin API (needs `SUPABASE_SERVICE_ROLE_KEY`). Rotate the
+   code in Vercel to close the door.
+7. **Authentication → URL Configuration**: Site URL = your production URL.
+   Redirect URLs: `https://<your domain>/signup/accept`,
+   `https://<your domain>/reset/confirm`, `https://<your domain>/login`,
+   plus `http://localhost:3000/**` for local work. The invite and reset
+   email templates must keep `{{ .ConfirmationURL }}`.
 
 ## 3. Pick an AI provider (optional)
 
@@ -329,11 +353,15 @@ npm test                     # scoring-core + parser + conformance suite
 ## 5. Deploy to Vercel
 1. https://vercel.com → **Add New → Project** → import your repo.
 2. Add the environment variables from the table above (Settings →
-   Environment Variables). `SUPABASE_SERVICE_ROLE_KEY` is only needed if you
-   use the Admin panel.
+   Environment Variables). `SUPABASE_SERVICE_ROLE_KEY` powers the Admin
+   panel and invite sign-up; `SIGNUP_INVITE_CODE` is the code you hand out.
 3. **Deploy.** You get `https://….vercel.app`. Every `git push` redeploys.
-4. Supabase → **Authentication → URL Configuration** → set **Site URL** to
-   your Vercel URL (only needed if you left email confirmation on).
+4. Supabase → **Authentication → URL Configuration** → Site URL and the
+   redirect URLs from step 2.7 above, using your Vercel or custom domain.
+5. Vercel → **Settings → Deployment Protection**: production must be open
+   to the public, or attach a custom domain (custom domains are exempt).
+   The website, sign-in and TV pages return 403 to everyone else while
+   Vercel Authentication covers production.
 
 ## 6. On phones
 Open the Vercel URL, sign in. iPhone Safari → Share → **Add to Home Screen**;
@@ -365,14 +393,24 @@ app refreshes every time it regains focus.
 ## Project structure
 ```
 app/
-  layout.js               root layout + metadata
-  page.js                 the whole app: auth gate, views, live-game state
-  globals.css             design system (themes, cards, cricket table, nav)
+  layout.js               root layout, metadata, Figtree via next/font
+  fonts.js / fonts/       self-hosted Figtree (WOFF2, SIL OFL)
+  globals.css             design system (tokens, light/dark, cards, nav, TV)
+  (marketing)/            public site: / (page.js), /privacy, /terms,
+                          marketing.css (mk- prefixed port of the site CSS)
+  (auth)/                 /login, /signup, /signup/accept, /reset,
+                          /reset/confirm
+  app/page.js             the app: auth guard, views, live-game state
+  api/signup/route.js     invite-code check + Supabase admin invite
   api/insights/route.js   server-side AI call (secret key lives here)
   api/admin/route.js      admin actions via Supabase service role
   tv/page.js              TV scoreboard: code entry + live big-screen views
+  robots.js / sitemap.js  crawl rules: only / is indexable
 components/
-  Auth.js                 sign in / sign up
+  marketing/              header (session-aware), hero, product preview,
+                          game modes, TV mock + setup flow, FAQ, footer…
+  auth/                   sign in, invite sign-up, reset, set password
+  RegisterSW.js           registers the offline worker (production only)
   Home.js                 landing view: podium/list leaderboard + highlights
   Setup.js                game type, options, player picker (drag to reorder)
   PlayX01.js              X01 scorer (per-dart entry, checkout tracking, legs)
@@ -388,13 +426,13 @@ components/
   PlayerCard.js           shareable stat card (canvas export with avatar)
   Matchup.js              Elo win-probability predictor + head-to-head
   Insights.js             AI chat interface (retired from the nav; unused)
-  Account.js              profile settings, player color, theme, font scale
+  Account.js              profile settings, player color, theme, text size
   Admin.js                admin panel (accounts, players, resets)
   tv/TVScoreboard.js      big-screen live scoreboards for every game
   tv/TVSummary.js         big-screen end-of-game summary
   Charts.js               dependency-free SVG line + bar charts
   DartBoard.js            SVG dartboard with highlights/hits
-  ui.js                   shared UI: Logo, PlayerBadge, BackBar, Stat, Modal
+  ui.js                   shared UI: Logo (official SVGs), PlayerBadge, BackBar, Stat, Modal
 lib/
   supabase.js             Supabase client
   cast.js                 TV-cast transport (Realtime broadcast + local)

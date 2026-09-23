@@ -2,7 +2,7 @@
   "name": "blackbird-dart-scoring-system",
   "version": "1.6.0",
   "private": true,
-  "description": "Blackbird Dart Scoring System - score 501/301/701, Cricket (with live MPR + per-round marks), and Baseball with Supabase auth, persistent Postgres storage, leaderboards, an Elo matchup predictor, and AI insights.",
+  "description": "Blackbird Dart Scoring System - marketing site and scoring app in one Next.js deploy: nine game modes, bot opponents, practice drills, player stats and Elo, live TV scoreboards, Supabase auth with invite-only sign-up.",
   "scripts": {
     "dev": "next dev",
     "build": "next build",
