@@ -1,5 +1,7 @@
-const CACHE = "blackbird-v1";
-const PRECACHE = ["/", "/icon-192.png", "/icon-512.png"];
+const CACHE = "blackbird-v2";
+// the app shell is what must open offline; the public pages are always fresh
+const PRECACHE = ["/app", "/icon-192.png", "/icon-512.png"];
+const NEVER_CACHE = ["/api/", "/auth/", "/login", "/signup", "/reset"];
 
 self.addEventListener("install", (e) => {
   e.waitUntil(caches.open(CACHE).then((c) => c.addAll(PRECACHE)));
@@ -19,13 +21,13 @@ self.addEventListener("fetch", (e) => {
   const url = new URL(e.request.url);
 
   if (e.request.method !== "GET") return;
-  if (url.pathname.startsWith("/api/")) return;
-  if (url.pathname.startsWith("/auth/")) return;
+  if (url.origin !== self.location.origin) return;
+  if (NEVER_CACHE.some((p) => url.pathname.startsWith(p))) return;
 
   e.respondWith(
     fetch(e.request)
       .then((res) => {
-        if (res.ok && url.origin === self.location.origin) {
+        if (res.ok) {
           const clone = res.clone();
           caches.open(CACHE).then((c) => c.put(e.request, clone));
         }
