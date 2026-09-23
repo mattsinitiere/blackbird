@@ -322,7 +322,14 @@ Push this repo to GitHub. Every later `git push` to `main` redeploys Vercel.
    to `/api/signup`, which checks `SIGNUP_INVITE_CODE` and sends an invite
    through the admin API (needs `SUPABASE_SERVICE_ROLE_KEY`). Rotate the
    code in Vercel to close the door.
-7. **Authentication → URL Configuration**: Site URL = your production URL.
+7. **Authentication → Email Templates**: paste the branded templates from
+   `supabase/email-templates/` (invite, reset password, confirm signup).
+   Each email carries a one-tap link **and** a six-digit code; the code
+   works on any device at `/signup/accept` or `/reset/confirm`. For a sender
+   on your own domain and real sending volume, enable custom SMTP (see that
+   folder's README).
+8. **Authentication → URL Configuration**: Site URL = your production URL.
+   The email logo loads from `<Site URL>/brand/email-lockup.png`.
    Redirect URLs: `https://<your domain>/signup/accept`,
    `https://<your domain>/reset/confirm`, `https://<your domain>/login`,
    plus `http://localhost:3000/**` for local work. The invite and reset
@@ -358,7 +365,7 @@ npm test                     # scoring-core + parser + conformance suite
    panel and invite sign-up; `SIGNUP_INVITE_CODE` is the code you hand out.
 3. **Deploy.** You get `https://….vercel.app`. Every `git push` redeploys.
 4. Supabase → **Authentication → URL Configuration** → Site URL and the
-   redirect URLs from step 2.7 above, using your Vercel or custom domain.
+   redirect URLs from step 2.8 above, using your Vercel or custom domain.
 5. Vercel → **Settings → Deployment Protection**: production must be open
    to the public, or attach a custom domain (custom domains are exempt).
    The website, sign-in and TV pages return 403 to everyone else while

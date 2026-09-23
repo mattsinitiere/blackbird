@@ -14,7 +14,7 @@ import { buildSummary } from "@/lib/summary";
 import { isRankedMatch, splitResults, botLadder } from "@/lib/practice";
 import { botColors } from "@/lib/bots";
 import { rematchGame } from "@/lib/games";
-import { Logo, GearIcon, CastIcon, PlayerBadge, Modal, pressProps } from "@/components/ui";
+import { Logo, GearIcon, CastIcon, SparkleIcon, PlayerBadge, Modal, pressProps } from "@/components/ui";
 import Home from "@/components/Home";
 import Setup from "@/components/Setup";
 import PlayX01 from "@/components/PlayX01";
@@ -684,7 +684,9 @@ export default function Page() {
         <button className={`navbtn ${view === "setup" || view === "summary" || ALL_PLAY_VIEWS.includes(view) ? "active" : ""}`} onClick={goPlay}>Play{live ? " ●" : ""}</button>
         <button className={`navbtn ${["leaderboard", "profile", "records"].includes(view) ? "active" : ""}`} onClick={() => setView("leaderboard")}>Stats</button>
         <button className={`navbtn ${view === "matchup" ? "active" : ""}`} onClick={() => setView("matchup")}>Matchup</button>
-        <button className={`navbtn ${view === "ai" ? "active" : ""}`} onClick={() => setView("ai")}>AI</button>
+        <button className={`navbtn navbtn-icon ${view === "ai" ? "active" : ""}`} onClick={() => setView("ai")} aria-label="Blackbird AI" title="Blackbird AI">
+          <SparkleIcon />
+        </button>
       </nav>
     </main>
   );

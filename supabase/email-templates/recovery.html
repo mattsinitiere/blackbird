@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Reset your Blackbird password</title>
+</head>
+<body style="margin:0;padding:0;background:#f5f5f9;font-family:Figtree,-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#20202b;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f5f5f9;padding:32px 12px;">
+  <tr><td align="center">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:520px;background:#ffffff;border:1px solid #e5e8ed;border-radius:12px;">
+      <tr><td style="padding:28px 32px 8px;" align="left">
+        <img src="{{ .SiteURL }}/brand/email-lockup.png" width="210" height="60" alt="Blackbird Dart Scoring System" style="display:block;border:0;width:210px;height:auto;">
+      </td></tr>
+      <tr><td style="padding:16px 32px 0;">
+        <h1 style="margin:0 0 12px;font-size:24px;line-height:1.25;font-weight:500;letter-spacing:-0.5px;color:#20202b;">Reset your Blackbird password</h1>
+        <p style="margin:0 0 10px;font-size:16px;line-height:1.6;color:#20202b;">Hi there,</p>
+        <p style="margin:0 0 20px;font-size:16px;line-height:1.6;color:#545b6b;">We got a request to reset the password for this account. Use the button or the code below to choose a new one.</p>
+        <table role="presentation" cellpadding="0" cellspacing="0" style="margin:0 0 24px;">
+          <tr><td style="background:#1b1942;border-radius:7px;">
+            <a href="{{ .ConfirmationURL }}" style="display:inline-block;padding:13px 24px;font-size:15px;font-weight:600;color:#ffffff;text-decoration:none;border-radius:7px;">Choose a new password</a>
+          </td></tr>
+        </table>
+        <p style="margin:0 0 8px;font-size:14px;line-height:1.6;color:#545b6b;">On a different device? Use this code instead of the link:</p>
+        <table role="presentation" cellpadding="0" cellspacing="0" style="margin:0 0 24px;">
+          <tr><td style="background:#f5f5f9;border:1px solid #e5e8ed;border-radius:7px;padding:12px 20px;font-size:28px;font-weight:600;letter-spacing:0.35em;color:#1b1942;font-variant-numeric:tabular-nums;">{{ .Token }}</td></tr>
+        </table>
+        <p style="margin:0 0 24px;font-size:14px;line-height:1.6;color:#545b6b;">Enter it at <a href="{{ .SiteURL }}/reset/confirm" style="color:#1b1942;">{{ .SiteURL }}/reset/confirm</a>. The link and the code are good for a short while and can be used once.</p>
+      </td></tr>
+      <tr><td style="padding:0 32px 28px;">
+        <hr style="border:0;border-top:1px solid #e5e8ed;margin:0 0 16px;">
+        <p style="margin:0;font-size:12px;line-height:1.6;color:#666e7c;">If you didn't ask for a reset you can ignore this email. Your password stays the same until a new one is saved.</p>
+        <p style="margin:8px 0 0;font-size:12px;line-height:1.6;color:#666e7c;">&copy; 2026 Sinitiere Labs &middot; <a href="{{ .SiteURL }}" style="color:#666e7c;">Blackbird</a></p>
+      </td></tr>
+    </table>
+  </td></tr>
+</table>
+</body>
+</html>

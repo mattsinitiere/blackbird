@@ -580,6 +580,17 @@ a:focus-visible {
   background: var(--accent);
   color: var(--on-accent);
 }
+.navbtn.navbtn-icon {
+  flex: 0 0 auto;
+  min-width: 64px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--accent);
+}
+.navbtn.navbtn-icon.active {
+  color: var(--on-accent);
+}
 
 /* ---------- modal ---------- */
 .modal-backdrop {

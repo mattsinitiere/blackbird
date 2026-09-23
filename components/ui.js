@@ -240,6 +240,25 @@ export function pressProps(onActivate) {
   };
 }
 
+/** Four-point sparkle for the Blackbird AI tab. */
+export function SparkleIcon({ size = "1.35em" }) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="currentColor"
+      stroke="none"
+      aria-hidden="true"
+      style={{ display: "block", flex: "none" }}
+    >
+      <path d="M12 2.5c.4 4.9 2.6 7.1 7.5 7.5-4.9.4-7.1 2.6-7.5 7.5-.4-4.9-2.6-7.1-7.5-7.5 4.9-.4 7.1-2.6 7.5-7.5z" />
+      <path d="M5 14.5c.2 2.3 1.2 3.3 3.5 3.5-2.3.2-3.3 1.2-3.5 3.5-.2-2.3-1.2-3.3-3.5-3.5 2.3-.2 3.3-1.2 3.5-3.5z" />
+      <path d="M18.5 15c.15 1.7.85 2.4 2.5 2.5-1.65.15-2.35.85-2.5 2.5-.15-1.65-.85-2.35-2.5-2.5 1.65-.1 2.35-.8 2.5-2.5z" />
+    </svg>
+  );
+}
+
 export function UndoIcon({ size = "1em" }) {
   return (
     <svg
