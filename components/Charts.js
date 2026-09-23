@@ -1,8 +1,9 @@
 /**
  * Tiny dependency-free SVG line chart. Scales to container width via viewBox.
- * data: [{ x:number, y:number, date?:string }]
+ * data: [{ x:number, y:number, date?:string, label?:string }]
+ * textScale enlarges the axis text where the chart is drawn narrow.
  */
-export function LineChart({ data, color = "var(--accent)", unit = "", decimals = 0 }) {
+export function LineChart({ data, color = "var(--accent)", unit = "", decimals = 0, textScale = 1 }) {
   if (!data || data.length === 0) {
     return (
       <p className="tag" style={{ textTransform: "none", letterSpacing: 0, margin: "6px 0" }}>
@@ -13,7 +14,7 @@ export function LineChart({ data, color = "var(--accent)", unit = "", decimals =
 
   const W = 600;
   const H = 230;
-  const padL = 46;
+  const padL = Math.round(46 * textScale);
   const padR = 16;
   const padT = 16;
   const padB = 30;
@@ -83,7 +84,7 @@ export function LineChart({ data, color = "var(--accent)", unit = "", decimals =
             stroke="var(--line)"
             strokeWidth="1"
           />
-          <text x={padL - 8} y={sy(t) + 4} textAnchor="end" fontSize="13" fill="var(--ink-soft)">
+          <text x={padL - 8} y={sy(t) + 4} textAnchor="end" fontSize={13 * textScale} fill="var(--ink-soft)">
             {fmt(t)}
             {unit}
           </text>
@@ -98,12 +99,12 @@ export function LineChart({ data, color = "var(--accent)", unit = "", decimals =
         <circle key={i} cx={sx(d.x)} cy={sy(d.y)} r={data.length > 24 ? 0 : 3} fill={color} />
       ))}
 
-      <text x={padL} y={H - 8} textAnchor="start" fontSize="12" fill="var(--ink-soft)">
-        {fmtDate(data[0].date)}
+      <text x={padL} y={H - 8} textAnchor="start" fontSize={12 * textScale} fill="var(--ink-soft)">
+        {data[0].label || fmtDate(data[0].date)}
       </text>
       {data.length > 1 && (
-        <text x={W - padR} y={H - 8} textAnchor="end" fontSize="12" fill="var(--ink-soft)">
-          {fmtDate(data[data.length - 1].date)}
+        <text x={W - padR} y={H - 8} textAnchor="end" fontSize={12 * textScale} fill="var(--ink-soft)">
+          {data[data.length - 1].label || fmtDate(data[data.length - 1].date)}
         </text>
       )}
     </svg>
@@ -112,10 +113,11 @@ export function LineChart({ data, color = "var(--accent)", unit = "", decimals =
 
 /**
  * Matching dependency-free SVG bar chart. Same frame/axis style as
- * LineChart. data: [{ x:number, y:number, date?:string }] — one bar per
- * point (used on Home for games per week over the last 3 months).
+ * LineChart. data: [{ x:number, y:number, date?:string, label?:string }] —
+ * one bar per point (used on Home for games per week over the last 3
+ * months, and by Blackbird AI for comparisons, where each bar has a label).
  */
-export function BarChart({ data, color = "var(--accent)" }) {
+export function BarChart({ data, color = "var(--accent)", textScale = 1 }) {
   if (!data || data.length === 0 || !data.some((d) => d.y > 0)) {
     return (
       <p className="tag" style={{ textTransform: "none", letterSpacing: 0, margin: "6px 0" }}>
@@ -126,7 +128,7 @@ export function BarChart({ data, color = "var(--accent)" }) {
 
   const W = 600;
   const H = 200;
-  const padL = 40;
+  const padL = Math.round(40 * textScale);
   const padR = 12;
   const padT = 14;
   const padB = 28;
@@ -138,6 +140,8 @@ export function BarChart({ data, color = "var(--accent)" }) {
 
   const mid = Math.round(maxY / 2);
   const ticks = mid > 0 && mid < maxY ? [maxY, mid, 0] : [maxY, 0];
+  // short labels under each bar (opponent names, months) when there is room
+  const labelled = data.length <= 12 && data.every((d) => d.label);
 
   const fmtDate = (iso) => {
     if (!iso) return "";
@@ -153,7 +157,7 @@ export function BarChart({ data, color = "var(--accent)" }) {
       {ticks.map((t, i) => (
         <g key={i}>
           <line x1={padL} x2={W - padR} y1={sy(t)} y2={sy(t)} stroke="var(--line)" strokeWidth="1" />
-          <text x={padL - 8} y={sy(t) + 4} textAnchor="end" fontSize="13" fill="var(--ink-soft)">
+          <text x={padL - 8} y={sy(t) + 4} textAnchor="end" fontSize={13 * textScale} fill="var(--ink-soft)">
             {t}
           </text>
         </g>
@@ -167,13 +171,23 @@ export function BarChart({ data, color = "var(--accent)" }) {
         return <rect key={i} x={x} y={y} width={bw} height={h} rx="3" fill={color} />;
       })}
 
-      <text x={padL} y={H - 8} textAnchor="start" fontSize="12" fill="var(--ink-soft)">
-        {fmtDate(data[0].date)}
-      </text>
-      {data.length > 1 && (
-        <text x={W - padR} y={H - 8} textAnchor="end" fontSize="12" fill="var(--ink-soft)">
-          {fmtDate(data[data.length - 1].date)}
-        </text>
+      {labelled ? (
+        data.map((d, i) => (
+          <text key={`l${i}`} x={padL + i * slot + slot / 2} y={H - 8} textAnchor="middle" fontSize={12 * textScale} fill="var(--ink-soft)">
+            {d.label}
+          </text>
+        ))
+      ) : (
+        <>
+          <text x={padL} y={H - 8} textAnchor="start" fontSize={12 * textScale} fill="var(--ink-soft)">
+            {fmtDate(data[0].date) || data[0].label || ""}
+          </text>
+          {data.length > 1 && (
+            <text x={W - padR} y={H - 8} textAnchor="end" fontSize={12 * textScale} fill="var(--ink-soft)">
+              {fmtDate(data[data.length - 1].date) || data[data.length - 1].label || ""}
+            </text>
+          )}
+        </>
       )}
     </svg>
   );

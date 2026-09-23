@@ -1,4 +1,5 @@
 import { createClient } from "@supabase/supabase-js";
+import { extractChart, resolveChart } from "@/lib/aiChart";
 
 // Runs on the server only. The AI key lives in a non-public env var and is
 // never sent to the browser.
@@ -20,19 +21,38 @@ function jsonRes(obj, status = 200) {
 }
 
 // The personal Blackbird AI tab: the signed-in player's own games, form,
-// records, practice and rivalries, with follow-up questions in context.
+// records, trends, practice and rivalries, with follow-up questions in
+// context and an optional chart drawn from the app's own series.
 function buildPersonalPrompt(summary, question, history) {
   const name = summary?.me?.name || "the player";
+  const seriesKeys = Object.keys(summary?.series || {});
   const system =
     `You are Blackbird AI, ${name}'s personal darts coach inside the Blackbird scoring app. ` +
     "You are talking directly to that player: say 'you' and 'your', never their name in the third person. " +
-    "Use ONLY the JSON data provided; never invent stats, games, opponents or dates. " +
-    "The data has the player's career stats, current Elo and rank, recent competitive games with " +
-    "per-game stats (darts, points, highest turn, checkout, marks, MPR, runs), head-to-head records " +
-    "against each opponent, and the practice log (drills, bot ladder, solo X01). " +
-    "Be specific and cite the real numbers. Be encouraging but honest: point out what is going well " +
+    "Use ONLY the JSON data provided; never invent stats, games, opponents or dates.\n\n" +
+    "THE DATA: `me` has career totals per game type (X01, cricket, baseball and the party games). " +
+    "`checkouts` has finishing stats replayed from every X01 dart log: checkout chances (darts thrown at a finish), " +
+    "checkouts hit, checkout percentage, by range, highest and average finish, busts. " +
+    "`scoring` has 100+, 140+ and 180 visits and per-dart-position averages. " +
+    "`form` compares the last 10 games with the 10 before, and the last 30 days with the 30 before. " +
+    "`trends.byMonth` and `trends.byWeek` are period tables (3-dart average, first-9, checkout %, win %, MPR, tons). " +
+    "`series` holds the same trends as named point lists {x, y, date, label, n} where n is the sample size. " +
+    "`headToHead` is the record against each opponent, `recentGames` one row per recent game with its derived numbers, " +
+    "and `practice` the drill log, solo X01 sessions and the bot ladder. " +
+    "Checkout % is checkouts hit divided by checkout chances; a chance is one dart thrown while the remaining score could be finished with that dart. " +
+    "When asked about a trend, read the monthly or weekly tables and quote the actual values and sample sizes; " +
+    "with fewer than about 10 chances in a period say the sample is small. Null means no data for that period.\n\n" +
+    "CHARTS: when a chart would help (any trend, comparison or 'show me' request, or when the player asks for a chart or graph), " +
+    "append exactly one fenced block after your prose, on its own lines:\n" +
+    "```chart\n{\"type\": \"line\", \"title\": \"Checkout % by month\", \"unit\": \"%\", \"decimals\": 1, \"series\": \"checkoutPctByMonth\"}\n```\n" +
+    "`series` must be one of these keys from the data: " + (seriesKeys.length ? seriesKeys.join(", ") : "(none yet)") + ". " +
+    "Add \"last\": N to show only the most recent N points. Use type \"bar\" for counts or comparisons. " +
+    "For a comparison you computed yourself (for example wins per opponent), use \"points\": [{\"label\": \"Sam\", \"y\": 4}] instead of series, with numbers taken straight from the data. " +
+    "Never put a chart block in the middle of a sentence, never send more than one, and never draw a chart of data that is not there. " +
+    "The chart is rendered by the app, so do not describe it as attached or say you cannot draw.\n\n" +
+    "STYLE: be specific and cite the real numbers. Be encouraging but honest: point out what is going well " +
     "and what to work on, with concrete practice suggestions when asked. " +
-    "Write plain prose, no markdown headers or bullet symbols. A few sentences for simple questions, " +
+    "Write plain prose, no markdown headers, bold or bullet symbols. A few sentences for simple questions, " +
     "up to about 350 words for a detailed one. Finish your thought. " +
     "Format dates naturally like 'Tuesday, October 9th' and never as raw ISO timestamps. " +
     "If the data cannot answer the question, say so plainly and suggest what to log next.";
@@ -102,7 +122,7 @@ async function callAI({ system, user, turns = [] }) {
           systemInstruction: { parts: [{ text: system }] },
           contents: chat.map((m) => ({ role: m.role === "assistant" ? "model" : "user", parts: [{ text: m.content }] })),
           generationConfig: {
-            maxOutputTokens: 2048,
+            maxOutputTokens: 3000,
             temperature: 0.8,
             // gemini-2.5 spends output tokens on internal "thinking", which can
             // truncate the visible answer; turn it off so all tokens go to text
@@ -133,7 +153,7 @@ async function callAI({ system, user, turns = [] }) {
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` },
       body: JSON.stringify({
         model,
-        max_tokens: 2000,
+        max_tokens: 3000,
         temperature: 0.8,
         messages: [{ role: "system", content: system }, ...chat],
       }),
@@ -155,7 +175,7 @@ async function callAI({ system, user, turns = [] }) {
       },
       body: JSON.stringify({
         model,
-        max_tokens: 2000,
+        max_tokens: 3000,
         system,
         messages: chat,
       }),
@@ -195,9 +215,14 @@ export async function POST(req) {
 
   try {
     const prompt = kind === "me" ? buildPersonalPrompt(summary, question, history) : buildPrompt(kind, summary, question);
-    const { text, model } = await callAI(prompt);
-    if (!text.trim()) return jsonRes({ error: "The model returned an empty response." }, 502);
-    return jsonRes({ text, model });
+    const { text: raw, model } = await callAI(prompt);
+    if (!raw.trim()) return jsonRes({ error: "The model returned an empty response." }, 502);
+    if (kind !== "me") return jsonRes({ text: raw, model });
+    // the personal coach may append one chart block; resolve it against the
+    // player's own series so the numbers drawn are the app's, not the model's
+    const { text, chart } = extractChart(raw);
+    const resolved = chart ? resolveChart(chart, summary.series) : null;
+    return jsonRes({ text: text || raw, chart: resolved, model });
   } catch (e) {
     const msg = e.message || "AI request failed";
     // a missing provider key is a setup problem, not a user problem

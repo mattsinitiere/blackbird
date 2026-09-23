@@ -116,7 +116,8 @@ components/
   PlayerCard.js           canvas-rendered shareable stat card (PNG export)
   Matchup.js              Elo win-probability + head-to-head
   BlackbirdAI.js          Blackbird AI tab: personal chat over the player's own
-                          games, practice log and head-to-heads (/api/insights)
+                          games, trends, practice log and head-to-heads, with
+                          charts drawn from the summary's series (/api/insights)
   Account.js              display name, theme, text size, player colour
   Admin.js                user management, resets
   LoadingScreen.js        splash: wordmark + dartboard spinner + occasions
@@ -128,6 +129,9 @@ lib/
   supabase.js             client factory (null when unconfigured)
   db.js                   data access: players + game_results
   stats.js                Elo math, career stats, timelines, H2H, replay
+  x01log.js               X01 dart-log replay: checkout chances/hits, busts, tons
+  aiSummary.js            buildMySummary: what Blackbird AI reads (see §12)
+  aiChart.js              extractChart / resolveChart: the chart block protocol
   cast.js                 TV-cast transport (Realtime + local test mode)
   darts.js                shared dart/mark formatting
   practice.js             isRankedMatch, buildResultRows, splitResults,
@@ -482,13 +486,33 @@ Everything visual flows from CSS custom properties in `globals.css`:
 
 The only AI touchpoint. The client pre-aggregates a compact summary (never
 raw rows) and sends `{kind, summary, question?, history?}` with the caller's
-Supabase access token. `kind: "me"` is the Blackbird AI tab: the player's
-own stats, recent games, head-to-heads and practice log, plus the last few
-chat turns so follow-ups keep context. The older `league|player|matchup|
-custom` kinds remain for tooling. The route verifies the
-token server-side, builds a prompt, and dispatches on `AI_PROVIDER`:
-Gemini (default) / Groq / OpenAI / Anthropic, each with a default model
-and key from non-public env vars. Response: `{text, model}`.
+Supabase access token. `kind: "me"` is the Blackbird AI tab. Its summary is
+built by `lib/aiSummary.js` from the rows the app already holds:
+
+- `me`: career totals per game type (from `computeStats`).
+- `checkouts` and `scoring`: replayed from every X01 dart log with
+  `lib/x01log.js`, which walks the saved `darts` array under the same rules
+  as `PlayX01` to count checkout chances (darts thrown while the remaining
+  score could be finished with that dart), checkouts hit, busts and
+  100+/140+/180 visits. The app never stored these, so they are derived at
+  read time; rows without a log count finishes but not chances.
+- `form` (last 10 vs previous 10 games, last 30 vs previous 30 days),
+  `trends.byMonth` / `trends.byWeek` tables, and `series`: named point
+  lists (`checkoutPctByMonth`, `x01AvgByGame`, `eloByGame`, ...) the model
+  can quote or chart by key.
+- `headToHead`, `recentGames` (one derived row per game, no dart logs) and
+  the practice log.
+
+The last few chat turns ride along so follow-ups keep context. The prompt
+tells the model it may append one fenced ```` ```chart ```` block naming a
+series key (or ad-hoc `points`); the route strips it with
+`lib/aiChart.js`, resolves it against the summary's own series so the
+numbers drawn are the app's, and returns `{text, chart, model}`. The chat
+renders `chart` with the same `LineChart`/`BarChart` as the Profile page.
+The older `league|player|matchup|custom` kinds remain for tooling. The
+route verifies the token server-side, builds a prompt, and dispatches on
+`AI_PROVIDER`: Gemini / Groq / OpenAI / Anthropic, each with a default
+model and key from non-public env vars.
 
 ### `/api/admin` (POST)
 

@@ -167,7 +167,7 @@ Key design points:
   stats, timelines, and head-to-head records from the raw `game_results` rows
   on every load — there are no denormalized aggregate tables to migrate.
 - **Two server routes exist only to protect secrets**: the AI key
-  (`/api/insights`, kept for the retired AI chat tab) and the Supabase
+  (`/api/insights`, behind the Blackbird AI tab) and the Supabase
   service-role key (`/api/admin`). Both verify the caller's Supabase session
   token first.
 
@@ -337,9 +337,14 @@ Push this repo to GitHub. Every later `git push` to `main` redeploys Vercel.
 
 ## 3. Pick an AI provider (for the Blackbird AI tab)
 
-The **AI** tab in the bottom nav is a chat about the signed-in player's own
-games: form, records, rivals and practice. It needs one provider key on the
-server; without one the tab shows "Blackbird AI isn't switched on yet".
+The sparkle tab in the bottom nav is a chat about the signed-in player's own
+games: form, checkouts, records, rivals, trends and practice. Every X01 dart
+log is replayed in the browser (`lib/x01log.js`) so the coach can see
+checkout chances, checkout percentage, busts and 100+/140+/180 visits, and
+`lib/aiSummary.js` adds monthly and weekly trend tables. Ask for a chart
+("chart my checkout % by month") and the reply comes back with one drawn by
+the app from its own numbers. It needs one provider key on the server;
+without one the tab shows "Blackbird AI isn't switched on yet".
 
 | Provider | Cost | Get a key | Default model |
 |----------|------|-----------|---------------|
@@ -396,7 +401,9 @@ app refreshes every time it regains focus.
   no per-round breakdown, and their MPR was counted under the old
   every-hit-counts rule.
 - AI insights reflect only the stats in your database; with few games they're
-  thin.
+  thin. Checkout percentage needs the per-game dart log, so games recorded
+  before dart logging (and the earlier legs of a best-of match, whose log
+  only covers the final leg) count finishes but not chances.
 
 ## Project structure
 ```
@@ -433,7 +440,7 @@ components/
   Profile.js              player page: trend charts + game history
   PlayerCard.js           shareable stat card (canvas export with avatar)
   Matchup.js              Elo win-probability predictor + head-to-head
-  BlackbirdAI.js          Blackbird AI tab: chat about your own games
+  BlackbirdAI.js          Blackbird AI tab: chat about your own games, with charts
   Account.js              profile settings, player color, theme, text size
   Admin.js                admin panel (accounts, players, resets)
   tv/TVScoreboard.js      big-screen live scoreboards for every game
@@ -457,6 +464,9 @@ lib/
   games.js                rematch + killer-number helpers
   db.js                   data access (players, game_results)
   stats.js                Elo math, career stats, timelines, head-to-head
+  x01log.js               replays an X01 dart log: checkout chances, busts, tons
+  aiSummary.js            the player summary Blackbird AI reads (totals, trends, series)
+  aiChart.js              the chart block protocol between the model and the chat
   constants.js            targets, cricket values, Elo constants, player colors
   prefs.js                font-scale preference
   prodigy/parser.js       Prodigy D9000W board protocol parser

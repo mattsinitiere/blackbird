@@ -1407,6 +1407,22 @@ label.check input {
   color: var(--on-accent);
   border-bottom-right-radius: var(--radius-xs);
 }
+.ai-bubble.has-chart {
+  width: 100%;
+  max-width: 560px;
+}
+.ai-chart {
+  margin: 10px 0 2px;
+  padding-top: 10px;
+  border-top: 1px solid var(--line);
+  white-space: normal;
+}
+.ai-chart-title {
+  font-size: calc(13px * var(--fs));
+  font-weight: 600;
+  color: var(--ink-soft);
+  margin-bottom: 4px;
+}
 .ai-row.is-error .ai-bubble {
   background: var(--red-soft);
   border-color: var(--red);

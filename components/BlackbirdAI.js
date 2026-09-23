@@ -1,80 +1,31 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { supabase } from "@/lib/supabase";
-import { headToHead } from "@/lib/stats";
-import { computePractice } from "@/lib/practice";
-import { BASE_ELO } from "@/lib/constants";
+import { buildMySummary } from "@/lib/aiSummary";
+import { LineChart, BarChart } from "./Charts";
 import { PlayerBadge } from "./ui";
 
 const SUGGESTIONS = [
   "How's my form lately?",
+  "How is my checkout percentage trending?",
+  "Chart my 3-dart average by month",
   "What should I practice this week?",
   "Who is my toughest rival?",
   "What was my best game this month?",
-  "How is my checkout percentage trending?",
 ];
 
-function round(n, d = 0) {
-  const f = Math.pow(10, d);
-  return Math.round((n || 0) * f) / f;
-}
-
-/** Everything the coach may cite about one player, compact enough to send each turn. */
-function buildMySummary({ me, stats, elo, results, practice, players }) {
-  const s = stats[me];
-  const ranked = players
-    .filter((p) => !p.hidden && stats[p.username])
-    .map((p) => p.username)
-    .sort((a, b) => (elo[b] || BASE_ELO) - (elo[a] || BASE_ELO));
-  const mine = (results || [])
-    .filter((r) => r.username === me && r.result !== "practice")
-    .sort((a, b) => new Date(a.completedAt) - new Date(b.completedAt));
-  const opponents = {};
-  for (const r of mine) for (const o of r.opponents || []) opponents[o] = true;
-  const rivals = Object.keys(opponents).map((o) => {
-    const h = headToHead(results, me, o);
-    return { opponent: o, wins: h.aw, losses: h.bw, games: h.n, opponentElo: Math.round(elo[o] || BASE_ELO) };
-  });
-  const recent = mine.slice(-60).map((r) => ({
-    date: r.completedAt,
-    game: r.gameType,
-    config: r.config,
-    result: r.result,
-    winner: r.winner,
-    opponents: r.opponents,
-    stats: r.stats,
-  }));
-  const pr = computePractice(practice || [], me);
-  const drills = Object.fromEntries(
-    Object.entries(pr.drills).map(([k, d]) => [k, { label: d.label, sessions: d.count, personalBest: d.pb ? { value: d.pb.value, date: d.pb.date } : null }])
+/** A chart the coach attached to a reply, drawn with the app's own charts. */
+function AIChart({ chart }) {
+  if (!chart || !Array.isArray(chart.points) || !chart.points.length) return null;
+  return (
+    <figure className="ai-chart">
+      {chart.title && <figcaption className="ai-chart-title">{chart.title}</figcaption>}
+      {chart.type === "bar" ? (
+        <BarChart data={chart.points} color={chart.color} textScale={1.3} />
+      ) : (
+        <LineChart data={chart.points} color={chart.color} unit={chart.unit} decimals={chart.decimals} textScale={1.3} />
+      )}
+    </figure>
   );
-  return {
-    me: s
-      ? {
-          name: me,
-          elo: Math.round(elo[me] || BASE_ELO),
-          rank: ranked.indexOf(me) + 1,
-          leagueSize: ranked.length,
-          games: s.games,
-          wins: s.wins,
-          winPct: round(s.winPct),
-          currentWinStreak: s.winStreak,
-          bestWinStreak: s.bestStreak,
-          x01: { games: s.x01.games, wins: s.x01.wins, threeDartAvg: round(s.x01.threeDartAvg, 1), first9Avg: round(s.x01.first9Avg, 1), highestTurn: s.x01.highestTurn, highestCheckout: s.x01.highestCheckout, bestLeg: s.x01.bestLeg },
-          cricket: { games: s.cricket.games, wins: s.cricket.wins, mpr: round(s.cricket.mpr, 2), bestMpr: round(s.cricket.bestMpr, 2) },
-          baseball: { games: s.baseball.games, wins: s.baseball.wins, runs: s.baseball.runs },
-        }
-      : { name: me, games: 0 },
-    headToHead: rivals,
-    recentGames: recent,
-    practice: {
-      sessions: pr.count,
-      thisWeek: pr.thisWeek,
-      drills,
-      soloX01: { sessions: pr.x01.count, bestAvg: pr.x01.bestAvg },
-      bots: { games: pr.bots.games, wins: pr.bots.wins, ladderLevel: pr.bots.level },
-    },
-    today: new Date().toISOString(),
-  };
 }
 
 function SendIcon() {
@@ -97,9 +48,11 @@ function BirdAvatar() {
 
 /**
  * Blackbird AI: a chat about the signed-in player's own games. Every turn
- * sends the player's summary plus the last few messages to /api/insights,
- * so follow-up questions keep their context. The conversation is kept per
- * account in localStorage so it survives a reload.
+ * sends the player's summary (lib/aiSummary.js) plus the last few messages
+ * to /api/insights, so follow-up questions keep their context. A reply may
+ * carry a chart resolved from the summary's own series (lib/aiChart.js).
+ * The conversation is kept per account in localStorage so it survives a
+ * reload.
  */
 export default function BlackbirdAI({ me, userId, stats, elo, results, practice, players, playerColors }) {
   const storageKey = `bb-ai-chat-${userId || "anon"}`;
@@ -151,7 +104,8 @@ export default function BlackbirdAI({ me, userId, stats, elo, results, practice,
       });
       const body = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(body.error || "Request failed");
-      setMessages((prev) => [...prev, { id: id + 1, role: "assistant", content: body.text }]);
+      const chart = body.chart && Array.isArray(body.chart.points) && body.chart.points.length ? body.chart : null;
+      setMessages((prev) => [...prev, { id: id + 1, role: "assistant", content: body.text, chart }]);
     } catch (e) {
       setMessages((prev) => [...prev, { id: id + 1, role: "assistant", content: e.message || "Something went wrong.", error: true }]);
     } finally {
@@ -193,7 +147,7 @@ export default function BlackbirdAI({ me, userId, stats, elo, results, practice,
           <div className="ai-empty">
             {hasData ? (
               <p className="subtle" style={{ margin: "0 0 16px" }}>
-                Ask about your form, records, rivals or practice. Answers use only your logged games.
+                Ask about your form, checkouts, records, rivals or practice, or ask for a chart. Answers use only your logged games.
               </p>
             ) : (
               <p className="subtle" style={{ margin: "0 0 16px" }}>
@@ -213,7 +167,10 @@ export default function BlackbirdAI({ me, userId, stats, elo, results, practice,
         {messages.map((m) => (
           <div key={m.id} className={`ai-row ${m.role === "user" ? "is-user" : "is-bot"}${m.error ? " is-error" : ""}`}>
             {m.role === "assistant" ? <BirdAvatar /> : <PlayerBadge username={me || "?"} color={playerColors?.[me]} size={26} showName={false} />}
-            <div className="ai-bubble">{m.content}</div>
+            <div className={`ai-bubble${m.chart ? " has-chart" : ""}`}>
+              <div className="ai-text">{m.content}</div>
+              {m.chart && <AIChart chart={m.chart} />}
+            </div>
           </div>
         ))}
 
