@@ -115,7 +115,8 @@ components/
   Profile.js              player page: trend charts, per-game history
   PlayerCard.js           canvas-rendered shareable stat card (PNG export)
   Matchup.js              Elo win-probability + head-to-head
-  Insights.js             AI Q&A over pre-aggregated league stats
+  BlackbirdAI.js          Blackbird AI tab: personal chat over the player's own
+                          games, practice log and head-to-heads (/api/insights)
   Account.js              display name, theme, text size, player colour
   Admin.js                user management, resets
   LoadingScreen.js        splash: wordmark + dartboard spinner + occasions
@@ -479,9 +480,12 @@ Everything visual flows from CSS custom properties in `globals.css`:
 
 ### `/api/insights` (POST)
 
-The only AI touchpoint. The client pre-aggregates a compact league summary
-(never raw rows), sends `{kind: league|player|matchup|custom, summary,
-question?}` with the caller's Supabase access token. The route verifies the
+The only AI touchpoint. The client pre-aggregates a compact summary (never
+raw rows) and sends `{kind, summary, question?, history?}` with the caller's
+Supabase access token. `kind: "me"` is the Blackbird AI tab: the player's
+own stats, recent games, head-to-heads and practice log, plus the last few
+chat turns so follow-ups keep context. The older `league|player|matchup|
+custom` kinds remain for tooling. The route verifies the
 token server-side, builds a prompt, and dispatches on `AI_PROVIDER`:
 Gemini (default) / Groq / OpenAI / Anthropic, each with a default model
 and key from non-public env vars. Response: `{text, model}`.

@@ -19,6 +19,35 @@ function jsonRes(obj, status = 200) {
   });
 }
 
+// The personal Blackbird AI tab: the signed-in player's own games, form,
+// records, practice and rivalries, with follow-up questions in context.
+function buildPersonalPrompt(summary, question, history) {
+  const name = summary?.me?.name || "the player";
+  const system =
+    `You are Blackbird AI, ${name}'s personal darts coach inside the Blackbird scoring app. ` +
+    "You are talking directly to that player: say 'you' and 'your', never their name in the third person. " +
+    "Use ONLY the JSON data provided; never invent stats, games, opponents or dates. " +
+    "The data has the player's career stats, current Elo and rank, recent competitive games with " +
+    "per-game stats (darts, points, highest turn, checkout, marks, MPR, runs), head-to-head records " +
+    "against each opponent, and the practice log (drills, bot ladder, solo X01). " +
+    "Be specific and cite the real numbers. Be encouraging but honest: point out what is going well " +
+    "and what to work on, with concrete practice suggestions when asked. " +
+    "Write plain prose, no markdown headers or bullet symbols. A few sentences for simple questions, " +
+    "up to about 350 words for a detailed one. Finish your thought. " +
+    "Format dates naturally like 'Tuesday, October 9th' and never as raw ISO timestamps. " +
+    "If the data cannot answer the question, say so plainly and suggest what to log next.";
+  const turns = (Array.isArray(history) ? history : [])
+    .filter((m) => m && (m.role === "user" || m.role === "assistant") && typeof m.content === "string")
+    .slice(-10)
+    .map((m) => ({ role: m.role, content: m.content.slice(0, 1200) }));
+  const q = (question || "").toString().slice(0, 600).trim();
+  const user = `QUESTION: ${q}
+
+DATA:
+${JSON.stringify(summary)}`;
+  return { system, user, turns };
+}
+
 function buildPrompt(kind, summary, question) {
   const system =
     "You are a sharp darts analyst for a small friendly league. " +
@@ -55,9 +84,11 @@ function buildPrompt(kind, summary, question) {
   return { system, user: `${task}\n\nDATA:\n${JSON.stringify(summary)}` };
 }
 
-async function callAI({ system, user }) {
+async function callAI({ system, user, turns = [] }) {
   const provider = (process.env.AI_PROVIDER || "openai").toLowerCase();
   const model = process.env.AI_MODEL || DEFAULT_MODELS[provider];
+  // earlier turns of the conversation, oldest first, then the new question
+  const chat = [...turns, { role: "user", content: user }];
 
   if (provider === "gemini") {
     const key = process.env.GEMINI_API_KEY;
@@ -69,7 +100,7 @@ async function callAI({ system, user }) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           systemInstruction: { parts: [{ text: system }] },
-          contents: [{ role: "user", parts: [{ text: user }] }],
+          contents: chat.map((m) => ({ role: m.role === "assistant" ? "model" : "user", parts: [{ text: m.content }] })),
           generationConfig: {
             maxOutputTokens: 2048,
             temperature: 0.8,
@@ -104,10 +135,7 @@ async function callAI({ system, user }) {
         model,
         max_tokens: 2000,
         temperature: 0.8,
-        messages: [
-          { role: "system", content: system },
-          { role: "user", content: user },
-        ],
+        messages: [{ role: "system", content: system }, ...chat],
       }),
     });
     const data = await r.json();
@@ -129,7 +157,7 @@ async function callAI({ system, user }) {
         model,
         max_tokens: 2000,
         system,
-        messages: [{ role: "user", content: user }],
+        messages: chat,
       }),
     });
     const data = await r.json();
@@ -159,18 +187,21 @@ export async function POST(req) {
   } catch {
     return jsonRes({ error: "Bad request" }, 400);
   }
-  const { kind, summary, question } = body || {};
+  const { kind, summary, question, history } = body || {};
   if (!summary) return jsonRes({ error: "Missing data" }, 400);
-  if (kind === "custom" && !(question || "").toString().trim()) {
+  if ((kind === "custom" || kind === "me") && !(question || "").toString().trim()) {
     return jsonRes({ error: "Type a question first." }, 400);
   }
 
   try {
-    const { system, user } = buildPrompt(kind, summary, question);
-    const { text, model } = await callAI({ system, user });
+    const prompt = kind === "me" ? buildPersonalPrompt(summary, question, history) : buildPrompt(kind, summary, question);
+    const { text, model } = await callAI(prompt);
     if (!text.trim()) return jsonRes({ error: "The model returned an empty response." }, 502);
     return jsonRes({ text, model });
   } catch (e) {
-    return jsonRes({ error: e.message || "AI request failed" }, 500);
+    const msg = e.message || "AI request failed";
+    // a missing provider key is a setup problem, not a user problem
+    const setup = /_API_KEY is not set|Unknown AI_PROVIDER/.test(msg);
+    return jsonRes({ error: setup ? "Blackbird AI isn't switched on yet. The site owner needs to add an AI provider key." : msg }, setup ? 503 : 500);
   }
 }

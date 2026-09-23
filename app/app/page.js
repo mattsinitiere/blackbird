@@ -39,6 +39,7 @@ import Account from "@/components/Account";
 import Admin from "@/components/Admin";
 import LoadingScreen from "@/components/LoadingScreen";
 import GameSummary from "@/components/GameSummary";
+import BlackbirdAI from "@/components/BlackbirdAI";
 
 const PLAY_VIEWS = { x01: "playX01", cricket: "playCricket", baseball: "playBaseball", aroundTheClock: "playAroundTheClock", killer: "playKiller", shanghai: "playShanghai", halveit: "playHalveIt", gotcha: "playGotcha", tictactoe: "playTicTacToe", bobs27: "playBobs27", checkoutDrill: "playCheckoutDrill", scoringDrill: "playScoringDrill" };
 
@@ -636,6 +637,9 @@ export default function Page() {
         {view === "matchup" && (
           <Matchup usernames={visibleUsernames} elo={elo} results={results} stats={stats} back={() => setView("home")} playerColors={playerColors} />
         )}
+        {view === "ai" && (
+          <BlackbirdAI me={myName} userId={session.user?.id} stats={stats} elo={elo} results={results} practice={practice} players={players} playerColors={playerColors} />
+        )}
         {view === "account" && (
           <Account
             user={session.user}
@@ -680,6 +684,7 @@ export default function Page() {
         <button className={`navbtn ${view === "setup" || view === "summary" || ALL_PLAY_VIEWS.includes(view) ? "active" : ""}`} onClick={goPlay}>Play{live ? " ●" : ""}</button>
         <button className={`navbtn ${["leaderboard", "profile", "records"].includes(view) ? "active" : ""}`} onClick={() => setView("leaderboard")}>Stats</button>
         <button className={`navbtn ${view === "matchup" ? "active" : ""}`} onClick={() => setView("matchup")}>Matchup</button>
+        <button className={`navbtn ${view === "ai" ? "active" : ""}`} onClick={() => setView("ai")}>AI</button>
       </nav>
     </main>
   );

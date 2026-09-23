@@ -292,7 +292,7 @@ through the admin route with the service-role key.
 |----------|-------|---------|
 | `NEXT_PUBLIC_SUPABASE_URL` | client | Supabase project URL |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | client | Supabase anon key (public by design; RLS protects data) |
-| `AI_PROVIDER` | server | `openai` (default), `gemini`, `groq`, or `anthropic` — only used by the retired `/api/insights` route |
+| `AI_PROVIDER` | server | `openai` (default), `gemini`, `groq`, or `anthropic` — powers the Blackbird AI tab via `/api/insights` |
 | `GEMINI_API_KEY` / `GROQ_API_KEY` / `OPENAI_API_KEY` / `ANTHROPIC_API_KEY` | server | key for the chosen provider |
 | `AI_MODEL` | server | optional model override |
 | `SUPABASE_SERVICE_ROLE_KEY` | server | Admin panel and invite sign-up (`/api/signup`) |
@@ -328,10 +328,11 @@ Push this repo to GitHub. Every later `git push` to `main` redeploys Vercel.
    plus `http://localhost:3000/**` for local work. The invite and reset
    email templates must keep `{{ .ConfirmationURL }}`.
 
-## 3. Pick an AI provider (optional)
+## 3. Pick an AI provider (for the Blackbird AI tab)
 
-The AI chat tab has been retired from the UI, but the `/api/insights`
-route is still deployed. Skip this step unless you plan to bring it back.
+The **AI** tab in the bottom nav is a chat about the signed-in player's own
+games: form, records, rivals and practice. It needs one provider key on the
+server; without one the tab shows "Blackbird AI isn't switched on yet".
 
 | Provider | Cost | Get a key | Default model |
 |----------|------|-----------|---------------|
@@ -425,7 +426,7 @@ components/
   Profile.js              player page: trend charts + game history
   PlayerCard.js           shareable stat card (canvas export with avatar)
   Matchup.js              Elo win-probability predictor + head-to-head
-  Insights.js             AI chat interface (retired from the nav; unused)
+  BlackbirdAI.js          Blackbird AI tab: chat about your own games
   Account.js              profile settings, player color, theme, text size
   Admin.js                admin panel (accounts, players, resets)
   tv/TVScoreboard.js      big-screen live scoreboards for every game
