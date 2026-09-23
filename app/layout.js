@@ -1,7 +1,9 @@
 import "./globals.css";
 import { figtree } from "./fonts";
+import { siteUrl } from "@/lib/siteUrl";
 
 export const metadata = {
+  metadataBase: new URL(siteUrl()),
   title: {
     default: "Blackbird — Every Dart Counts.",
     template: "%s — Blackbird",
