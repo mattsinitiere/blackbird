@@ -142,6 +142,14 @@ select {
   gap: 10px;
   margin-bottom: 22px;
 }
+/* A home-screen install opens the app, never the website: keep the public
+   page invisible in standalone mode until StandaloneRedirect has decided. */
+@media (display-mode: standalone) {
+  html:not([data-standalone-checked]) .mk-root {
+    visibility: hidden;
+  }
+}
+
 /* official logo: colour on light, white on dark (see Logo in components/ui.js) */
 .logo {
   display: inline-flex;

@@ -2,6 +2,7 @@ import "./marketing.css";
 import MarketingHeader from "@/components/marketing/MarketingHeader";
 import Footer from "@/components/marketing/Footer";
 import ForceLight from "@/components/marketing/ForceLight";
+import StandaloneRedirect from "@/components/StandaloneRedirect";
 
 export default function MarketingLayout({ children }) {
   return (
@@ -13,6 +14,7 @@ export default function MarketingLayout({ children }) {
       {children}
       <Footer />
       <ForceLight />
+      <StandaloneRedirect />
     </div>
   );
 }
