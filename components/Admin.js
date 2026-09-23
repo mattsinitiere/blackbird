@@ -1,7 +1,6 @@
 import { useEffect, useState, useCallback, useRef } from "react";
 import { BackBar, PlayerBadge } from "./ui";
 import { supabase } from "@/lib/supabase";
-import { SKINS } from "@/lib/skins";
 import { defaultPlayerColor } from "@/lib/constants";
 import { normalizeHandle, validateHandle } from "@/lib/profile";
 
@@ -88,26 +87,6 @@ export default function Admin({ stats, addPlayer, back, refreshData, playerColor
   const [renameTo, setRenameTo] = useState("");
   const [handling, setHandling] = useState(null); // username whose @handle is being edited
   const [handleTo, setHandleTo] = useState("");
-  const [skin, setSkin] = useState("default");
-
-  useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => {
-      setSkin(data?.session?.user?.user_metadata?.skin || "default");
-    });
-  }, []);
-
-  const pickSkin = async (id) => {
-    setBusy("skin");
-    try {
-      const { error } = await supabase.auth.updateUser({ data: { skin: id } });
-      if (error) throw error;
-      window.location.reload();
-    } catch (e) {
-      setErr(e.message || "Could not switch theme.");
-      setBusy("");
-    }
-  };
-
   const load = useCallback(async () => {
     setErr("");
     try {
@@ -339,26 +318,6 @@ export default function Admin({ stats, addPlayer, back, refreshData, playerColor
           <p className="subtle" style={{ margin: 0, color: "var(--accent)" }}>{ok}</p>
         </div>
       )}
-
-      <div className="card mb-12">
-        <div className="tag" style={{ marginBottom: 4 }}>Theme lab</div>
-        <p className="subtle" style={{ marginTop: 4 }}>
-          Applies only to your account. Reloads the app when selected.
-        </p>
-        <div className="grid-4">
-          {SKINS.map((s) => (
-            <button
-              key={s.id}
-              className={`btn ${skin === s.id ? "btn-toggle-on" : ""}`}
-              disabled={busy === "skin" || skin === s.id}
-              title={s.blurb}
-              onClick={() => pickSkin(s.id)}
-            >
-              {s.label}
-            </button>
-          ))}
-        </div>
-      </div>
 
       {!data ? (
         <div className="card">

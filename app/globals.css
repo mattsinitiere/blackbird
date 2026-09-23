@@ -1,24 +1,27 @@
-@font-face {
-  font-family: "Figtree";
-  src: url("/fonts/Figtree.ttf") format("truetype");
-  font-weight: 300 900;
-  font-style: normal;
-  font-display: swap;
-}
+/* Blackbird design system. Light is the marketing site's palette; dark is
+   derived from its TV preview. The brand accent is navy (lavender on dark)
+   and is not user-adjustable. Figtree is served by next/font (app/fonts.js). */
 
-:root {
-  --bg: #f4f3ee;
+:root,
+[data-theme="light"] {
+  --bg: #fcfcfd;
   --surface: #ffffff;
-  --surface-2: #fbfaf6;
-  --ink: #181a1f;
-  --ink-soft: #565a63;
-  --muted: #9095a0;
-  --line: #e6e4dd;
-  --line-strong: #d6d3c9;
+  --surface-2: #f5f5f9;
+  --ink: #20202b;
+  --ink-soft: #545b6b;
+  --muted: #666e7c;
+  --line: #e5e8ed;
+  --line-strong: #dce0e7;
 
-  --accent: #0e8c5a;
-  --accent-hover: color-mix(in srgb, var(--accent) 85%, #000);
-  --accent-soft: color-mix(in srgb, var(--accent) 13%, transparent);
+  --accent: #1b1942;
+  --accent-hover: #302c65;
+  --accent-soft: #eeedf5;
+  --accent-line: #cbc9dd;
+  --on-accent: #ffffff;
+  --accent-glow: #8177c5;
+  /* "current thrower" state, the one non-brand colour in the system */
+  --live: #16835c;
+  --live-soft: #edf8f3;
   --red: #e03a3a;
   --red-soft: color-mix(in srgb, var(--red) 12%, transparent);
   --amber: #e0962b;
@@ -28,39 +31,61 @@
   --fs: 1;
   --fs-chrome: 1;
 
-  --radius: 18px;
-  --radius-sm: 12px;
-  --shadow: 0 1px 2px rgba(0, 0, 0, 0.06), 0 10px 30px rgba(0, 0, 0, 0.08);
+  --radius: 10px;
+  --radius-sm: 7px;
+  --radius-xs: 5px;
+  --shadow: 0 8px 24px -18px rgba(27, 25, 66, 0.25);
+  --shadow-sm: 0 2px 3px rgba(18, 59, 147, 0.08);
+  --shadow-lift: 0 14px 30px -18px rgba(27, 25, 66, 0.27);
 
-  --font-display: "Figtree";
-  --font-body: "Figtree";
-  --font-display-stack: var(--font-display), ui-sans-serif, system-ui, sans-serif;
-  --font-body-stack: var(--font-body), ui-sans-serif, system-ui, sans-serif;
+  --font-display: var(--font-figtree);
+  --font-body: var(--font-figtree);
+  --font-display-stack: var(--font-display), "Figtree", ui-sans-serif, system-ui, sans-serif;
+  --font-body-stack: var(--font-body), "Figtree", ui-sans-serif, system-ui, sans-serif;
 }
 
 [data-theme="dark"] {
-  --bg: #0f1216;
-  --surface: #171b21;
-  --surface-2: #1d222a;
-  --ink: #eef1f5;
-  --ink-soft: #aab2bd;
-  --muted: #7b828d;
-  --line: #2a2f37;
-  --line-strong: #3a414b;
-  --shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 10px 30px rgba(0, 0, 0, 0.45);
+  --bg: #101419;
+  --surface: #181d23;
+  --surface-2: #1f252c;
+  --ink: #edf2f7;
+  --ink-soft: #b8c0cb;
+  --muted: #939da9;
+  --line: #2c333d;
+  --line-strong: #3a424d;
+
+  --accent: #a9a3dc;
+  --accent-hover: #bfbae8;
+  --accent-soft: rgba(169, 163, 220, 0.14);
+  --accent-line: rgba(169, 163, 220, 0.45);
+  --on-accent: #1b1942;
+  --live: #059669;
+  --live-soft: #102520;
+  --red: #ef5a5a;
+  --amber: #e6a23c;
+
+  --shadow: 0 8px 24px -18px rgba(0, 0, 0, 0.6);
+  --shadow-sm: 0 2px 3px rgba(0, 0, 0, 0.4);
+  --shadow-lift: 0 14px 30px -18px rgba(0, 0, 0, 0.7);
 }
 
 * {
   box-sizing: border-box;
 }
 
+html {
+  scroll-behavior: smooth;
+  scroll-padding-top: 88px;
+}
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+}
 html,
 body {
   margin: 0;
   padding: 0;
-  height: 100%;
-  overflow: hidden;
-  overscroll-behavior: none;
   background: var(--bg);
   color: var(--ink);
   font-family: var(--font-body-stack);
@@ -79,19 +104,15 @@ select {
 
 .app {
   min-height: 100vh;
-  height: 100%;
-  overflow-y: auto;
-  -webkit-overflow-scrolling: touch;
-  background:
-    radial-gradient(60% 40% at 100% 0%, rgba(14, 140, 90, 0.05), transparent 70%),
-    radial-gradient(50% 35% at 0% 100%, rgba(224, 58, 58, 0.04), transparent 70%),
-    var(--bg);
+  min-height: 100svh;
+  background: var(--bg);
 }
 .app.shell {
   height: 100vh;
   height: 100svh;
   min-height: 0;
   overflow: hidden;
+  overscroll-behavior: none;
   display: flex;
   flex-direction: column;
 }
@@ -121,37 +142,52 @@ select {
   gap: 10px;
   margin-bottom: 22px;
 }
-.brand-title {
-  font-family: var(--font-display-stack);
-  font-weight: 800;
-  font-size: calc(30px * var(--fs-chrome));
-  line-height: 1;
-  letter-spacing: -0.02em;
+/* official logo: colour on light, white on dark (see Logo in components/ui.js) */
+.logo {
+  display: inline-flex;
+  flex: none;
+  line-height: 0;
+}
+.logo img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+.logo .logo-white {
+  display: none;
+}
+[data-theme="dark"] .logo .logo-color {
+  display: none;
+}
+[data-theme="dark"] .logo .logo-white {
+  display: block;
 }
 
 /* ---------- text helpers ---------- */
 .display {
   font-family: var(--font-display-stack);
-  font-weight: 700;
-  letter-spacing: -0.01em;
+  font-weight: 600;
+  letter-spacing: -0.02em;
 }
 .num {
   font-family: var(--font-display-stack);
   font-variant-numeric: tabular-nums;
-  font-weight: 700;
-  letter-spacing: -0.01em;
+  font-weight: 600;
+  letter-spacing: -0.02em;
 }
 .tag {
   font-size: calc(11px * var(--fs-chrome));
-  font-weight: 700;
-  letter-spacing: 0.07em;
+  font-weight: 500;
+  letter-spacing: 0.1em;
   text-transform: uppercase;
   color: var(--muted);
 }
 .section-title {
   font-family: var(--font-display-stack);
-  font-weight: 700;
-  font-size: calc(15px * var(--fs));
+  font-weight: 500;
+  font-size: calc(18px * var(--fs));
+  letter-spacing: -0.5px;
   margin: 0 0 12px;
 }
 .subtle {
@@ -162,10 +198,15 @@ select {
 /* ---------- cards ---------- */
 .card {
   background: var(--surface);
-  border: 1px solid transparent;
+  border: 1px solid var(--line);
   border-radius: var(--radius);
   padding: 18px;
   box-shadow: var(--shadow);
+}
+/* the player whose turn it is */
+.card.is-live {
+  border-color: var(--live);
+  background: var(--live-soft);
 }
 .card.pad-sm {
   padding: 14px;
@@ -176,16 +217,19 @@ select {
 }
 .clickable:hover {
   transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08), 0 12px 36px rgba(0, 0, 0, 0.1);
+  box-shadow: var(--shadow-lift);
 }
 /* keyboard focus ring for anything activatable */
 .btn:focus-visible,
 .chip:focus-visible,
 .navbtn:focus-visible,
 .clickable:focus-visible,
-.podium-col:focus-visible {
+.podium-col:focus-visible,
+.input:focus-visible,
+.select:focus-visible,
+a:focus-visible {
   outline: 2px solid var(--accent);
-  outline-offset: 2px;
+  outline-offset: 3px;
 }
 .podium-col,
 .clickable {
@@ -240,17 +284,23 @@ select {
   border: 1px solid var(--line-strong);
   background: var(--surface);
   color: var(--ink);
-  padding: 11px 18px;
-  border-radius: 999px;
+  min-height: 44px;
+  padding: 10px 18px;
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-sm);
   cursor: pointer;
-  transition: background 0.15s ease, transform 0.1s ease, border-color 0.15s, box-shadow 0.15s;
+  transition: background 0.2s ease, transform 0.2s ease, border-color 0.15s, box-shadow 0.15s;
 }
 .btn:hover {
   background: var(--surface-2);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  transform: translateY(-1px);
 }
 .btn:active {
-  transform: scale(0.97);
+  transform: none;
+}
+.btn.btn-sm {
+  min-height: 37px;
+  padding: 7px 15px;
 }
 .btn:disabled {
   opacity: 0.45;
@@ -259,7 +309,7 @@ select {
 .btn-primary {
   background: var(--accent);
   border-color: var(--accent);
-  color: #fff;
+  color: var(--on-accent);
 }
 .btn-primary:hover {
   background: var(--accent-hover);
@@ -282,7 +332,7 @@ select {
 .btn-toggle-on {
   background: var(--accent);
   border-color: var(--accent);
-  color: #fff;
+  color: var(--on-accent);
 }
 
 /* ---------- chips / keypad ---------- */
@@ -290,19 +340,23 @@ select {
   font-family: var(--font-display-stack);
   font-weight: 600;
   font-size: calc(18px * var(--fs));
-  background: var(--surface-2);
+  background: var(--surface);
   border: 1px solid var(--line);
   color: var(--ink);
-  border-radius: 14px;
+  border-radius: var(--radius-sm);
   padding: 13px 0;
   text-align: center;
   cursor: pointer;
   transition: background 0.15s, transform 0.1s, border-color 0.15s, box-shadow 0.15s;
 }
 .chip:hover {
-  background: var(--line);
-  border-color: var(--line-strong);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  background: var(--surface-2);
+  border-color: var(--accent);
+}
+.chip.on {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--on-accent);
 }
 .chip:active {
   transform: scale(0.96);
@@ -322,14 +376,14 @@ select {
   width: 100%;
   margin-top: 8px;
   background: transparent;
-  border: 1.5px solid var(--ink-soft);
+  border: 1px solid var(--line-strong);
   color: var(--ink);
   font-size: calc(14px * var(--fs));
   padding: 10px 0;
 }
 .chip-undo:hover {
   background: var(--surface-2);
-  border-color: var(--ink);
+  border-color: var(--accent);
 }
 .chip-undo:disabled {
   opacity: 0.35;
@@ -351,7 +405,7 @@ select {
 .input:focus,
 .select:focus {
   border-color: var(--accent);
-  box-shadow: 0 0 0 4px var(--accent-soft);
+  box-shadow: 0 0 0 3px var(--accent-soft);
 }
 .select {
   -webkit-appearance: none;
@@ -428,8 +482,8 @@ select {
 
 /* ---------- stat tiles ---------- */
 .stat {
-  background: var(--surface-2);
-  border: 1px solid transparent;
+  background: var(--surface);
+  border: 1px solid var(--line);
   border-radius: var(--radius);
   padding: 16px;
   text-align: center;
@@ -437,12 +491,15 @@ select {
 }
 .stat .num {
   font-size: calc(26px * var(--fs));
+  font-weight: 500;
+  letter-spacing: -1px;
+  color: var(--accent);
 }
 .mini {
   text-align: center;
   padding: 10px 8px;
-  background: var(--surface-2);
-  border: 1px solid transparent;
+  background: var(--surface);
+  border: 1px solid var(--line);
   border-radius: var(--radius-sm);
 }
 .mini .num {
@@ -453,10 +510,10 @@ select {
 .bar {
   flex: 1;
   height: 16px;
-  border-radius: 999px;
+  border-radius: var(--radius-xs);
   overflow: hidden;
   display: flex;
-  border: 1px solid transparent;
+  border: 1px solid var(--line);
   background: var(--surface-2);
 }
 
@@ -479,7 +536,7 @@ select {
   text-align: center;
 }
 .cricket-table tr.active {
-  background: var(--accent-soft);
+  background: var(--live-soft);
 }
 
 /* ---------- bottom nav ---------- */
@@ -492,10 +549,10 @@ select {
   margin: 8px auto;
   margin-bottom: calc(8px + env(safe-area-inset-bottom, 0px));
   background: var(--surface);
-  border: 1px solid transparent;
-  border-radius: 999px;
-  padding: 6px;
-  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.12);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 5px;
+  box-shadow: var(--shadow);
   z-index: 30;
 }
 .navbtn {
@@ -503,24 +560,24 @@ select {
   border: none;
   background: none;
   color: var(--ink-soft);
-  font-weight: 700;
+  font-weight: 600;
   font-size: calc(13px * var(--fs-chrome));
-  letter-spacing: 0.03em;
+  letter-spacing: 0;
   padding: 13px 4px;
-  border-radius: 999px;
+  border-radius: var(--radius-sm);
   cursor: pointer;
   transition: background 0.15s, color 0.15s;
 }
 .navbtn.active {
   background: var(--accent);
-  color: #fff;
+  color: var(--on-accent);
 }
 
 /* ---------- modal ---------- */
 .modal-backdrop {
   position: fixed;
   inset: 0;
-  background: rgba(24, 26, 31, 0.45);
+  background: rgba(27, 25, 66, 0.45);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -529,11 +586,12 @@ select {
 }
 .modal {
   background: var(--surface);
-  border-radius: 24px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
   padding: 24px;
   max-width: 360px;
   width: 100%;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.25);
+  box-shadow: var(--shadow-lift);
 }
 
 /* ---------- animation ---------- */
@@ -590,11 +648,8 @@ label.check input {
   text-align: center;
 }
 .load-title {
-  font-family: var(--font-display-stack);
-  font-weight: 800;
-  font-size: calc(40px * var(--fs-chrome));
-  line-height: 1.1;
-  letter-spacing: -0.02em;
+  display: flex;
+  justify-content: center;
   color: var(--ink);
   animation: load-up 0.5s ease both;
 }
@@ -702,11 +757,13 @@ label.check input {
   gap: 1.2vw;
 }
 .tv-title {
-  font-family: var(--font-display-stack);
-  font-weight: 800;
-  font-size: clamp(40px, 7vw, 120px);
-  line-height: 1.05;
-  letter-spacing: -0.02em;
+  display: flex;
+  justify-content: center;
+}
+.tv-title .logo {
+  width: min(60vw, 720px);
+  height: auto;
+  aspect-ratio: 3769.755 / 1072.743;
 }
 .tv-sub {
   text-transform: uppercase;
@@ -731,7 +788,7 @@ label.check input {
   background: var(--surface);
   color: var(--ink);
   border: 2px solid var(--line-strong);
-  border-radius: 14px;
+  border-radius: var(--radius-sm);
   padding: 0.35em 0.1em 0.35em 0.45em;
   outline: none;
 }
@@ -743,10 +800,10 @@ label.check input {
   font-size: clamp(18px, 2.2vw, 36px);
   font-weight: 700;
   padding: 0.5em 1.2em;
-  border-radius: 14px;
+  border-radius: var(--radius-sm);
   border: none;
   background: var(--accent);
-  color: #fff;
+  color: var(--on-accent);
   cursor: pointer;
 }
 .tv-btn:disabled {
@@ -799,7 +856,7 @@ label.check input {
   text-align: center;
 }
 .tv-table tr.active {
-  background: var(--accent-soft);
+  background: var(--live-soft);
 }
 .tv-name {
   text-align: left !important;
@@ -821,13 +878,13 @@ label.check input {
 .tv-x01-card {
   background: var(--surface);
   border: 0.25vw solid var(--line);
-  border-radius: 24px;
+  border-radius: var(--radius);
   padding: 2vw;
   text-align: center;
 }
 .tv-x01-card.active {
-  border-color: var(--accent);
-  background: var(--accent-soft);
+  border-color: var(--live);
+  background: var(--live-soft);
 }
 .tv-x01-name {
   font-weight: 800;
@@ -981,7 +1038,7 @@ label.check input {
   text-align: center;
   min-width: 14vw;
   padding: 1vw 1.6vw;
-  border-radius: 18px;
+  border-radius: var(--radius);
   background: var(--surface);
   border: 0.2vw solid var(--line);
 }
@@ -1004,7 +1061,7 @@ label.check input {
   background: none;
   border: 1px solid var(--line-strong);
   color: var(--muted);
-  border-radius: 10px;
+  border-radius: var(--radius-sm);
   padding: 0.3em 0.9em;
   font-size: clamp(12px, 1.4vw, 22px);
   letter-spacing: 0.12em;
@@ -1036,283 +1093,6 @@ label.check input {
 }
 .tv-scoreonly .tv-x01-sub {
   font-size: clamp(16px, 2vw, 40px);
-}
-
-/* ============ experimental skins (admin theme lab) ============
-   Full-app looks selectable from the admin panel, stored per-account.
-   Each skin owns the complete palette + component geometry, overriding
-   whatever data-theme is active. Kept last in the file so equal-
-   specificity rules win. */
-
-/* --- Anduril: defense-console. Near-black, squared, monochrome. --- */
-[data-skin="anduril"] {
-  --bg: #08090b;
-  --surface: #0e1114;
-  --surface-2: #14181d;
-  --ink: #e9edf1;
-  --ink-soft: #9aa4ad;
-  --muted: #5f6870;
-  --line: #22282e;
-  --line-strong: #39424a;
-  --accent: #e9edf1;
-  --accent-hover: #c4ccd3;
-  --accent-soft: rgba(233, 237, 241, 0.08);
-  --red: #ff4d3d;
-  --amber: #ffb000;
-  --radius: 2px;
-  --radius-sm: 2px;
-  --shadow: none;
-}
-[data-skin="anduril"] .app {
-  background: var(--bg);
-}
-[data-skin="anduril"] .brand-title {
-  text-transform: uppercase;
-  letter-spacing: 0.28em;
-  font-size: calc(20px * var(--fs-chrome));
-  font-weight: 700;
-}
-[data-skin="anduril"] .section-title {
-  text-transform: uppercase;
-  letter-spacing: 0.14em;
-  font-size: calc(12px * var(--fs));
-  color: var(--ink-soft);
-}
-[data-skin="anduril"] .tag {
-  letter-spacing: 0.2em;
-}
-[data-skin="anduril"] .btn,
-[data-skin="anduril"] .chip {
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  font-size: calc(12.5px * var(--fs));
-  font-weight: 700;
-}
-[data-skin="anduril"] .btn-primary,
-[data-skin="anduril"] .btn-amber {
-  color: #08090b;
-}
-[data-skin="anduril"] .btn-toggle-on {
-  background: var(--ink);
-  border-color: var(--ink);
-  color: #08090b;
-}
-[data-skin="anduril"] .nav {
-  width: 100%;
-  max-width: none;
-  margin: 0;
-  border-radius: 0;
-  border-left: none;
-  border-right: none;
-  border-bottom: none;
-  padding-bottom: env(safe-area-inset-bottom);
-}
-[data-skin="anduril"] .navbtn {
-  border-radius: 0;
-  text-transform: uppercase;
-  letter-spacing: 0.12em;
-  font-size: calc(11px * var(--fs-chrome));
-}
-[data-skin="anduril"] .navbtn.active {
-  background: var(--ink);
-  color: #08090b;
-}
-[data-skin="anduril"] .card {
-  box-shadow: none;
-}
-
-/* --- Airbnb: warm, friendly, rounded. White + coral, pill buttons. --- */
-[data-skin="airbnb"] {
-  --bg: #ffffff;
-  --surface: #ffffff;
-  --surface-2: #f7f7f7;
-  --ink: #222222;
-  --ink-soft: #6a6a6a;
-  --muted: #b0b0b0;
-  --line: #ebebeb;
-  --line-strong: #dddddd;
-  --accent: #ff385c;
-  --accent-hover: #e31c5f;
-  --accent-soft: rgba(255, 56, 92, 0.09);
-  --red: #c13515;
-  --amber: #ffb400;
-  --radius: 18px;
-  --radius-sm: 12px;
-  --shadow: 0 1px 2px rgba(0, 0, 0, 0.06), 0 10px 30px rgba(0, 0, 0, 0.08);
-  --font-display-stack: ui-rounded, "SF Pro Rounded", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-}
-[data-skin="airbnb"] .app {
-  background: var(--bg);
-}
-[data-skin="airbnb"] .brand-title {
-  color: var(--accent);
-}
-[data-skin="airbnb"] .card {
-  border-color: transparent;
-}
-[data-skin="airbnb"] .btn {
-  border-radius: 999px;
-}
-[data-skin="airbnb"] .btn-primary {
-  background: linear-gradient(90deg, #e61e4d 0%, #d70466 100%);
-  border-color: transparent;
-}
-[data-skin="airbnb"] .chip {
-  border-radius: 14px;
-}
-[data-skin="airbnb"] .nav {
-  border-radius: 999px;
-  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.12);
-}
-[data-skin="airbnb"] .navbtn {
-  border-radius: 999px;
-}
-[data-skin="airbnb"] .navbtn.active {
-  background: #222222;
-  color: #ffffff;
-}
-[data-skin="airbnb"] .stat,
-[data-skin="airbnb"] .mini {
-  border-color: transparent;
-  background: var(--surface-2);
-}
-
-/* --- Uber: black-and-white utility. Sharp, bold, high contrast. --- */
-[data-skin="uber"] {
-  --bg: #f6f6f6;
-  --surface: #ffffff;
-  --surface-2: #eeeeee;
-  --ink: #000000;
-  --ink-soft: #545454;
-  --muted: #a6a6a6;
-  --line: #e2e2e2;
-  --line-strong: #c9c9c9;
-  --accent: #000000;
-  --accent-hover: #333333;
-  --accent-soft: rgba(0, 0, 0, 0.07);
-  --red: #de1135;
-  --amber: #b28900;
-  --radius: 10px;
-  --radius-sm: 8px;
-  --shadow: none;
-  --font-display-stack: "Helvetica Neue", Helvetica, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  --font-body-stack: "Helvetica Neue", Helvetica, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-}
-[data-skin="uber"] .app {
-  background: var(--bg);
-}
-[data-skin="uber"] .brand-title {
-  font-weight: 800;
-  letter-spacing: -0.03em;
-}
-[data-skin="uber"] .section-title {
-  font-weight: 800;
-}
-[data-skin="uber"] .card {
-  box-shadow: none;
-}
-[data-skin="uber"] .btn {
-  border-radius: 8px;
-  font-weight: 700;
-}
-[data-skin="uber"] .btn-primary {
-  background: #000000;
-  border-color: #000000;
-  color: #ffffff;
-}
-[data-skin="uber"] .chip {
-  border-radius: 8px;
-  background: var(--surface-2);
-  border-color: transparent;
-}
-[data-skin="uber"] .nav {
-  border-radius: 12px;
-}
-[data-skin="uber"] .navbtn.active {
-  background: #000000;
-  color: #ffffff;
-}
-
-/* --- Twitter / X: timeline-style, white, blue accents, clean dividers. --- */
-[data-skin="twitter"] {
-  --bg: #ffffff;
-  --surface: #ffffff;
-  --surface-2: #f7f9f9;
-  --ink: #0f1419;
-  --ink-soft: #536471;
-  --muted: #8b98a5;
-  --line: #eff3f4;
-  --line-strong: #cfd9de;
-  --accent: #1d9bf0;
-  --accent-hover: #1a8cd8;
-  --accent-soft: rgba(29, 155, 240, 0.1);
-  --red: #f4212e;
-  --amber: #ffd400;
-  --radius: 16px;
-  --radius-sm: 12px;
-  --shadow: none;
-  --font-display-stack: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-  --font-body-stack: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-}
-[data-skin="twitter"] .app {
-  background: var(--bg);
-}
-[data-skin="twitter"] .brand-title {
-  color: var(--accent);
-  font-weight: 800;
-}
-[data-skin="twitter"] .card {
-  border-color: var(--line);
-  border-radius: var(--radius);
-  box-shadow: none;
-}
-[data-skin="twitter"] .btn {
-  border-radius: 999px;
-  font-weight: 700;
-}
-[data-skin="twitter"] .btn-primary {
-  background: var(--accent);
-  border-color: var(--accent);
-  color: #ffffff;
-}
-[data-skin="twitter"] .btn-toggle-on {
-  background: var(--accent);
-  border-color: var(--accent);
-  color: #ffffff;
-}
-[data-skin="twitter"] .chip {
-  border-radius: 999px;
-  background: var(--surface-2);
-  border-color: var(--line-strong);
-}
-[data-skin="twitter"] .nav {
-  border-radius: 999px;
-  border-color: var(--line);
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
-}
-[data-skin="twitter"] .navbtn {
-  border-radius: 999px;
-}
-[data-skin="twitter"] .navbtn.active {
-  background: var(--accent);
-  color: #ffffff;
-}
-[data-skin="twitter"] .section-title {
-  font-weight: 800;
-  color: var(--ink);
-}
-[data-skin="twitter"] .tag {
-  color: var(--ink-soft);
-}
-[data-skin="twitter"] .stat,
-[data-skin="twitter"] .mini {
-  border-color: var(--line);
-  background: var(--surface);
-}
-[data-skin="twitter"] .input,
-[data-skin="twitter"] .select {
-  border-color: var(--line-strong);
-  border-radius: var(--radius-sm);
 }
 
 /* ---------- seasonal loading-screen flourishes ---------- */
@@ -1364,8 +1144,7 @@ label.check input {
   animation-timing-function: linear;
   animation-iteration-count: infinite;
 }
-[data-theme="dark"] .load-flake,
-[data-skin="anduril"] .load-flake {
+[data-theme="dark"] .load-flake {
   background: #ffffff;
 }
 @keyframes load-snow-fall {
@@ -1470,7 +1249,7 @@ label.check input {
   transition-duration: 0.2s;
   transition-timing-function: cubic-bezier(0.25, 0.46, 0.45, 0.94);
 }
-.btn:active, .chip:active {
+.chip:active {
   transform: scale(0.96);
   transition-duration: 0.08s;
 }

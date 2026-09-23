@@ -1,24 +1,26 @@
-import { useState } from "react";
 import { defaultPlayerColor } from "@/lib/constants";
 import { playerLabel } from "@/lib/bots";
 
+const LOGO_ASPECT = {
+  lockup: 3769.755 / 1072.743,
+  word: 2995.033 / 914.325,
+  icon: 1,
+};
+
 /**
- * Logo: shows your own image from /public/logo.png if present.
- * If there's no logo file, it shows nothing (keeps the spot's spacing) —
- * no dartboard fallback.
+ * Official Blackbird logo from /public/brand. `variant` is "lockup" (icon +
+ * wordmark + tagline), "word" (wordmark only) or "icon". Both the colour and
+ * the white file are in the DOM; globals.css shows the one that matches the
+ * active theme, so there is no flash and no JS theme lookup.
  */
-export function Logo({ size = 36 }) {
-  const [failed, setFailed] = useState(false);
-  if (failed) {
-    return <span style={{ width: size, height: size, display: "inline-block", flex: "none" }} aria-hidden="true" />;
-  }
+export function Logo({ variant = "lockup", height = 36, className = "", label = "Blackbird" }) {
+  const aspect = LOGO_ASPECT[variant] || LOGO_ASPECT.lockup;
+  const width = Math.round(height * aspect);
   return (
-    <img
-      src="/logo.png"
-      alt="Blackbird"
-      onError={() => setFailed(true)}
-      style={{ height: size, width: size, objectFit: "contain", borderRadius: 8, display: "block", flex: "none" }}
-    />
+    <span className={`logo logo-${variant} ${className}`.trim()} style={{ width, height }} role="img" aria-label={label}>
+      <img className="logo-color" src={`/brand/${variant}-color.svg`} alt="" width={width} height={height} />
+      <img className="logo-white" src={`/brand/${variant}-white.svg`} alt="" width={width} height={height} />
+    </span>
   );
 }
 

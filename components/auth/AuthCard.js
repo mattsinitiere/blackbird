@@ -11,14 +11,8 @@ export default function AuthCard({ title, children, links = [] }) {
   return (
     <>
       <div className="header" style={{ justifyContent: "center" }}>
-        <Link href="/" aria-label="Blackbird home" style={{ display: "flex", alignItems: "center", gap: 10, color: "inherit", textDecoration: "none" }}>
-          <Logo size={40} />
-          <div>
-            <div className="brand-title">Blackbird</div>
-            <div className="tag" style={{ marginTop: 2 }}>
-              Dart Scoring System
-            </div>
-          </div>
+        <Link href="/" aria-label="Blackbird home" style={{ display: "flex", alignItems: "center" }}>
+          <Logo variant="lockup" height={48} />
         </Link>
       </div>
 

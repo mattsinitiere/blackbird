@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { BackBar, PlayerBadge } from "./ui";
 import { supabase } from "@/lib/supabase";
 import { isHandleAvailable } from "@/lib/db";
-import { ACCENTS, FONT_SCALES, PLAYER_COLORS, defaultPlayerColor } from "@/lib/constants";
+import { FONT_SCALES, PLAYER_COLORS, defaultPlayerColor } from "@/lib/constants";
 import { applyFontScale } from "@/lib/prefs";
 import { normalizeHandle, validateHandle, suggestHandle, BIO_MAX, LOCATION_MAX } from "@/lib/profile";
 
@@ -117,18 +117,12 @@ export default function Account({ user, players, results, addPlayer, setPlayerHi
   const meta = user?.user_metadata || {};
   const [name, setName] = useState(meta.display_name || "");
   const [theme, setTheme] = useState(meta.theme === "dark" ? "dark" : "light");
-  const [accent, setAccent] = useState(
-    meta.accent && (meta.accent.charAt(0) === "#" || ACCENTS[meta.accent]) ? meta.accent : "green"
-  );
   const [fontScale, setFontScale] = useState(
     FONT_SCALES.some((f) => f.id === meta.fontScale) ? meta.fontScale : "normal"
   );
   const [msg, setMsg] = useState("");
   const [good, setGood] = useState(false);
   const [busy, setBusy] = useState(false);
-
-  const hexFor = (a) => (a.charAt(0) === "#" ? a : ACCENTS[a] || ACCENTS.green);
-  const isCustom = accent.charAt(0) === "#";
 
   const persist = async (patch) => {
     try {
@@ -160,13 +154,6 @@ export default function Account({ user, players, results, addPlayer, setPlayerHi
     setTheme(t);
     if (typeof document !== "undefined") document.documentElement.dataset.theme = t;
     persist({ theme: t });
-  };
-
-  const applyAccent = (value) => {
-    setAccent(value);
-    if (typeof document !== "undefined")
-      document.documentElement.style.setProperty("--accent", hexFor(value));
-    persist({ accent: value });
   };
 
   const applyTextSize = (id) => {
@@ -316,52 +303,6 @@ export default function Account({ user, players, results, addPlayer, setPlayerHi
           <span className="subtle">preview — how scores will look</span>
         </div>
 
-        <div className="tag" style={{ margin: "14px 0 8px" }}>
-          Accent Color
-        </div>
-        <div className="flex-wrap" style={{ alignItems: "center" }}>
-          {Object.entries(ACCENTS).map(([key, hex]) => (
-            <button
-              key={key}
-              onClick={() => applyAccent(key)}
-              aria-label={key}
-              title={key}
-              style={{
-                width: 36,
-                height: 36,
-                borderRadius: 10,
-                background: hex,
-                cursor: "pointer",
-                border: accent === key ? "3px solid var(--ink)" : "2px solid var(--line)",
-              }}
-            />
-          ))}
-          <label
-            title="Custom color"
-            style={{
-              position: "relative",
-              width: 36,
-              height: 36,
-              borderRadius: 10,
-              cursor: "pointer",
-              overflow: "hidden",
-              border: isCustom ? "3px solid var(--ink)" : "2px solid var(--line)",
-              background: isCustom
-                ? accent
-                : "conic-gradient(#e03a3a,#ea962b,#0e8c5a,#2563eb,#7c3aed,#e03a3a)",
-            }}
-          >
-            <input
-              type="color"
-              value={isCustom ? accent : "#0e8c5a"}
-              onChange={(e) => applyAccent(e.target.value)}
-              style={{ position: "absolute", inset: 0, opacity: 0, cursor: "pointer", width: "100%", height: "100%" }}
-            />
-          </label>
-        </div>
-        <p className="tag" style={{ marginTop: 8, textTransform: "none", letterSpacing: 0 }}>
-          Tap the rainbow swatch for a custom color.
-        </p>
       </div>
 
       <div className="card mb-12">

@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { supabase, isConfigured } from "@/lib/supabase";
 import { getPlayers, addPlayer as dbAddPlayer, linkPlayerAuth as dbLinkPlayerAuth, setPlayerHidden as dbSetPlayerHidden, setPlayerColor as dbSetPlayerColor, updatePlayerProfile as dbUpdatePlayerProfile, getGameResults, recordGame } from "@/lib/db";
 import { normalizeHandle, validateHandle } from "@/lib/profile";
@@ -482,16 +483,12 @@ export default function Page() {
       <div className="scroll">
         <div className="container">
         <header className="header">
-          <Logo size={36} />
-          <div style={{ flex: 1 }}>
-            <div className="brand-title">Blackbird</div>
-            <div className="tag" style={{ marginTop: 2 }}>
-              dart scoring system
-            </div>
-          </div>
+          <Link href="/" aria-label="Blackbird home" style={{ flex: 1, display: "flex", alignItems: "center" }}>
+            <Logo variant="lockup" height={40} />
+          </Link>
           <button
-            className="btn"
-            style={{ padding: "8px 11px", display: "inline-flex", alignItems: "center", justifyContent: "center" }}
+            className="btn btn-sm"
+            style={{ padding: "6px 11px", display: "inline-flex", alignItems: "center", justifyContent: "center" }}
             onClick={() => setView("account")}
             title="Settings"
             aria-label="Settings"
@@ -499,9 +496,9 @@ export default function Page() {
             <GearIcon />
           </button>
           <button
-            className="btn"
+            className="btn btn-sm"
             style={{
-              padding: "6px",
+              padding: "4px 6px",
               display: "inline-flex",
               alignItems: "center",
               justifyContent: "center",

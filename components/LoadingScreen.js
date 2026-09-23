@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { getOccasion } from "@/lib/occasions";
+import { Logo } from "@/components/ui";
 
 function pt(r, deg) {
   const a = (deg * Math.PI) / 180;
@@ -28,7 +29,7 @@ const CONFETTI = Array.from({ length: 44 }, (_, i) => ({
   delay: ((i * 53) % 100) / 40, // 0–2.5s
   dur: 2.6 + ((i * 31) % 100) / 50, // 2.6–4.6s
   size: 6 + ((i * 13) % 3) * 2,
-  color: ["var(--accent)", "#e0962b", "#e03a3a", "#3b82f6", "#d70466"][i % 5],
+  color: ["var(--accent)", "var(--accent-glow)", "var(--amber)", "var(--red)", "var(--live)"][i % 5],
 }));
 
 const SNOW = Array.from({ length: 54 }, (_, i) => ({
@@ -109,9 +110,8 @@ export default function LoadingScreen({ text = "loading…" }) {
       <div className="load-wrap">
         <div className="load-title">
           {occasion === "birthday" && <PartyHat />}
-          Blackbird
+          <Logo variant="lockup" height={64} />
         </div>
-        <div className="load-sub">dart scoring system</div>
         <svg className="load-spinner" viewBox="-4 -4 208 208" aria-hidden="true">
           <circle cx={100} cy={100} r={96} fill="none" stroke="currentColor" strokeWidth="8" />
           {WEDGES.map((d, i) => (

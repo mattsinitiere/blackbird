@@ -5,6 +5,7 @@ import { useSearchParams } from "next/navigation";
 import { openCastChannel, normalizeCastCode, castAvailable } from "@/lib/cast";
 import TVScoreboard from "@/components/tv/TVScoreboard";
 import TVSummary from "@/components/tv/TVSummary";
+import { Logo } from "@/components/ui";
 
 /**
  * TV scoreboard screen. Open this page on anything that can show a
@@ -167,7 +168,7 @@ function TV() {
     return (
       <main className="tv">
         <div className="tv-center">
-          <div className="tv-title">Blackbird</div>
+          <div className="tv-title"><Logo variant="lockup" height={120} label="Blackbird TV" /></div>
           <div className="tv-idle-sub">
             {linked || !helloTimedOut ? (
               <>
@@ -201,7 +202,7 @@ function TV() {
   return (
     <main className="tv">
       <div className="tv-center">
-        <div className="tv-title">Blackbird</div>
+        <div className="tv-title"><Logo variant="lockup" height={120} label="Blackbird TV" /></div>
         <div className="tv-sub">tv scoreboard</div>
         {castAvailable() ? (
           <form

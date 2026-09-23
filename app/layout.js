@@ -1,11 +1,17 @@
 import "./globals.css";
+import { figtree } from "./fonts";
 
 export const metadata = {
-  title: "Blackbird Dart Scoring System",
-  description: "Score 501/301/701, Cricket, and Baseball; track players and stats.",
+  title: {
+    default: "Blackbird — Every Dart Counts.",
+    template: "%s — Blackbird",
+  },
+  description:
+    "Blackbird brings dart scoring, practice, player stats and live TV scoreboards together. Nine games. One place to play.",
   manifest: "/manifest.webmanifest",
   icons: {
     icon: [
+      { url: "/icon.svg", type: "image/svg+xml" },
       { url: "/icon-192.png", sizes: "192x192", type: "image/png" },
       { url: "/icon-512.png", sizes: "512x512", type: "image/png" },
     ],
@@ -23,13 +29,13 @@ export const viewport = {
   initialScale: 1,
   maximumScale: 1,
   userScalable: false,
-  themeColor: "#0e8c5a",
+  themeColor: "#1b1942",
   viewportFit: "cover",
 };
 
 export default function RootLayout({ children }) {
   return (
-    <html lang="en">
+    <html lang="en" className={figtree.variable}>
       <body>{children}</body>
     </html>
   );
