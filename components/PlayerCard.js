@@ -14,16 +14,16 @@ function isLight(hex) {
 
 function themePalette() {
   const root = typeof window !== "undefined" ? getComputedStyle(document.documentElement) : null;
-  const accent = (root && root.getPropertyValue("--accent").trim()) || "#0e8c5a";
+  const accent = (root && root.getPropertyValue("--accent").trim()) || "#1b1942";
   const theme = (typeof document !== "undefined" && document.documentElement.dataset.theme) || "light";
 
   if (theme === "dark") {
     return {
       theme,
       accent,
-      bg: "#0f1216",
-      ink: "#eef1f5",
-      inkSoft: "rgba(238,241,245,0.58)",
+      bg: "#101419",
+      ink: "#edf2f7",
+      inkSoft: "rgba(237,242,247,0.58)",
       tile: "rgba(255,255,255,0.05)",
       tileBorder: "rgba(255,255,255,0.11)",
       frame: "rgba(255,255,255,0.12)",
@@ -32,12 +32,12 @@ function themePalette() {
   return {
     theme: "light",
     accent,
-    bg: "#f4f3ee",
-    ink: "#181a1f",
-    inkSoft: "rgba(24,26,31,0.55)",
-    tile: "rgba(24,26,31,0.045)",
-    tileBorder: "rgba(24,26,31,0.10)",
-    frame: "rgba(24,26,31,0.12)",
+    bg: "#fcfcfd",
+    ink: "#20202b",
+    inkSoft: "rgba(32,32,43,0.55)",
+    tile: "rgba(32,32,43,0.045)",
+    tileBorder: "rgba(32,32,43,0.10)",
+    frame: "rgba(32,32,43,0.12)",
   };
 }
 

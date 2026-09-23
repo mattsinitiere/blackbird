@@ -154,8 +154,8 @@ export default function PlayGotcha({ game, resume, onProgress, onFinish, onQuit,
                 key={u}
                 className="card pad-sm"
                 style={{
-                  borderColor: active ? "var(--accent)" : "var(--line)",
-                  background: active ? "var(--accent-soft)" : "var(--surface)",
+                  borderColor: active ? "var(--live)" : "var(--line)",
+                  background: active ? "var(--live-soft)" : "var(--surface)",
                 }}
               >
                 <div className="between">
@@ -186,7 +186,7 @@ export default function PlayGotcha({ game, resume, onProgress, onFinish, onQuit,
                     style={{
                       width: `${pct(u)}%`,
                       height: "100%",
-                      background: active ? "var(--accent)" : "var(--muted)",
+                      background: active ? "var(--live)" : "var(--muted)",
                       transition: "width 0.2s",
                     }}
                   />

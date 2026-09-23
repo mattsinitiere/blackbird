@@ -151,8 +151,8 @@ export default function PlayKiller({ game, resume, onProgress, onFinish, onQuit,
                 key={u}
                 className="card pad-sm"
                 style={{
-                  borderColor: active ? "var(--accent)" : "var(--line)",
-                  background: active ? "var(--accent-soft)" : dead ? "var(--surface)" : "var(--surface)",
+                  borderColor: active ? "var(--live)" : "var(--line)",
+                  background: active ? "var(--live-soft)" : dead ? "var(--surface)" : "var(--surface)",
                   opacity: dead ? 0.45 : 1,
                 }}
               >

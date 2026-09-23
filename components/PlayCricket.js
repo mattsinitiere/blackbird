@@ -289,7 +289,7 @@ export default function PlayCricket({ game, resume, onProgress, onFinish, onQuit
         </div>
 
         <div className="row mt-12">
-          <button className="chip chip-undo" style={{ flex: 1, width: "auto", marginTop: 0, borderRadius: 999 }} onClick={undo} disabled={!darts.length && !history.length}>
+          <button className="chip chip-undo" style={{ flex: 1, width: "auto", marginTop: 0 }} onClick={undo} disabled={!darts.length && !history.length}>
             <UndoIcon /> Undo
           </button>
           <button className="btn btn-primary" style={{ flex: 2 }} onClick={endTurn}>

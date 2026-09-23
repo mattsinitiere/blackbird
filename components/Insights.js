@@ -326,14 +326,14 @@ export default function Insights({ usernames, stats, elo, results, gameCount, ba
                   maxWidth: "85%",
                   padding: "10px 14px",
                   borderRadius:
-                    msg.role === "user" ? "18px 18px 4px 18px" : "18px 18px 18px 4px",
+                    msg.role === "user" ? "var(--radius) var(--radius) var(--radius-xs) var(--radius)" : "var(--radius) var(--radius) var(--radius) var(--radius-xs)",
                   background:
                     msg.role === "user"
                       ? "var(--accent)"
                       : msg.error
                         ? "var(--red-soft)"
                         : "var(--surface)",
-                  color: msg.role === "user" ? "#fff" : msg.error ? "var(--red)" : "var(--ink)",
+                  color: msg.role === "user" ? "var(--on-accent)" : msg.error ? "var(--red)" : "var(--ink)",
                   border: msg.role === "user" ? "none" : "1px solid var(--line)",
                   lineHeight: 1.6,
                   whiteSpace: "pre-wrap",
@@ -353,7 +353,7 @@ export default function Insights({ usernames, stats, elo, results, gameCount, ba
                     cursor: "pointer",
                     color: copied === msg.id ? "var(--accent)" : "var(--muted)",
                     padding: "3px 8px",
-                    borderRadius: 8,
+                    borderRadius: "var(--radius-xs)",
                     display: "inline-flex",
                     alignItems: "center",
                     gap: 4,
@@ -381,7 +381,7 @@ export default function Insights({ usernames, stats, elo, results, gameCount, ba
               <div
                 style={{
                   padding: "14px 20px",
-                  borderRadius: "18px 18px 18px 4px",
+                  borderRadius: "var(--radius) var(--radius) var(--radius) var(--radius-xs)",
                   background: "var(--surface)",
                   border: "1px solid var(--line)",
                 }}
@@ -423,7 +423,7 @@ export default function Insights({ usernames, stats, elo, results, gameCount, ba
               resize: "none",
               overflow: "hidden",
               border: "1px solid var(--line)",
-              borderRadius: 22,
+              borderRadius: "var(--radius-sm)",
               padding: "10px 16px",
               background: "var(--surface)",
               color: "var(--ink)",
@@ -445,7 +445,7 @@ export default function Insights({ usernames, stats, elo, results, gameCount, ba
               borderRadius: "50%",
               border: "none",
               background: input.trim() && !busy ? "var(--accent)" : "var(--line)",
-              color: input.trim() && !busy ? "#fff" : "var(--muted)",
+              color: input.trim() && !busy ? "var(--on-accent)" : "var(--muted)",
               cursor: input.trim() && !busy ? "pointer" : "default",
               display: "flex",
               alignItems: "center",

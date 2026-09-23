@@ -51,8 +51,8 @@ function DropdownMenu({ items, onClose }) {
     <div ref={ref} style={{
       position: "absolute", top: "100%", right: 0, marginTop: 4,
       background: "var(--surface)", border: "1px solid var(--line)",
-      borderRadius: 12, padding: "6px 0", minWidth: 180, zIndex: 10,
-      boxShadow: "0 8px 24px rgba(0,0,0,0.12)",
+      borderRadius: "var(--radius)", padding: "6px 0", minWidth: 180, zIndex: 10,
+      boxShadow: "var(--shadow-lift)",
     }}>
       {items.map((item, i) => (
         <button
@@ -439,7 +439,7 @@ export default function Admin({ stats, addPlayer, back, refreshData, playerColor
                       <>
                         <PlayerBadge username={username} color={color} size={32} showName={false} />
                         <div style={{ flex: 1, minWidth: 0 }}>
-                          <div style={{ fontWeight: 800, fontSize: "calc(16px * var(--fs))", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                          <div style={{ fontWeight: 700, fontSize: "calc(16px * var(--fs))", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                             {username}
                             {p?.handle && (
                               <span style={{ fontWeight: 700, fontSize: "calc(13px * var(--fs))", color: "var(--accent)", marginLeft: 8 }}>@{p.handle}</span>
@@ -447,22 +447,22 @@ export default function Admin({ stats, addPlayer, back, refreshData, playerColor
                           </div>
                           <div style={{ display: "flex", gap: 6, marginTop: 3, flexWrap: "wrap" }}>
                             {hasAccount && (
-                              <span className="tag" style={{ background: "var(--accent-soft)", color: "var(--accent)", padding: "2px 8px", borderRadius: 999, fontSize: "calc(10px * var(--fs-chrome))" }}>
+                              <span className="tag" style={{ background: "var(--accent-soft)", color: "var(--accent)", padding: "2px 8px", borderRadius: "var(--radius-xs)", fontSize: "calc(10px * var(--fs-chrome))" }}>
                                 logged in
                               </span>
                             )}
                             {!hasAccount && hasPlayer && (
-                              <span className="tag" style={{ background: "var(--surface-2)", border: "1px solid var(--line)", padding: "2px 8px", borderRadius: 999, fontSize: "calc(10px * var(--fs-chrome))" }}>
+                              <span className="tag" style={{ background: "var(--surface-2)", border: "1px solid var(--line)", padding: "2px 8px", borderRadius: "var(--radius-xs)", fontSize: "calc(10px * var(--fs-chrome))" }}>
                                 no account
                               </span>
                             )}
                             {p?.hidden && (
-                              <span className="tag" style={{ background: "var(--surface-2)", border: "1px solid var(--line)", padding: "2px 8px", borderRadius: 999, fontSize: "calc(10px * var(--fs-chrome))" }}>
+                              <span className="tag" style={{ background: "var(--surface-2)", border: "1px solid var(--line)", padding: "2px 8px", borderRadius: "var(--radius-xs)", fontSize: "calc(10px * var(--fs-chrome))" }}>
                                 hidden
                               </span>
                             )}
                             {!hasPlayer && hasAccount && (
-                              <span className="tag" style={{ background: "var(--surface-2)", border: "1px solid var(--line)", padding: "2px 8px", borderRadius: 999, fontSize: "calc(10px * var(--fs-chrome))" }}>
+                              <span className="tag" style={{ background: "var(--surface-2)", border: "1px solid var(--line)", padding: "2px 8px", borderRadius: "var(--radius-xs)", fontSize: "calc(10px * var(--fs-chrome))" }}>
                                 account only
                               </span>
                             )}

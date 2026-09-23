@@ -197,14 +197,14 @@ export default function Home({ setView, openSetup, stats, elo, players, gameCoun
                   }}>
                     {r.u}
                   </div>
-                  <div style={{ color: "var(--accent)", fontWeight: 800, fontSize: "calc(16px * var(--fs))", marginTop: 2 }}>
+                  <div style={{ color: "var(--accent)", fontWeight: 700, fontSize: "calc(16px * var(--fs))", marginTop: 2 }}>
                     {Math.round(r.elo)}
                   </div>
                   <div className="podium-bar" style={{
                     "--podium-h": `${h}px`,
                     width: "100%",
                     marginTop: 8,
-                    borderRadius: "12px 12px 0 0",
+                    borderRadius: "var(--radius) var(--radius) 0 0",
                     background: isFirst
                       ? "linear-gradient(180deg, var(--accent), color-mix(in srgb, var(--accent) 60%, transparent))"
                       : i === 0
@@ -216,9 +216,9 @@ export default function Home({ setView, openSetup, stats, elo, players, gameCoun
                     paddingBottom: 10,
                   }}>
                     <span style={{
-                      fontWeight: 800,
+                      fontWeight: 700,
                       fontSize: "calc(14px * var(--fs))",
-                      color: isFirst ? "#fff" : "var(--ink-soft)",
+                      color: isFirst ? "var(--on-accent)" : "var(--ink-soft)",
                       letterSpacing: "0.04em",
                     }}>
                       {podiumLabels[i]}

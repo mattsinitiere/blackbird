@@ -31,7 +31,7 @@ export default function AuthCard({ title, children, links = [] }) {
           style={{ marginTop: 14, textAlign: "center", textTransform: "none", letterSpacing: 0, display: "flex", justifyContent: "center", gap: 16, flexWrap: "wrap" }}
         >
           {links.map((l) => (
-            <Link key={l.href} href={l.href} style={{ color: "var(--accent)", fontWeight: 700 }}>
+            <Link key={l.href} href={l.href} style={{ color: "var(--accent)", fontWeight: 600, textDecoration: "none" }}>
               {l.label}
             </Link>
           ))}

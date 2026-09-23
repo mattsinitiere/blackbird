@@ -170,7 +170,7 @@ export default function PlayTicTacToe({ game, resume, onProgress, onFinish, onQu
                     flexDirection: "column",
                     alignItems: "center",
                     justifyContent: "center",
-                    borderRadius: 8,
+                    borderRadius: "var(--radius-sm)",
                     border: `2px solid ${owner ? cellColor(owner) : "var(--line)"}`,
                     background: owner ? `${cellColor(owner)}18` : "var(--surface)",
                     transition: "all 0.15s",

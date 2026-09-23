@@ -5,7 +5,7 @@ const PARTICLES = Array.from({ length: 36 }, (_, i) => ({
   delay: ((i * 23 + 7) % 800) / 1000,
   dur: 0.8 + ((i * 13 + 5) % 600) / 1000,
   size: 5 + ((i * 17 + 3) % 8),
-  color: ["var(--accent)", "#ffd24a", "#e03a3a", "#3b82f6", "#a855f7"][(i * 7 + 2) % 5],
+  color: ["var(--accent)", "var(--amber)", "var(--red)", "var(--accent-glow)", "var(--live)"][(i * 7 + 2) % 5],
   angle: (i * 10) % 360,
 }));
 

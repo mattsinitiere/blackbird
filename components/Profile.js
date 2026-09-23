@@ -187,13 +187,13 @@ export default function Profile({ user, player, stats, elo, results, practice = 
         {stats.x01.games > 0 && (
           <div className="card">
             <h3 className="section-title">3-Dart Average Over Time</h3>
-            <LineChart data={timeline.avg} color="#3b82f6" decimals={1} />
+            <LineChart data={timeline.avg} color="var(--accent)" decimals={1} />
           </div>
         )}
 
         <div className="card">
           <h3 className="section-title">Win % Over Time</h3>
-          <LineChart data={timeline.win} color="#16a34a" unit="%" />
+          <LineChart data={timeline.win} color="var(--live)" unit="%" />
         </div>
 
         {stats.cricket.games > 0 && (
@@ -340,7 +340,7 @@ export default function Profile({ user, player, stats, elo, results, practice = 
                 {fmtDate(r.completedAt)}
               </span>
             </span>
-            <span style={{ color: r.result === "win" ? "var(--accent)" : "var(--red)", fontWeight: 800, marginLeft: 12 }}>
+            <span style={{ color: r.result === "win" ? "var(--accent)" : "var(--red)", fontWeight: 700, marginLeft: 12 }}>
               {r.result === "win" ? "W" : "L"}
             </span>
           </div>

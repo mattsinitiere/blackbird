@@ -119,8 +119,8 @@ export default function PlayBobs27({ game, resume, onProgress, onFinish, onQuit,
                 key={u}
                 className="card pad-sm"
                 style={{
-                  borderColor: active ? "var(--accent)" : "var(--line)",
-                  background: active ? "var(--accent-soft)" : "var(--surface)",
+                  borderColor: active ? "var(--live)" : "var(--line)",
+                  background: active ? "var(--live-soft)" : "var(--surface)",
                   opacity: p.busted ? 0.6 : 1,
                 }}
               >

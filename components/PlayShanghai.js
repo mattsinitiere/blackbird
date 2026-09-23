@@ -193,8 +193,8 @@ export default function PlayShanghai({ game, resume, onProgress, onFinish, onQui
                 key={u}
                 className="card pad-sm"
                 style={{
-                  borderColor: active ? "var(--accent)" : "var(--line)",
-                  background: active ? "var(--accent-soft)" : "var(--surface)",
+                  borderColor: active ? "var(--live)" : "var(--line)",
+                  background: active ? "var(--live-soft)" : "var(--surface)",
                 }}
               >
                 <div className="between">

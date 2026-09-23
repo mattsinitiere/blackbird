@@ -360,7 +360,7 @@ export default function Account({ user, players, results, addPlayer, setPlayerHi
                     style={{
                       width: 36,
                       height: 36,
-                      borderRadius: 10,
+                      borderRadius: "var(--radius-sm)",
                       background: hex,
                       cursor: "pointer",
                       border: (playerColors?.[myPlayer.username] || defaultPlayerColor(myPlayer.username)) === hex
@@ -375,7 +375,7 @@ export default function Account({ user, players, results, addPlayer, setPlayerHi
                     position: "relative",
                     width: 36,
                     height: 36,
-                    borderRadius: 10,
+                    borderRadius: "var(--radius-sm)",
                     cursor: "pointer",
                     overflow: "hidden",
                     border: playerColors?.[myPlayer.username] && !PLAYER_COLORS.includes(playerColors[myPlayer.username])

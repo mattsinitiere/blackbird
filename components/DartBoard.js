@@ -25,9 +25,9 @@ export default function DartBoard({ highlight = [], hits = [], size = 220 }) {
     const a0 = c - 9;
     const a1 = c + 9;
     const dark = i % 2 === 0;
-    wedges.push(<path key={`s${i}`} d={sector(16, 100, a0, a1)} fill={dark ? "#20242a" : "#efe9d8"} />);
-    wedges.push(<path key={`d${i}`} d={sector(92, 100, a0, a1)} fill={dark ? "#2c9a60" : "#e03a3a"} />);
-    wedges.push(<path key={`t${i}`} d={sector(54, 62, a0, a1)} fill={dark ? "#2c9a60" : "#e03a3a"} />);
+    wedges.push(<path key={`s${i}`} d={sector(16, 100, a0, a1)} fill={dark ? "#20252a" : "#efe9d8"} />);
+    wedges.push(<path key={`d${i}`} d={sector(92, 100, a0, a1)} fill={dark ? "#2b9b65" : "#e5373b"} />);
+    wedges.push(<path key={`t${i}`} d={sector(54, 62, a0, a1)} fill={dark ? "#2b9b65" : "#e5373b"} />);
   }
 
   // open sectors get a faint tint + crisp outline (a heavy fill reads as
@@ -113,8 +113,8 @@ export default function DartBoard({ highlight = [], hits = [], size = 220 }) {
       <circle cx={100} cy={100} r={101} fill="#000" opacity="0.15" />
       {wedges}
       {hi}
-      <circle cx={100} cy={100} r={16} fill="#2c9a60" />
-      <circle cx={100} cy={100} r={7} fill="#e03a3a" />
+      <circle cx={100} cy={100} r={16} fill="#2b9b65" />
+      <circle cx={100} cy={100} r={7} fill="#e5373b" />
       {marks}
       {labels}
     </svg>
