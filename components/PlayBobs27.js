@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import DartBoard from "./DartBoard";
 import { PlayerBadge, UndoIcon } from "./ui";
+import { createRecorder, ensureRecorder, stamp, recordVisit, recordEvent, finishRecorder, stripDarts } from "@/lib/recorder";
 import { playerLabel } from "@/lib/bots";
 import { BOBS27_START, BOBS27_ROUNDS, bobsTarget, isBobsHit, bobsRoundScore } from "@/lib/drills";
 
@@ -14,10 +15,13 @@ export default function PlayBobs27({ game, resume, onProgress, onFinish, onQuit,
   const { players, config } = game;
   const n = players.length;
 
-  const blank = () =>
-    players.reduce((o, u) => ((o[u] = { score: BOBS27_START, round: 1, hits: 0, busted: false, darts: 0, log: [] }), o), {});
+  const blank = () => {
+    const st = players.reduce((o, u) => ((o[u] = { score: BOBS27_START, round: 1, hits: 0, busted: false, darts: 0, log: [] }), o), {});
+    st.rec = createRecorder({ players, startedAt: game.startedAt });
+    return st;
+  };
 
-  const [state, setState] = useState(() => resume?.state ?? blank());
+  const [state, setState] = useState(() => ensureRecorder(resume?.state ?? blank(), { players, startedAt: game.startedAt }));
   const [turn, setTurn] = useState(() => resume?.turn ?? 0);
   const [turnDarts, setTurnDarts] = useState(() => resume?.turnDarts ?? []);
   const [history, setHistory] = useState(() => resume?.history ?? []);
@@ -32,6 +36,7 @@ export default function PlayBobs27({ game, resume, onProgress, onFinish, onQuit,
   const done = (u) => state[u].busted || state[u].round > BOBS27_ROUNDS;
 
   const finish = (ns) => {
+    const completedAt = new Date().toISOString();
     const perPlayer = {};
     players.forEach((u) => {
       perPlayer[u] = {
@@ -41,12 +46,13 @@ export default function PlayBobs27({ game, resume, onProgress, onFinish, onQuit,
         busted: ns[u].busted,
         dartsThrown: ns[u].darts,
         darts: ns[u].log,
+        ...finishRecorder(ns.rec, u, completedAt),
       };
     });
     // highest score wins; a busted player never beats a standing one
     const rank = (u) => (ns[u].busted ? -1e6 : 0) + ns[u].score;
     const winner = [...players].sort((a, b) => rank(b) - rank(a))[0];
-    onFinish({ id: game.id, gameType: "bobs27", config, players, winner, perPlayer, completedAt: new Date().toISOString() });
+    onFinish({ id: game.id, gameType: "bobs27", config, players, winner, perPlayer, completedAt });
   };
 
   const commit = (darts) => {
@@ -54,15 +60,17 @@ export default function PlayBobs27({ game, resume, onProgress, onFinish, onQuit,
     const ns = JSON.parse(JSON.stringify(state));
     const p = ns[cur];
     const { hits, delta } = bobsRoundScore(p.round, darts);
+    const s0 = p.score;
     p.score += delta;
     p.hits += hits;
     p.darts += darts.length;
-    p.log = [...p.log, ...darts];
-    p.round += 1;
+    p.log = [...p.log, ...stripDarts(darts)];
     if (p.score <= 0) {
       p.score = 0;
       p.busted = true;
     }
+    recordVisit(ns.rec, cur, { r: p.round - 1, s0, darts, out: { hits, delta, sc: p.score } });
+    p.round += 1;
     setTurnDarts([]);
 
     const isDone = (u) => ns[u].busted || ns[u].round > BOBS27_ROUNDS;
@@ -73,8 +81,8 @@ export default function PlayBobs27({ game, resume, onProgress, onFinish, onQuit,
     setTurn(t);
   };
 
-  const addDart = (dart) => {
-    const next = [...turnDarts, dart];
+  const addDart = (raw) => {
+    const next = [...turnDarts, stamp(raw, game.startedAt)];
     if (next.length === 3) return commit(next);
     setTurnDarts(next);
   };

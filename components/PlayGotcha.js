@@ -3,6 +3,7 @@ import DartBoard from "./DartBoard";
 import { dartValue, dartLabel } from "@/lib/darts";
 import Celebration from "./Celebration";
 import { PlayerBadge, UndoIcon } from "./ui";
+import { createRecorder, ensureRecorder, stamp, recordVisit, recordEvent, finishRecorder, stripDarts } from "@/lib/recorder";
 
 export default function PlayGotcha({ game, resume, onProgress, onFinish, onQuit, castActive, playerColors }) {
   const { players, config } = game;
@@ -13,9 +14,10 @@ export default function PlayGotcha({ game, resume, onProgress, onFinish, onQuit,
     resets: players.reduce((o, u) => ((o[u] = { dealt: 0, received: 0 }), o), {}),
     darts: players.reduce((o, u) => ((o[u] = 0), o), {}),
     log: players.reduce((o, u) => ((o[u] = []), o), {}),
+    rec: createRecorder({ players, startedAt: game.startedAt }),
   });
 
-  const [s, setS] = useState(() => resume?.s ?? blank());
+  const [s, setS] = useState(() => ensureRecorder(resume?.s ?? blank(), { players, startedAt: game.startedAt }));
   const [turn, setTurn] = useState(() => resume?.turn ?? 0);
   const [turnDarts, setTurnDarts] = useState(() => resume?.turnDarts ?? []);
   const [mult, setMult] = useState(() => resume?.mult ?? 1);
@@ -35,41 +37,21 @@ export default function PlayGotcha({ game, resume, onProgress, onFinish, onQuit,
     const sum = darts.reduce((a, d) => a + dartValue(d), 0);
     const ns = JSON.parse(JSON.stringify(s));
     ns.darts[cur] += darts.length;
-    ns.log[cur] = [...ns.log[cur], ...darts];
-
-    if (kind === "win") {
-      ns.scores[cur] = target;
-      const perPlayer = {};
-      players.forEach((u) => {
-        perPlayer[u] = {
-          finalScore: ns.scores[u],
-          resetsDealt: ns.resets[u].dealt,
-          resetsReceived: ns.resets[u].received,
-          dartsThrown: ns.darts[u],
-          darts: ns.log[u],
-        };
-      });
-      onFinish({
-        id: game.id,
-        gameType: "gotcha",
-        config,
-        players,
-        winner: cur,
-        perPlayer,
-        completedAt: new Date().toISOString(),
-      });
-      return;
-    }
+    ns.log[cur] = [...ns.log[cur], ...stripDarts(darts)];
+    const s0 = ns.scores[cur];
+    const resetted = [];
 
     let feedback = "";
-    if (kind === "bust") {
+    if (kind === "win") {
+      ns.scores[cur] = target;
+    } else if (kind === "bust") {
       feedback = "BUST!";
     } else {
       ns.scores[cur] += sum;
       // Check if our new score matches any other player -> reset them
-      const resetted = [];
       players.forEach((o) => {
         if (o !== cur && ns.scores[o] === ns.scores[cur] && ns.scores[o] > 0) {
+          recordEvent(ns.rec, { t: "reset", by: cur, on: o, turn, from: ns.scores[o] });
           ns.scores[o] = 0;
           ns.resets[cur].dealt += 1;
           ns.resets[o].received += 1;
@@ -81,6 +63,32 @@ export default function PlayGotcha({ game, resume, onProgress, onFinish, onQuit,
         setCeleb({ type: "reset" });
       }
     }
+    recordVisit(ns.rec, cur, { r: Math.floor(turn / players.length), s0, darts, out: { k: kind, s: kind === "bust" ? 0 : sum, sc: ns.scores[cur], reset: resetted } });
+
+    if (kind === "win") {
+      const completedAt = new Date().toISOString();
+      const perPlayer = {};
+      players.forEach((u) => {
+        perPlayer[u] = {
+          finalScore: ns.scores[u],
+          resetsDealt: ns.resets[u].dealt,
+          resetsReceived: ns.resets[u].received,
+          dartsThrown: ns.darts[u],
+          darts: ns.log[u],
+          ...finishRecorder(ns.rec, u, completedAt),
+        };
+      });
+      onFinish({
+        id: game.id,
+        gameType: "gotcha",
+        config,
+        players,
+        winner: cur,
+        perPlayer,
+        completedAt,
+      });
+      return;
+    }
 
     setS(ns);
     setTurnDarts([]);
@@ -89,8 +97,8 @@ export default function PlayGotcha({ game, resume, onProgress, onFinish, onQuit,
     setTurn((t) => t + 1);
   };
 
-  const addDart = (dart) => {
-    const next = [...turnDarts, dart];
+  const addDart = (raw) => {
+    const next = [...turnDarts, stamp(raw, game.startedAt)];
     const sum = next.reduce((a, d) => a + dartValue(d), 0);
     const newScore = s.scores[cur] + sum;
 

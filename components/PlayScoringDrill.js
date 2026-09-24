@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import DartBoard from "./DartBoard";
 import { dartLabel } from "@/lib/darts";
 import { PlayerBadge, UndoIcon } from "./ui";
+import { createRecorder, ensureRecorder, stamp, recordVisit, recordEvent, finishRecorder, stripDarts } from "@/lib/recorder";
 import { playerLabel } from "@/lib/bots";
 import { scoringDartValue, scoringTargetLabel } from "@/lib/drills";
 
@@ -16,9 +17,13 @@ export default function PlayScoringDrill({ game, resume, onProgress, onFinish, o
   const turns = config.turns || 10;
   const isBull = target === 25;
 
-  const blank = () => players.reduce((o, u) => ((o[u] = { total: 0, visits: [], done: 0, onTarget: 0, trebles: 0, darts: 0, log: [] }), o), {});
+  const blank = () => {
+    const st = players.reduce((o, u) => ((o[u] = { total: 0, visits: [], done: 0, onTarget: 0, trebles: 0, darts: 0, log: [] }), o), {});
+    st.rec = createRecorder({ players, startedAt: game.startedAt });
+    return st;
+  };
 
-  const [state, setState] = useState(() => resume?.state ?? blank());
+  const [state, setState] = useState(() => ensureRecorder(resume?.state ?? blank(), { players, startedAt: game.startedAt }));
   const [turn, setTurn] = useState(() => resume?.turn ?? 0);
   const [turnDarts, setTurnDarts] = useState(() => resume?.turnDarts ?? []);
   const [history, setHistory] = useState(() => resume?.history ?? []);
@@ -32,6 +37,7 @@ export default function PlayScoringDrill({ game, resume, onProgress, onFinish, o
   const isDone = (s, u) => s[u].done >= turns;
 
   const finish = (ns) => {
+    const completedAt = new Date().toISOString();
     const perPlayer = {};
     players.forEach((u) => {
       const p = ns[u];
@@ -43,13 +49,14 @@ export default function PlayScoringDrill({ game, resume, onProgress, onFinish, o
         onTarget: p.onTarget,
         hitRate: p.darts ? Math.round((p.onTarget / p.darts) * 100) : 0,
         bestVisit: p.visits.length ? Math.max(...p.visits) : 0,
-        visits: p.visits,
+        visitScores: p.visits, // per-visit points (stats v1 called this `visits`)
         dartsThrown: p.darts,
         darts: p.log,
+        ...finishRecorder(ns.rec, u, completedAt),
       };
     });
     const winner = [...players].sort((a, b) => ns[b].total - ns[a].total)[0];
-    onFinish({ id: game.id, gameType: "scoringDrill", config, players, winner, perPlayer, completedAt: new Date().toISOString() });
+    onFinish({ id: game.id, gameType: "scoringDrill", config, players, winner, perPlayer, completedAt });
   };
 
   const commit = (darts) => {
@@ -57,11 +64,12 @@ export default function PlayScoringDrill({ game, resume, onProgress, onFinish, o
     const ns = JSON.parse(JSON.stringify(state));
     const p = ns[cur];
     const visit = darts.reduce((a, d) => a + scoringDartValue(target, d), 0);
+    recordVisit(ns.rec, cur, { r: p.done, s0: p.total, darts, out: { s: visit } });
     p.total += visit;
     p.visits = [...p.visits, visit];
     p.done += 1;
     p.darts += darts.length;
-    p.log = [...p.log, ...darts];
+    p.log = [...p.log, ...stripDarts(darts)];
     for (const d of darts) {
       if (d.n === target) {
         p.onTarget += 1;
@@ -78,7 +86,7 @@ export default function PlayScoringDrill({ game, resume, onProgress, onFinish, o
   };
 
   const addDart = (mult) => {
-    const dart = mult === 0 ? { n: 0, mult: 0 } : { n: target, mult };
+    const dart = stamp(mult === 0 ? { n: 0, mult: 0 } : { n: target, mult }, game.startedAt);
     const next = [...turnDarts, dart];
     if (next.length === 3) return commit(next);
     setTurnDarts(next);

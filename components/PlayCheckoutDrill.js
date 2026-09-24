@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import DartBoard from "./DartBoard";
 import { dartLabel } from "@/lib/darts";
 import { PlayerBadge, UndoIcon } from "./ui";
+import { createRecorder, ensureRecorder, stamp, recordVisit, recordEvent, finishRecorder, stripDarts } from "@/lib/recorder";
 import { playerLabel } from "@/lib/bots";
 import { getCheckoutPath } from "@/lib/checkouts";
 import { checkoutTargets, applyCheckoutDart, CHECKOUT_DRILL_DARTS } from "@/lib/drills";
@@ -20,14 +21,14 @@ export default function PlayCheckoutDrill({ game, resume, onProgress, onFinish, 
   const blank = () => {
     // one shared list of finishes so everyone chases the same numbers
     const targets = checkoutTargets(count);
-    const s = { targets };
+    const s = { targets, rec: createRecorder({ players, startedAt: game.startedAt }) };
     players.forEach((u) => {
       s[u] = { idx: 0, rem: targets[0], visitStart: targets[0], dartsThis: 0, hit: 0, results: [], darts: 0, log: [], score: 0 };
     });
     return s;
   };
 
-  const [state, setState] = useState(() => resume?.state ?? blank());
+  const [state, setState] = useState(() => ensureRecorder(resume?.state ?? blank(), { players, startedAt: game.startedAt }));
   const [turn, setTurn] = useState(() => resume?.turn ?? 0);
   const [turnDarts, setTurnDarts] = useState(() => resume?.turnDarts ?? []);
   const [mult, setMult] = useState(() => resume?.mult ?? 1);
@@ -44,6 +45,7 @@ export default function PlayCheckoutDrill({ game, resume, onProgress, onFinish, 
   const isDone = (s, u) => s[u].idx >= count;
 
   const finish = (ns) => {
+    const completedAt = new Date().toISOString();
     const perPlayer = {};
     players.forEach((u) => {
       const p = ns[u];
@@ -57,11 +59,12 @@ export default function PlayCheckoutDrill({ game, resume, onProgress, onFinish, 
         dartsThrown: p.darts,
         darts: p.log,
         results: p.results,
+        ...finishRecorder(ns.rec, u, completedAt),
       };
     });
     const rank = (u) => ns[u].hit * 10000 - ns[u].darts;
     const winner = [...players].sort((a, b) => rank(b) - rank(a))[0];
-    onFinish({ id: game.id, gameType: "checkoutDrill", config, players, winner, perPlayer, completedAt: new Date().toISOString() });
+    onFinish({ id: game.id, gameType: "checkoutDrill", config, players, winner, perPlayer, completedAt });
   };
 
   /** Close the current finish for `p` (hit or out of darts) and load the next. */
@@ -81,8 +84,10 @@ export default function PlayCheckoutDrill({ game, resume, onProgress, onFinish, 
     setHistory((h) => [...h, { state: JSON.parse(JSON.stringify(state)), turn, msg }]);
     const ns = JSON.parse(JSON.stringify(state));
     const p = ns[cur];
+    const finishIdx = p.idx;
+    const s0 = p.visitStart;
     p.darts += darts.length;
-    p.log = [...p.log, ...darts];
+    p.log = [...p.log, ...stripDarts(darts)];
     p.dartsThis += darts.length;
     let note = "";
     if (outcome === "hit") {
@@ -104,6 +109,8 @@ export default function PlayCheckoutDrill({ game, resume, onProgress, onFinish, 
         advanceFinish(p, false, p.dartsThis);
       }
     }
+    const k = outcome === "open" && note.endsWith("missed") ? "miss" : outcome;
+    recordVisit(ns.rec, cur, { r: finishIdx, s0, darts, out: { k, rem: k === "hit" ? 0 : k === "bust" ? s0 : p.visitStart } });
     setTurnDarts([]);
     setMult(1);
 
@@ -115,8 +122,8 @@ export default function PlayCheckoutDrill({ game, resume, onProgress, onFinish, 
     setMsg(note);
   };
 
-  const addDart = (dart) => {
-    const next = [...turnDarts, dart];
+  const addDart = (raw) => {
+    const next = [...turnDarts, stamp(raw, game.startedAt)];
     // replay the visit from its start so an earlier open dart still counts
     let rem = me.visitStart;
     let status = "open";

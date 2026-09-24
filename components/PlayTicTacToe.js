@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import DartBoard from "./DartBoard";
 import { dartLabel } from "@/lib/darts";
 import { PlayerBadge, UndoIcon } from "./ui";
+import { createRecorder, ensureRecorder, stamp, recordVisit, recordEvent, finishRecorder, stripDarts } from "@/lib/recorder";
 
 const GRID = [20, 19, 18, 17, 16, 15, 14, 13, 12];
 const LINES = [
@@ -11,8 +12,9 @@ const LINES = [
 ];
 
 function checkWinner(board) {
-  for (const [a, b, c] of LINES) {
-    if (board[a] && board[a] === board[b] && board[b] === board[c]) return board[a];
+  for (const line of LINES) {
+    const [a, b, c] = line;
+    if (board[a] && board[a] === board[b] && board[b] === board[c]) return { winner: board[a], line };
   }
   return null;
 }
@@ -24,9 +26,12 @@ export default function PlayTicTacToe({ game, resume, onProgress, onFinish, onQu
     board: Array(9).fill(null),
     darts: players.reduce((o, u) => ((o[u] = 0), o), {}),
     log: players.reduce((o, u) => ((o[u] = []), o), {}),
+    rec: createRecorder({ players, startedAt: game.startedAt }),
   });
 
-  const [s, setS] = useState(() => resume?.s ?? blank());
+  const [s, setS] = useState(() => ensureRecorder(resume?.s ?? blank(), { players, startedAt: game.startedAt }));
+  // board as a 9-char string of player indexes ('.' = free) for the stats log
+  const boardStr = (b) => b.map((o) => (o == null ? "." : String(players.indexOf(o)))).join("");
   const [turn, setTurn] = useState(() => resume?.turn ?? 0);
   const [turnDarts, setTurnDarts] = useState(() => resume?.turnDarts ?? []);
   const [history, setHistory] = useState(() => resume?.history ?? []);
@@ -38,8 +43,9 @@ export default function PlayTicTacToe({ game, resume, onProgress, onFinish, onQu
   const cur = players[turn % players.length];
   const opp = players[(turn + 1) % players.length];
 
-  const addDart = (dart) => {
+  const addDart = (raw) => {
     if (turnDarts.length >= 3) return;
+    const dart = stamp(raw, game.startedAt);
     setTurnDarts((d) => [...d, dart]);
   };
   const removeDart = (i) => setTurnDarts((d) => d.filter((_, idx) => idx !== i));
@@ -48,7 +54,10 @@ export default function PlayTicTacToe({ game, resume, onProgress, onFinish, onQu
     setHistory((h) => [...h, { s: JSON.parse(JSON.stringify(s)), turn }]);
     const ns = JSON.parse(JSON.stringify(s));
     ns.darts[cur] += turnDarts.length;
-    ns.log[cur] = [...ns.log[cur], ...turnDarts];
+    ns.log[cur] = [...ns.log[cur], ...stripDarts(turnDarts)];
+    const s0 = boardStr(s.board);
+    const claimed = [];
+    const cancelled = [];
 
     for (const dart of turnDarts) {
       const idx = GRID.indexOf(dart.n);
@@ -58,21 +67,27 @@ export default function PlayTicTacToe({ game, resume, onProgress, onFinish, onQu
       } else if (ns.board[idx] === opp) {
         // cancel opponent's claim
         ns.board[idx] = null;
+        cancelled.push(idx);
       } else {
         // unclaimed, claim it
         ns.board[idx] = cur;
+        claimed.push(idx);
       }
     }
+    recordVisit(ns.rec, cur, { r: Math.floor(turn / players.length), s0, darts: turnDarts, out: { b: boardStr(ns.board), c: claimed, x: cancelled } });
 
     // Check for winner
-    const winner = checkWinner(ns.board);
-    if (winner) {
+    const won = checkWinner(ns.board);
+    if (won) {
+      const completedAt = new Date().toISOString();
       const perPlayer = {};
       players.forEach((u) => {
         perPlayer[u] = {
           squaresClaimed: ns.board.filter((c) => c === u).length,
           dartsThrown: ns.darts[u],
           darts: ns.log[u],
+          line: won.line,
+          ...finishRecorder(ns.rec, u, completedAt),
         };
       });
       onFinish({
@@ -80,9 +95,9 @@ export default function PlayTicTacToe({ game, resume, onProgress, onFinish, onQu
         gameType: "tictactoe",
         config,
         players,
-        winner,
+        winner: won.winner,
         perPlayer,
-        completedAt: new Date().toISOString(),
+        completedAt,
       });
       return;
     }

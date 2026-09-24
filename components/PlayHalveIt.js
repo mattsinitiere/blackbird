@@ -3,41 +3,26 @@ import DartBoard from "./DartBoard";
 import { dartValue, dartLabel } from "@/lib/darts";
 import Celebration from "./Celebration";
 import { PlayerBadge, UndoIcon } from "./ui";
+import { HALVEIT_TARGETS, HALVEIT_START, halveItTargetLabel, hitsTarget, scoreDart } from "@/lib/gamestats/halveit";
+import { createRecorder, ensureRecorder, stamp, recordVisit, recordEvent, finishRecorder, stripDarts } from "@/lib/recorder";
 
-const TARGETS = [20, 19, 18, "D", 17, 16, 15, "T", "B"];
-
-const targetLabel = (t) =>
-  t === "D" ? "Any Double" : t === "T" ? "Any Triple" : t === "B" ? "Bull" : String(t);
-
-function hitsTarget(dart, target) {
-  if (dart.n === 0) return false;
-  if (typeof target === "number") return dart.n === target;
-  if (target === "D") return dart.mult === 2;
-  if (target === "T") return dart.mult === 3;
-  if (target === "B") return dart.n === 25;
-  return false;
-}
-
-function scoreDart(dart, target) {
-  if (!hitsTarget(dart, target)) return 0;
-  if (typeof target === "number") return dart.n * dart.mult;
-  if (target === "D") return dart.n * 2;
-  if (target === "T") return dart.n * 3;
-  if (target === "B") return 25 * dart.mult;
-  return 0;
-}
+// rules live in lib/gamestats/halveit.js so the stats engine replays them
+const TARGETS = HALVEIT_TARGETS;
+const targetLabel = halveItTargetLabel;
 
 export default function PlayHalveIt({ game, resume, onProgress, onFinish, onQuit, castActive, playerColors }) {
   const { players, config } = game;
 
   const blank = () => ({
-    scores: players.reduce((o, u) => ((o[u] = 40), o), {}),
+    scores: players.reduce((o, u) => ((o[u] = HALVEIT_START), o), {}),
     halves: players.reduce((o, u) => ((o[u] = 0), o), {}),
+    roundScores: players.reduce((o, u) => ((o[u] = []), o), {}),
     darts: players.reduce((o, u) => ((o[u] = 0), o), {}),
     log: players.reduce((o, u) => ((o[u] = []), o), {}),
+    rec: createRecorder({ players, startedAt: game.startedAt }),
   });
 
-  const [s, setS] = useState(() => resume?.s ?? blank());
+  const [s, setS] = useState(() => ensureRecorder(resume?.s ?? blank(), { players, startedAt: game.startedAt }));
   const [turn, setTurn] = useState(() => resume?.turn ?? 0);
   const [turnDarts, setTurnDarts] = useState(() => resume?.turnDarts ?? []);
   const [mult, setMult] = useState(() => resume?.mult ?? 1);
@@ -57,7 +42,9 @@ export default function PlayHalveIt({ game, resume, onProgress, onFinish, onQuit
     setHistory((h) => [...h, { s: JSON.parse(JSON.stringify(s)), turn }]);
     const ns = JSON.parse(JSON.stringify(s));
     ns.darts[cur] += darts.length;
-    ns.log[cur] = [...ns.log[cur], ...darts];
+    ns.log[cur] = [...ns.log[cur], ...stripDarts(darts)];
+    if (!ns.roundScores) ns.roundScores = players.reduce((o, u) => ((o[u] = []), o), {}); // resumed pre-v2 game
+    const s0 = ns.scores[cur];
 
     let turnScore = 0;
     let anyHit = false;
@@ -76,6 +63,8 @@ export default function PlayHalveIt({ game, resume, onProgress, onFinish, onQuit
     } else {
       ns.scores[cur] += turnScore;
     }
+    ns.roundScores[cur] = [...(ns.roundScores[cur] || []), halved ? 0 : turnScore];
+    recordVisit(ns.rec, cur, { r: round - 1, s0, darts, out: { s: halved ? 0 : turnScore, halved, sc: ns.scores[cur] } });
 
     setTurnDarts([]);
     setMult(1);
@@ -87,13 +76,16 @@ export default function PlayHalveIt({ game, resume, onProgress, onFinish, onQuit
       const max = Math.max(...players.map((u) => ns[u] !== undefined ? ns.scores[u] : 0));
       const leaders = players.filter((u) => ns.scores[u] === max);
       const winner = leaders[0];
+      const completedAt = new Date().toISOString();
       const perPlayer = {};
       players.forEach((u) => {
         perPlayer[u] = {
           finalScore: ns.scores[u],
           halves: ns.halves[u],
+          roundScores: ns.roundScores[u] || [],
           dartsThrown: ns.darts[u],
           darts: ns.log[u],
+          ...finishRecorder(ns.rec, u, completedAt),
         };
       });
       onFinish({
@@ -103,7 +95,7 @@ export default function PlayHalveIt({ game, resume, onProgress, onFinish, onQuit
         players,
         winner,
         perPlayer,
-        completedAt: new Date().toISOString(),
+        completedAt,
       });
       return;
     }
@@ -113,8 +105,8 @@ export default function PlayHalveIt({ game, resume, onProgress, onFinish, onQuit
     setTurn(newTurn);
   };
 
-  const addDart = (dart) => {
-    const next = [...turnDarts, dart];
+  const addDart = (raw) => {
+    const next = [...turnDarts, stamp(raw, game.startedAt)];
     if (next.length === 3) return commit(next);
     setMsg("");
     setTurnDarts(next);

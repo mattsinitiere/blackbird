@@ -188,17 +188,25 @@ function TVBaseball({ game, snapshot }) {
 
 function TVGeneric({ game, snapshot, title }) {
   const { players } = game;
-  const { state, turn } = snapshot;
+  const { turn } = snapshot;
+  // drills keep a per-player `state`; the party games keep one `s` object
+  // with per-player maps inside it
+  const state = snapshot.state ?? snapshot.s;
   if (!state) return null;
   const cur = players[turn % players.length];
   const round = Math.floor(turn / players.length) + 1;
   const scoreKey = (u) => {
     const s = state[u];
-    if (s == null) return "—";
-    if (typeof s === "number") return s;
-    if (typeof s.score === "number") return s.score;
-    if (typeof s.total === "number") return s.total;
-    if (typeof s.lives === "number") return s.lives;
+    if (s != null) {
+      if (typeof s === "number") return s;
+      if (typeof s.score === "number") return s.score;
+      if (typeof s.total === "number") return s.total;
+      if (typeof s.lives === "number") return s.lives;
+    }
+    if (state.scores && typeof state.scores[u] === "number") return state.scores[u];
+    if (state.lives && typeof state.lives[u] === "number") return `${state.lives[u]} ${state.lives[u] === 1 ? "life" : "lives"}`;
+    if (state.current && typeof state.current[u] === "number") return state.current[u] > 21 ? "done" : state.current[u] === 21 ? "Bull" : `→ ${state.current[u]}`;
+    if (Array.isArray(state.board)) return state.board.filter((c) => c === u).length;
     return "—";
   };
 

@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import DartBoard from "./DartBoard";
 import { dartLabel } from "@/lib/darts";
 import { PlayerBadge, UndoIcon } from "./ui";
+import { createRecorder, ensureRecorder, stamp, recordVisit, recordEvent, finishRecorder, stripDarts } from "@/lib/recorder";
 
 export default function PlayKiller({ game, resume, onProgress, onFinish, onQuit, castActive, playerColors }) {
   const { players, config } = game;
@@ -13,9 +14,10 @@ export default function PlayKiller({ game, resume, onProgress, onFinish, onQuit,
     killer: players.reduce((o, u) => ((o[u] = false), o), {}),
     darts: players.reduce((o, u) => ((o[u] = 0), o), {}),
     log: players.reduce((o, u) => ((o[u] = []), o), {}),
+    rec: createRecorder({ players, startedAt: game.startedAt }),
   });
 
-  const [s, setS] = useState(() => resume?.s ?? blank());
+  const [s, setS] = useState(() => ensureRecorder(resume?.s ?? blank(), { players, startedAt: game.startedAt }));
   const [turn, setTurn] = useState(() => resume?.turn ?? 0);
   const [turnDarts, setTurnDarts] = useState(() => resume?.turnDarts ?? []);
   const [mult, setMult] = useState(() => resume?.mult ?? 1);
@@ -25,28 +27,33 @@ export default function PlayKiller({ game, resume, onProgress, onFinish, onQuit,
     onProgress && onProgress({ s, turn, turnDarts, mult, history });
   }, [s, turn, turnDarts, mult, history, onProgress]);
 
-  // skip eliminated players
-  const alivePlayers = players.filter((u) => s.lives[u] > 0);
-  const curIndex = () => {
-    if (alivePlayers.length === 0) return 0;
-    return turn % alivePlayers.length;
-  };
-  const cur = alivePlayers[curIndex()] || players[0];
+  // the throw order is fixed; eliminated players are skipped in place
+  const cur = (() => {
+    for (let k = 0; k < players.length; k++) {
+      const u = players[(turn + k) % players.length];
+      if (s.lives[u] > 0) return u;
+    }
+    return players[0];
+  })();
 
-  const addDart = (dart) => {
+  const addDart = (raw) => {
     if (turnDarts.length >= 3) return;
-    setTurnDarts((d) => [...d, dart]);
+    const next = [...turnDarts, stamp(raw, game.startedAt)];
     setMult(1); // back to Single after every dart
+    if (next.length === 3) return endTurn(next);
+    setTurnDarts(next);
   };
 
-  const endTurn = () => {
+  const endTurn = (darts = turnDarts) => {
     setHistory((h) => [...h, { s: JSON.parse(JSON.stringify(s)), turn }]);
     const ns = JSON.parse(JSON.stringify(s));
 
-    ns.darts[cur] += turnDarts.length;
-    ns.log[cur] = [...ns.log[cur], ...turnDarts];
+    ns.darts[cur] += darts.length;
+    ns.log[cur] = [...ns.log[cur], ...stripDarts(darts)];
+    const s0 = { l: ns.lives[cur], k: ns.killer[cur] };
+    let ev = 0;
 
-    for (const d of turnDarts) {
+    for (const d of darts) {
       if (d.n === 0) continue;
 
       // check if this dart is a double on someone's number
@@ -54,12 +61,20 @@ export default function PlayKiller({ game, resume, onProgress, onFinish, onQuit,
         // becoming a killer: hit double of own number
         if (d.n === numbers[cur] && !ns.killer[cur]) {
           ns.killer[cur] = true;
+          recordEvent(ns.rec, { t: "killer", by: cur, turn });
+          ev++;
           continue;
         }
 
         // self-hit penalty: killer hits own double
         if (d.n === numbers[cur] && ns.killer[cur]) {
           ns.lives[cur] = Math.max(0, ns.lives[cur] - 1);
+          recordEvent(ns.rec, { t: "self", by: cur, turn });
+          ev++;
+          if (ns.lives[cur] === 0) {
+            recordEvent(ns.rec, { t: "elim", by: cur, on: cur, turn });
+            ev++;
+          }
           continue;
         }
 
@@ -68,10 +83,17 @@ export default function PlayKiller({ game, resume, onProgress, onFinish, onQuit,
           const victim = players.find((u) => u !== cur && numbers[u] === d.n);
           if (victim && ns.lives[victim] > 0) {
             ns.lives[victim] = Math.max(0, ns.lives[victim] - 1);
+            recordEvent(ns.rec, { t: "hit", by: cur, on: victim, turn });
+            ev++;
+            if (ns.lives[victim] === 0) {
+              recordEvent(ns.rec, { t: "elim", by: cur, on: victim, turn });
+              ev++;
+            }
           }
         }
       }
     }
+    recordVisit(ns.rec, cur, { r: Math.floor(turn / players.length), s0, darts, out: { l: ns.lives[cur], k: ns.killer[cur], ev } });
 
     setTurnDarts([]);
     setMult(1);
@@ -79,6 +101,7 @@ export default function PlayKiller({ game, resume, onProgress, onFinish, onQuit,
     const alive = players.filter((u) => ns.lives[u] > 0);
     if (alive.length <= 1) {
       const winner = alive[0] || cur;
+      const completedAt = new Date().toISOString();
       const perPlayer = {};
       players.forEach((u) => {
         perPlayer[u] = {
@@ -86,6 +109,7 @@ export default function PlayKiller({ game, resume, onProgress, onFinish, onQuit,
           livesRemaining: ns.lives[u],
           isKiller: ns.killer[u],
           darts: ns.log[u],
+          ...finishRecorder(ns.rec, u, completedAt),
         };
       });
       onFinish({
@@ -95,13 +119,16 @@ export default function PlayKiller({ game, resume, onProgress, onFinish, onQuit,
         players,
         winner,
         perPlayer,
-        completedAt: new Date().toISOString(),
+        completedAt,
       });
       return;
     }
 
     setS(ns);
-    setTurn((t) => t + 1);
+    // next player in the fixed order who is still alive
+    let t = turn + 1;
+    while (ns.lives[players[t % players.length]] <= 0) t++;
+    setTurn(t);
   };
 
   const undo = () => {
@@ -238,7 +265,7 @@ export default function PlayKiller({ game, resume, onProgress, onFinish, onQuit,
         </button>
 
         <div className="row mt-12">
-          <button className="btn btn-primary" style={{ flex: 1 }} onClick={endTurn}>
+          <button className="btn btn-primary" style={{ flex: 1 }} onClick={() => endTurn()}>
             End turn
           </button>
         </div>

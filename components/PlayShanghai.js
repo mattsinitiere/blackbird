@@ -3,6 +3,7 @@ import DartBoard from "./DartBoard";
 import { dartLabel } from "@/lib/darts";
 import Celebration from "./Celebration";
 import { PlayerBadge, UndoIcon } from "./ui";
+import { createRecorder, ensureRecorder, stamp, recordVisit, recordEvent, finishRecorder, stripDarts } from "@/lib/recorder";
 
 const BEGINNER_TARGETS = [1, 2, 3, 4, 5, 6, 7];
 const ADVANCED_TARGETS = [15, 16, 17, 18, 19, 20, 25];
@@ -18,9 +19,10 @@ export default function PlayShanghai({ game, resume, onProgress, onFinish, onQui
     roundScores: players.reduce((o, u) => ((o[u] = []), o), {}),
     darts: players.reduce((o, u) => ((o[u] = 0), o), {}),
     log: players.reduce((o, u) => ((o[u] = []), o), {}),
+    rec: createRecorder({ players, startedAt: game.startedAt }),
   });
 
-  const [s, setS] = useState(() => resume?.s ?? blank());
+  const [s, setS] = useState(() => ensureRecorder(resume?.s ?? blank(), { players, startedAt: game.startedAt }));
   const [turn, setTurn] = useState(() => resume?.turn ?? 0);
   const [turnDarts, setTurnDarts] = useState(() => resume?.turnDarts ?? []);
   const [mult, setMult] = useState(() => resume?.mult ?? 1);
@@ -45,11 +47,27 @@ export default function PlayShanghai({ game, resume, onProgress, onFinish, onQui
     return hasSingle && hasDouble && hasTriple;
   };
 
+  const finishGame = (ns, winner, shanghaiBy) => {
+    const completedAt = new Date().toISOString();
+    const perPlayer = {};
+    players.forEach((u) => {
+      perPlayer[u] = {
+        totalScore: ns.scores[u],
+        roundScores: ns.roundScores[u],
+        dartsThrown: ns.darts[u],
+        shanghai: u === shanghaiBy,
+        darts: ns.log[u],
+        ...finishRecorder(ns.rec, u, completedAt),
+      };
+    });
+    onFinish({ id: game.id, gameType: "shanghai", config, players, winner, perPlayer, completedAt });
+  };
+
   const commit = (darts) => {
     setHistory((h) => [...h, { s: JSON.parse(JSON.stringify(s)), turn }]);
     const ns = JSON.parse(JSON.stringify(s));
     ns.darts[cur] += darts.length;
-    ns.log[cur] = [...ns.log[cur], ...darts];
+    ns.log[cur] = [...ns.log[cur], ...stripDarts(darts)];
 
     let roundScore = 0;
     for (const d of darts) {
@@ -57,6 +75,8 @@ export default function PlayShanghai({ game, resume, onProgress, onFinish, onQui
         roundScore += d.n * d.mult;
       }
     }
+    const shanghai = isShanghai(darts);
+    recordVisit(ns.rec, cur, { r: roundIndex, s0: ns.scores[cur], darts, out: { s: roundScore, sh: shanghai } });
     ns.scores[cur] += roundScore;
     ns.roundScores[cur] = [...ns.roundScores[cur], roundScore];
 
@@ -64,28 +84,9 @@ export default function PlayShanghai({ game, resume, onProgress, onFinish, onQui
     setMult(1);
 
     // check Shanghai instant win
-    if (isShanghai(darts)) {
+    if (shanghai) {
       setCeleb({ type: "shanghai" });
-      const perPlayer = {};
-      players.forEach((u) => {
-        perPlayer[u] = {
-          totalScore: ns.scores[u],
-          roundScores: ns.roundScores[u],
-          dartsThrown: ns.darts[u],
-          shanghai: u === cur,
-          darts: ns.log[u],
-        };
-      });
-      onFinish({
-        id: game.id,
-        gameType: "shanghai",
-        config,
-        players,
-        winner: cur,
-        perPlayer,
-        completedAt: new Date().toISOString(),
-      });
-      return;
+      return finishGame(ns, cur, cur);
     }
 
     // check end of game (all rounds complete)
@@ -96,26 +97,7 @@ export default function PlayShanghai({ game, resume, onProgress, onFinish, onQui
       players.forEach((u) => {
         if (ns.scores[u] > ns.scores[winner]) winner = u;
       });
-      const perPlayer = {};
-      players.forEach((u) => {
-        perPlayer[u] = {
-          totalScore: ns.scores[u],
-          roundScores: ns.roundScores[u],
-          dartsThrown: ns.darts[u],
-          shanghai: false,
-          darts: ns.log[u],
-        };
-      });
-      onFinish({
-        id: game.id,
-        gameType: "shanghai",
-        config,
-        players,
-        winner,
-        perPlayer,
-        completedAt: new Date().toISOString(),
-      });
-      return;
+      return finishGame(ns, winner, null);
     }
 
     setS(ns);
@@ -123,8 +105,8 @@ export default function PlayShanghai({ game, resume, onProgress, onFinish, onQui
     setTurn(newTurn);
   };
 
-  const addDart = (dart) => {
-    const next = [...turnDarts, dart];
+  const addDart = (raw) => {
+    const next = [...turnDarts, stamp(raw, game.startedAt)];
     if (next.length === 3) return commit(next);
     setTurnDarts(next);
     setMult(1); // back to Single after every dart — a stuck Double/Triple is the easiest way to mis-score

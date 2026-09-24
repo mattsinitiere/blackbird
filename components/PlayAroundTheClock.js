@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import DartBoard from "./DartBoard";
 import { dartLabel } from "@/lib/darts";
 import { PlayerBadge, UndoIcon } from "./ui";
+import { createRecorder, ensureRecorder, stamp, recordVisit, recordEvent, finishRecorder, stripDarts } from "@/lib/recorder";
 
 export default function PlayAroundTheClock({ game, resume, onProgress, onFinish, onQuit, castActive, playerColors }) {
   const { players, config } = game;
@@ -10,9 +11,10 @@ export default function PlayAroundTheClock({ game, resume, onProgress, onFinish,
     current: players.reduce((o, u) => ((o[u] = 1), o), {}),
     darts: players.reduce((o, u) => ((o[u] = 0), o), {}),
     log: players.reduce((o, u) => ((o[u] = []), o), {}),
+    rec: createRecorder({ players, startedAt: game.startedAt }),
   });
 
-  const [s, setS] = useState(() => resume?.s ?? blank());
+  const [s, setS] = useState(() => ensureRecorder(resume?.s ?? blank(), { players, startedAt: game.startedAt }));
   const [turn, setTurn] = useState(() => resume?.turn ?? 0);
   const [turnDarts, setTurnDarts] = useState(() => resume?.turnDarts ?? []);
   const [mult, setMult] = useState(() => resume?.mult ?? 1);
@@ -28,32 +30,39 @@ export default function PlayAroundTheClock({ game, resume, onProgress, onFinish,
   const targetNumber = (t) => (t === 21 ? 25 : t);
   const targetLabel = (t) => (t === 21 ? "Bull" : String(t));
 
+  // the target after throwing `darts` from `from` (multiplier does not matter)
+  const advance = (from, darts) => {
+    let t = from;
+    for (const d of darts) {
+      if (t > 21) break;
+      if (d.n === targetNumber(t)) t += 1;
+    }
+    return t;
+  };
+
   const commit = (darts) => {
     setHistory((h) => [...h, { s: JSON.parse(JSON.stringify(s)), turn }]);
     const ns = JSON.parse(JSON.stringify(s));
     ns.darts[cur] += darts.length;
-    ns.log[cur] = [...ns.log[cur], ...darts];
+    ns.log[cur] = [...ns.log[cur], ...stripDarts(darts)];
 
-    let currentTarget = ns.current[cur];
-    for (const d of darts) {
-      if (currentTarget > 21) break;
-      const tn = targetNumber(currentTarget);
-      if (d.n === tn) {
-        currentTarget += 1;
-      }
-    }
+    const before = ns.current[cur];
+    const currentTarget = advance(before, darts);
     ns.current[cur] = currentTarget;
+    recordVisit(ns.rec, cur, { r: Math.floor(turn / players.length), s0: before, darts, out: { hit: currentTarget - before, tgt: currentTarget } });
 
     setTurnDarts([]);
     setMult(1);
 
     if (currentTarget > 21) {
+      const completedAt = new Date().toISOString();
       const perPlayer = {};
       players.forEach((u) => {
         perPlayer[u] = {
           dartsThrown: ns.darts[u],
-          targetsHit: ns.current[u] - 1,
+          targetsHit: Math.min(21, ns.current[u] - 1),
           darts: ns.log[u],
+          ...finishRecorder(ns.rec, u, completedAt),
         };
       });
       onFinish({
@@ -63,7 +72,7 @@ export default function PlayAroundTheClock({ game, resume, onProgress, onFinish,
         players,
         winner: cur,
         perPlayer,
-        completedAt: new Date().toISOString(),
+        completedAt,
       });
       return;
     }
@@ -71,9 +80,10 @@ export default function PlayAroundTheClock({ game, resume, onProgress, onFinish,
     setTurn((t) => t + 1);
   };
 
-  const addDart = (dart) => {
-    const next = [...turnDarts, dart];
-    if (next.length === 3) return commit(next);
+  const addDart = (raw) => {
+    const next = [...turnDarts, stamp(raw, game.startedAt)];
+    // the bull finishes the clock on any dart, not only the third
+    if (next.length === 3 || advance(s.current[cur], next) > 21) return commit(next);
     setTurnDarts(next);
     setMult(1); // back to Single after every dart — a stuck Double/Triple is the easiest way to mis-score
   };
