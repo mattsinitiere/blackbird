@@ -128,7 +128,7 @@ function ProfileEditor({ player, updatePlayerProfile, playerColors }) {
   );
 }
 
-export default function Account({ user, players, results, addPlayer, setPlayerHidden, setPlayerColor, updatePlayerProfile, myPlayer: myPlayerProp, playerColors, isAdmin, onOpenAdmin, social, onOpenFriends, signOut, back }) {
+export default function Account({ user, players, results, addPlayer, setPlayerHidden, setPlayerColor, updatePlayerProfile, myPlayer: myPlayerProp, playerColors, isAdmin, onOpenAdmin, social, onOpenFriends, signOut, back, focus = null }) {
   const meta = user?.user_metadata || {};
   const [name, setName] = useState(meta.display_name || "");
   const [theme, setTheme] = useState(meta.theme === "dark" ? "dark" : "light");
@@ -181,6 +181,11 @@ export default function Account({ user, players, results, addPlayer, setPlayerHi
   const myPlayer = myPlayerProp || players.find((p) => p.username.toLowerCase() === trimmed.toLowerCase());
   const isPlayer = !!myPlayer;
   const [hideBusy, setHideBusy] = useState(false);
+  // "Edit profile" on the profile page lands on the editor, not the top
+  const editorRef = useRef(null);
+  useEffect(() => {
+    if (focus === "profile" && editorRef.current) editorRef.current.scrollIntoView({ block: "start" });
+  }, [focus]);
 
   const toggleLeaderboard = async () => {
     if (!myPlayer) return;
@@ -266,7 +271,9 @@ export default function Account({ user, players, results, addPlayer, setPlayerHi
       </div>
 
       {myPlayer && updatePlayerProfile && (
-        <ProfileEditor key={myPlayer.username} player={myPlayer} updatePlayerProfile={updatePlayerProfile} playerColors={playerColors} />
+        <div ref={editorRef} style={{ scrollMarginTop: 16 }}>
+          <ProfileEditor key={myPlayer.username} player={myPlayer} updatePlayerProfile={updatePlayerProfile} playerColors={playerColors} />
+        </div>
       )}
 
       {onOpenFriends && (

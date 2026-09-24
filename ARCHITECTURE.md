@@ -117,7 +117,12 @@ components/
                           practice drills (always saved as practice)
   Practice.js             practice hub: bot ladder, drills, PBs, trends
   Leaderboard.js          standings by Elo / X01 avg / cricket MPR
-  Profile.js              player page: trend charts, per-game history
+  Profile.js              player page, social-profile layout: cover +
+                          identity, Activity / Statistics / Achievements
+                          tabs, sidebar (game, trophies, circle); pieces in
+                          components/profile/, feed + circle in
+                          lib/activity.js, share links in lib/profileLink.js
+                          (/app?player=<handle> opens that profile)
   PlayerCard.js           canvas-rendered shareable stat card (PNG export)
   Matchup.js              Elo win-probability + head-to-head
   BlackbirdAI.js          Blackbird AI tab: personal chat over the player's own
@@ -328,6 +333,12 @@ load the client pulls all `game_results` rows and derives:
   `marks`/`rounds`).
 - **`headToHead(results, a, b)`** → record between two players, computed
   from A's own rows (stays correct even if an opponent was reset).
+  **`rivalry(results, me, opp)`** is the full version: per game mode,
+  third-player wins apart, streak and last five meetings (profile
+  "You vs" card and the AI's `headToHead`).
+- **Finishing order**: `recordGame` saves `stats.place` on each row
+  (`finishPlaces` in `lib/summary.js`: winner 1st, the rest by the
+  summary's per-game score, ties share). Rows before Sept 2026 have none.
 - **Home dashboard** buckets unique games (dedup by `game_id`) into 13
   seven-day windows for the games-per-week bar chart.
 
@@ -544,8 +555,11 @@ built by `lib/aiSummary.js` from the rows the app already holds:
   `trends.byMonth` / `trends.byWeek` tables, and `series`: named point
   lists (`checkoutPctByMonth`, `x01AvgByGame`, `eloByGame`, ...) the model
   can quote or chart by key.
-- `headToHead`, `recentGames` (one derived row per game, no dart logs) and
-  the practice log.
+- `headToHead` (per opponent: overall and `byGameType` record, streak,
+  last five, @handle; explained in `definitions.headToHead`), `roster`
+  (names and @handles, so "chuck" matches `Chuck`), `recentGames` (one
+  derived row per game, no dart logs) and the practice log. See
+  docs/ANALYTICS_REVIEW.md.
 
 The last few chat turns ride along so follow-ups keep context. The prompt
 tells the model it may append one fenced ```` ```chart ```` block naming a

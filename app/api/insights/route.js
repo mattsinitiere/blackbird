@@ -40,7 +40,10 @@ function buildPersonalPrompt(summary, question, history) {
     "`series` holds the same trends as named point lists {x, y, date, label, n} where n is the sample size. " +
     "`careers` has career numbers for EVERY game mode the player has played (x01, cricket, baseball, aroundTheClock, killer, shanghai, halveit, gotcha, tictactoe and the drills bobs27, checkoutDrill, scoringDrill), each with a `coverage` block saying how many games had full dart logs. " +
     "`achievements` lists the badges the player has earned (with dates) and the badges closest to unlocking with their progress; mention a fresh badge or a close one when it fits. " +
-    "`headToHead` is the record against each opponent, `recentGames` one row per recent game with its derived numbers, " +
+    "`headToHead` is the full record against each opponent (see `definitions.headToHead`): overall and per game mode in `byGameType`, the streak and the last five meetings. " +
+    "Match an opponent the player names case-insensitively against `headToHead[].opponent` or `.handle` (and `roster` for names and @handles); a first name or @handle is enough. " +
+    "For 'my record/W-L vs X' questions quote wins-losses from `headToHead`, split by game mode when there is more than one, and mention otherWinner games separately. " +
+    "`recentGames` is one row per recent game with its derived numbers, " +
     "and `practice` the drill log, solo X01 sessions and the bot ladder. " +
     "Checkout % is checkouts hit divided by checkout chances; a chance is one dart thrown while the remaining score could be finished with that dart. " +
     "When asked about a trend, read the monthly or weekly tables and quote the actual values and sample sizes; " +

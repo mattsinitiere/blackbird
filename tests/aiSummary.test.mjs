@@ -107,7 +107,16 @@ test("form compares recent games and days", () => {
 
 test("head to head and recent games carry no raw dart logs", () => {
   const s = build();
-  assert.deepEqual(s.headToHead, [{ opponent: "Sam", wins: 3, losses: 1, games: 4, lastPlayed: "2026-08-09", winPct: 75, opponentElo: 996 }]);
+  assert.equal(s.headToHead.length, 1);
+  const h = s.headToHead[0];
+  assert.deepEqual(
+    { opponent: h.opponent, wins: h.wins, losses: h.losses, games: h.games, otherWinner: h.otherWinner, lastPlayed: h.lastPlayed, winPct: h.winPct, opponentElo: h.opponentElo },
+    { opponent: "Sam", wins: 3, losses: 1, games: 4, otherWinner: 0, lastPlayed: "2026-08-09", winPct: 75, opponentElo: 996 }
+  );
+  assert.deepEqual(h.byGameType, { x01: { games: 4, wins: 3, losses: 1, otherWinner: 0 } });
+  assert.deepEqual(h.streak, { result: "W", count: 2 });
+  assert.equal(h.last5[0].date, "2026-08-09");
+  assert.ok(s.definitions.headToHead.includes("otherWinner"));
   assert.equal(s.recentGames.length, 4);
   for (const g of s.recentGames) {
     assert.equal(g.darts, undefined);

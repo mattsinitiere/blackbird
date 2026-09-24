@@ -183,7 +183,8 @@ function isLight(hex) {
   return (r * 299 + g * 587 + b * 114) / 1000 > 160;
 }
 
-export function PlayerBadge({ username, color, size = 24, showName = true, tag, tagIcon, showTag }) {
+// `sizeCss` (any CSS length) overrides `size`, for avatars sized by a stylesheet
+export function PlayerBadge({ username, color, size = 24, showName = true, tag, tagIcon, showTag, sizeCss }) {
   const look = useContext(PlayerLookContext)?.[username];
   const bg = color || look?.color || defaultPlayerColor(username);
   const fg = isLight(bg) ? "#333" : "#fff";
@@ -195,8 +196,8 @@ export function PlayerBadge({ username, color, size = 24, showName = true, tag, 
     <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
       <span
         style={{
-          width: size,
-          height: size,
+          width: sizeCss || size,
+          height: sizeCss || size,
           borderRadius: "50%",
           background: bg,
           display: "inline-flex",
@@ -204,7 +205,7 @@ export function PlayerBadge({ username, color, size = 24, showName = true, tag, 
           justifyContent: "center",
           flex: "none",
           color: fg,
-          fontSize: size * 0.52,
+          fontSize: sizeCss ? `calc(${sizeCss} * 0.52)` : size * 0.52,
           fontWeight: 700,
           lineHeight: 1,
           userSelect: "none",

@@ -6,6 +6,7 @@ import { supabase, isConfigured } from "@/lib/supabase";
 import { getPlayers, addPlayer as dbAddPlayer, linkPlayerAuth as dbLinkPlayerAuth, setPlayerHidden as dbSetPlayerHidden, setPlayerColor as dbSetPlayerColor, updatePlayerProfile as dbUpdatePlayerProfile, getGameResults, recordGame, getFollows, followPlayer as dbFollowPlayer, unfollowPlayer as dbUnfollowPlayer } from "@/lib/db";
 import { followingUsernames, followerUsernames, circlePlayers as circleOf, followsForSocial } from "@/lib/follows";
 import { normalizeHandle, validateHandle } from "@/lib/profile";
+import { PROFILE_PARAM, resolveProfileParam } from "@/lib/profileLink";
 import { computeStats, eloMapFromPlayers, applyEloUpdate } from "@/lib/stats";
 import { ADMIN_EMAIL, defaultPlayerColor } from "@/lib/constants";
 import { applyFontScale } from "@/lib/prefs";
@@ -243,7 +244,9 @@ export default function Page() {
   const signingOutRef = useRef(false);
   useEffect(() => {
     if (!isConfigured || !authReady || session) return;
-    router.replace(signingOutRef.current ? "/" : "/login?next=%2Fapp");
+    // a shared profile link (/app?player=…) survives the trip through sign-in
+    const search = typeof window !== "undefined" ? window.location.search : "";
+    router.replace(signingOutRef.current ? "/" : `/login?next=${encodeURIComponent(`/app${search}`)}`);
   }, [authReady, session, router]);
 
   const refresh = useCallback(async () => {
@@ -513,6 +516,29 @@ export default function Page() {
     setView("game");
   };
 
+  // a shared profile link: open that player once the roster has loaded
+  const deepLinkDone = useRef(false);
+  useEffect(() => {
+    if (!dataReady || deepLinkDone.current || typeof window === "undefined") return;
+    deepLinkDone.current = true;
+    const params = new URLSearchParams(window.location.search);
+    const wanted = params.get(PROFILE_PARAM);
+    if (wanted == null) return;
+    params.delete(PROFILE_PARAM);
+    const rest = params.toString();
+    window.history.replaceState(null, "", `${window.location.pathname}${rest ? `?${rest}` : ""}${window.location.hash}`);
+    const u = resolveProfileParam(wanted, players);
+    if (u) {
+      setProfileFrom("home");
+      setProfileUser(u);
+      setView("profile");
+    } else {
+      setNotice("That profile link doesn't match a player you can see.");
+    }
+  }, [dataReady, players]);
+  // "Edit profile" opens settings scrolled to the profile editor
+  const [accountFocus, setAccountFocus] = useState(null);
+
   const [friendsFrom, setFriendsFrom] = useState("home");
   const openFriends = () => {
     if (view !== "friends") setFriendsFrom(view);
@@ -579,9 +605,9 @@ export default function Page() {
 
   return (
     <PlayerLookContext.Provider value={playerMeta}>
-    <main className="app shell">
+    <main className={`app shell${view === "profile" ? " is-profile" : ""}`}>
       <div className="scroll">
-        <div className="container">
+        <div className={`container${view === "profile" ? " container-profile" : ""}`}>
         <header className="header">
           <button type="button" className="brand-home" aria-label="Blackbird home" onClick={() => setView("home")}>
             <Logo variant="lockup" height={40} />
@@ -691,7 +717,9 @@ export default function Page() {
         )}
         {view === "profile" && profileUser && (
           <Profile
+            key={profileUser}
             user={profileUser}
+            me={myName}
             player={players.find((p) => p.username === profileUser) || null}
             stats={stats[profileUser]}
             elo={elo[profileUser]}
@@ -700,12 +728,23 @@ export default function Page() {
             onOpenPractice={profileUser === myName ? () => setView("practice") : null}
             onOpenAccount={
               profileUser === (session.user?.user_metadata?.display_name || "")
-                ? () => setView("account")
+                ? () => {
+                    setAccountFocus(null);
+                    setView("account");
+                  }
                 : null
             }
+            onEditProfile={() => {
+              setAccountFocus("profile");
+              setView("account");
+            }}
             playerColors={playerColors}
             isMe={profileUser === myName}
             social={social}
+            socialAvailable={follows !== null}
+            followsYou={followers.has(profileUser)}
+            dataError={!!loadError}
+            openProfile={openProfile}
             userId={session.user?.id}
             openGame={openGame}
             onOpenFriends={profileUser === myName ? openFriends : null}
@@ -758,7 +797,9 @@ export default function Page() {
             social={social}
             onOpenFriends={openFriends}
             signOut={signOut}
+            focus={accountFocus}
             back={() => {
+              setAccountFocus(null);
               // settings open from the profile tab, so Back returns there
               if (!myName) return setView("home");
               setProfileUser(myName);
