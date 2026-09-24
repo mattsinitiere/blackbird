@@ -11,37 +11,69 @@ your own you can run **practice drills** (Bob's 27, checkouts, scoring) or
 climb a ladder of eight **bot opponents** that throw for themselves; all
 of that lands in a personal practice log, never in the league stats.
 
-Everyone signs in with email/password, scores games on their phone, and the
-stats sync instantly for the whole group. No game data is kept in
-localStorage — Postgres is the single source of truth.
+A public website at `/` explains the product; the scoring app itself lives
+at `/app`. Sign-up is invite-only (a shared code), everyone signs in with
+email and password, scores games on their phone, and results sync
+instantly to everyone who follows them. A **Blackbird AI** tab answers
+questions about your own games and draws charts, and every game gets a
+**match report** and counts towards 32 **achievements**. Postgres is the
+single source of truth for game data.
 
 ## Screenshots
 
-*(Captured on a phone-sized viewport with demo data.)*
+*(Captured on a phone-sized viewport with demo data: six players and
+~40 games played through the real scoring screens.)*
 
-| Loading screen | Loading (dark) | Home |
-|:---:|:---:|:---:|
-| <img src="docs/screenshots/loading-light.png" width="240" alt="Blackbird splash: wordmark with spinning dartboard wheel, light theme"> | <img src="docs/screenshots/loading-dark.png" width="240" alt="Blackbird splash: wordmark with spinning dartboard wheel, dark theme"> | <img src="docs/screenshots/home.png" width="240" alt="Home view with quick stats, games-per-week chart, and top players"> |
+**Public website** (`/`) and invite-only sign-up:
 
-| Live cricket (MPR column) | Cricket leaderboard | Game setup |
-|:---:|:---:|:---:|
-| <img src="docs/screenshots/cricket-live-mpr.png" width="240" alt="Cricket scoring screen with live MPR per player and round number"> | <img src="docs/screenshots/leaderboard-cricket.png" width="240" alt="Standings sorted by cricket MPR"> | <img src="docs/screenshots/setup.png" width="240" alt="New game setup with cricket variants and player picker"> |
+<img src="docs/screenshots/website.png" width="740" alt="Blackbird website hero: Every Dart Counts. Make Yours Matter, with Sign In and Sign Up in the header">
 
-| MPR over time | Cricket profile card | Phone while casting |
+| Sign up (invite code) | Loading screen | Loading (dark) |
 |:---:|:---:|:---:|
-| <img src="docs/screenshots/profile-mpr-chart.png" width="240" alt="Profile trend charts including cricket MPR over time"> | <img src="docs/screenshots/profile-cricket.png" width="240" alt="Profile cricket card with career MPR, best MPR, and marks by round"> | <img src="docs/screenshots/phone-casting.png" width="240" alt="Simplified phone scoring UI while casting, showing the TV code"> |
+| <img src="docs/screenshots/signup.png" width="240" alt="Create account form: invite code, display name, @handle, email"> | <img src="docs/screenshots/loading-light.png" width="240" alt="Blackbird splash: wordmark with spinning dartboard wheel, light theme"> | <img src="docs/screenshots/loading-dark.png" width="240" alt="Blackbird splash: wordmark with spinning dartboard wheel, dark theme"> |
+
+| Home | Home (dark) | Game setup |
+|:---:|:---:|:---:|
+| <img src="docs/screenshots/home.png" width="240" alt="Home view with quick stats, games-per-week chart, and the Top of the Board podium"> | <img src="docs/screenshots/home-dark.png" width="240" alt="Home view in the dark theme"> | <img src="docs/screenshots/setup.png" width="240" alt="New game setup: nine game types, three practice drills, cricket variants, friends or a bot"> |
+
+| Live cricket (MPR column) | Live X01 | Game summary |
+|:---:|:---:|:---:|
+| <img src="docs/screenshots/cricket-live-mpr.png" width="240" alt="Cricket scoring screen with marks grid, points, live MPR per player and round number"> | <img src="docs/screenshots/x01-live.png" width="240" alt="501 scoring screen with the checkout suggestion and per-dart keypad"> | <img src="docs/screenshots/summary.png" width="240" alt="End-of-game summary: winner with Elo change, badges unlocked, ranked player cards"> |
+
+| Match report | Cricket standings | Records |
+|:---:|:---:|:---:|
+| <img src="docs/screenshots/match-report.png" width="240" alt="Match report for a cricket game: side-by-side numbers and marks per round"> | <img src="docs/screenshots/leaderboard-cricket.png" width="240" alt="Standings sorted by cricket MPR with name tags and recent form"> | <img src="docs/screenshots/records.png" width="240" alt="League records: highest turn, checkout, best leg, best MPR game and more"> |
+
+| Trend charts | X01 career card | Cricket career card |
+|:---:|:---:|:---:|
+| <img src="docs/screenshots/profile-mpr-chart.png" width="240" alt="Profile trend charts: win % and cricket MPR over time"> | <img src="docs/screenshots/profile-x01.png" width="240" alt="Profile X01 career card: average, first 9, checkout %, tons, busts, checkouts by finish size"> | <img src="docs/screenshots/profile-cricket.png" width="240" alt="Profile cricket career card: MPR, best MPR, miss %, dead darts and where darts land"> |
+
+| Achievements | Friends | Practice & bots |
+|:---:|:---:|:---:|
+| <img src="docs/screenshots/achievements.png" width="240" alt="Achievements grid with unlocked badges and progress bars"> | <img src="docs/screenshots/friends.png" width="240" alt="Friends screen: find players by name or @handle, following and followers"> | <img src="docs/screenshots/practice.png" width="240" alt="Practice hub with session counts and the eight-bot ladder"> |
+
+| Blackbird AI | Phone while casting |
+|:---:|:---:|
+| <img src="docs/screenshots/ai.png" width="240" alt="Blackbird AI chat tab with suggested questions"> | <img src="docs/screenshots/phone-casting.png" width="240" alt="Simplified phone scoring UI while casting, showing the TV code"> |
 
 **TV scoreboard** (`/tv`, paired with the phone by a 4-character code):
 
-<img src="docs/screenshots/tv-cricket.png" width="740" alt="TV scoreboard showing a live cricket game with marks, points, MPR and whose throw it is">
+<img src="docs/screenshots/tv-cricket.png" width="740" alt="TV scoreboard showing a live cricket game with marks, points, MPR, whose throw it is and the turn's darts on the board">
 
 <img src="docs/screenshots/tv-x01.png" width="740" alt="TV scoreboard showing a live 501 game with giant remaining scores">
+
+<img src="docs/screenshots/tv-summary.png" width="740" alt="TV end-of-game summary: winner, Elo change, points per player and highlights">
 
 ## What it is (at a glance)
 
 - **Profiles and @handles**: every player has a unique `@handle` chosen at
   sign-up (or from the Account page), a bio and a home bar/town, shown on
   their profile and stat card. Only the owning account can edit them.
+- **Friends**: one-way follows. You see yourself plus the players you
+  follow in standings, records, matchups, profiles and the AI coach, and
+  the database enforces it. Name tags (a short code and/or an icon) sit
+  beside every name. See [Friends, name tags and
+  achievements](#friends-name-tags-and-achievements).
 - **Player avatars and colors**: every player gets a colored circle badge
   with their initial letter, shown next to their name throughout the app.
   Colors are deterministic by default (a hash of the username) and can be
@@ -91,7 +123,16 @@ localStorage — Postgres is the single source of truth.
   active player, most wins, best 3-dart average, highest turn, best
   checkout, best cricket MPR).
 - **Stats**: win %, 3-dart average (overall and per dart position), highest
-  turn, best leg, highest checkout, MPR, average runs, and more.
+  turn, best leg, highest checkout, MPR, average runs, and more. Every
+  game type has its own career card on the profile.
+- **Match report and records**: tap any game in a history list for a
+  side-by-side report with a per-round chart for each player. The Records
+  screen (Stats → Records) holds league records and streaks for every
+  game type. Both read through the stats engine in `lib/gamestats/`.
+- **Blackbird AI**: the sparkle tab in the bottom nav is a chat about your
+  own games (form, checkouts, records, rivals, trends, practice). Ask for
+  a chart and the app draws one from its own numbers. Needs an AI provider
+  key on the server (see [step 3](#3-pick-an-ai-provider-for-the-blackbird-ai-tab)).
 - **Elo**: every multi-player game updates a shared Elo rating; the Matchup tab
   predicts win probability between any two players.
 - **Player card export**: a canvas-rendered PNG stat card with player avatar,
@@ -102,7 +143,9 @@ localStorage — Postgres is the single source of truth.
   reset scores.
 - **Public website + invite-only sign-up**: `/` is the marketing page
   (features, game modes, TV mode, FAQ) with Sign In / Sign Up in the
-  header; once signed in the header shows Play instead. Sign-up asks for
+  header; once signed in the header shows Play and your avatar, and
+  `/profile` lets you edit your name, @handle, bio, home bar and name tag
+  and see your badges. Sign-up asks for
   a shared invite code and sends a Supabase invite email; the app itself
   lives at `/app`.
 - **Smooth animations**: buttons, cards, and navigation have spring-like
@@ -143,14 +186,20 @@ theming, security — end to end.)*
 │  app/api/admin/route.js      │  server-only: holds the Supabase
 │    → Supabase service role   │  service_role key; only the
 │                              │  ADMIN_EMAIL account may call it
+│                              │
+│  app/api/link-players/       │  server-only: links unclaimed
+│    route.js                  │  player rows to their accounts
+│                              │
+│  app/tv/page.js ── TV        │  no login; live over Realtime
 └──────────────┬──────────────┘
                │ supabase-js (anon key + RLS)
 ┌──────────────▼──────────────┐
 │  Supabase                    │
 │  • Auth (email/password)     │
 │  • Postgres: players,        │
-│    game_results, matches     │
-│    (legacy), RLS policies    │
+│    game_results, follows,    │
+│    matches (legacy), RLS     │
+│  • Realtime broadcast (TV)   │
 └─────────────────────────────┘
 ```
 
@@ -158,26 +207,32 @@ Key design points:
 
 - **The app is client-rendered.** `app/app/page.js` is one client component that
   swaps between views (Home, Setup, live game screens, Game Summary,
-  Leaderboard, Profile, Matchup, Account, Admin). Live game state lives in React state and
+  Practice, Standings, Records, Profile, Match report, Matchup, Friends,
+  Blackbird AI, Account, Admin). Live game state lives in React state and
   is checkpointed in-memory so you can navigate away and resume.
 - **Scoring math runs in the browser.** When a game finishes, one row per
   player is written to `game_results` with that player's full game stats as
   JSONB, and each player's new Elo is written back to `players`.
-- **Aggregation happens at read time.** `lib/stats.js` recomputes career
-  stats, timelines, and head-to-head records from the raw `game_results` rows
+- **Aggregation happens at read time.** `lib/stats.js` and the stats engine
+  in `lib/gamestats/` recompute career stats, timelines, records,
+  achievements and head-to-head records from the raw `game_results` rows
   on every load — there are no denormalized aggregate tables to migrate.
-- **Two server routes exist only to protect secrets**: the AI key
+- **Server routes exist only to protect secrets**: the AI key
   (`/api/insights`, behind the Blackbird AI tab) and the Supabase
-  service-role key (`/api/admin`). Both verify the caller's Supabase session
-  token first.
+  service-role key (`/api/admin`, `/api/signup`, `/api/link-players`).
+  Each verifies the caller's Supabase session token or the invite code
+  first.
 
 ## How the app works
 
 1. **Open the app** — a branded splash (the Blackbird wordmark with a
    spinning mini dartboard as the loading wheel) shows for 1–3 seconds on
    every launch while auth and data load behind it.
-2. **Sign in** (Supabase email/password). Your display name is auto-added to
-   the shared `players` list so everyone can pick you as an opponent.
+2. **Sign up and sign in** — Sign Up on the website asks for the shared
+   invite code, a name and an @handle and emails you an invite (a link and
+   a six-digit code); set a password and you're in. Your display name is
+   auto-added to the shared `players` list so others can follow you and
+   pick you as an opponent.
 3. **Setup** a game: pick the game type and options (start score, double-out
    and legs for X01, variant for Cricket, and so on), pick 1+ players, and
    drag to set the throw order.
@@ -207,9 +262,10 @@ Key design points:
    you get a Retry button and nothing is lost. Any TV that is casting
    switches to the same summary. **Rematch** starts the same game again
    (Killer redraws numbers).
-7. **Browse stats** — Leaderboard (sortable by Elo/X01/Cricket MPR), Profiles
-   (trend charts + per-game history), Matchup (Elo win probability +
-   head-to-head), and your Player Card.
+7. **Browse stats** — Standings (Overall by Elo, X01 average, Cricket MPR,
+   Baseball runs), Records, Profiles (career cards, trend charts,
+   achievements, per-game history that opens a match report), Matchup (Elo
+   win probability + head-to-head), Blackbird AI, and your Player Card.
 
 ### Cricket MPR details
 
@@ -232,7 +288,7 @@ Key design points:
 
 ## Data model (Supabase / Postgres)
 
-Run `supabase/schema.sql` once in the Supabase SQL editor. Three tables:
+Run `supabase/schema.sql` once in the Supabase SQL editor. Four tables:
 
 - **`players`** — one row per dart player (a name, not a login):
   `username` (unique display name), `handle` (unique `@handle`, 3–20 chars
@@ -303,9 +359,11 @@ migration** — old rows simply lack the new keys and the stats engine
 tolerates that (and says so through its quality flags).
 
 **Row Level Security**: any authenticated user in your Supabase project can
-read and insert players/results (and update players for Elo writes). Nobody
-can delete or rewrite history through the anon key; destructive actions go
-through the admin route with the service-role key.
+read, insert and update players (Elo writes) and insert results. Result
+rows are only *readable* for yourself and the players you follow, and a
+trigger keeps profile fields owner-only. Nobody can delete or rewrite
+history through the anon key; destructive actions go through the admin
+route with the service-role key.
 
 ## Environment variables
 
@@ -332,10 +390,11 @@ Push this repo to GitHub. Every later `git push` to `main` redeploys Vercel.
 ## 2. Supabase (database + login)
 1. https://supabase.com → **New project** (set + save a DB password).
 2. **SQL Editor → New query** → paste all of `supabase/schema.sql` → **Run**.
-3. Run `supabase/migration-add-color.sql`, `migration-add-auth-id.sql`,
-   `migration-add-profile.sql` (player colors, account links, @handles) and
-   `migration-follows-tags.sql` (friends, name tags, follow-scoped result
-   visibility). The last one seeds follows between every pair of accounts
+3. Run `supabase/migration-add-profile.sql` (@handles and the owner-only
+   profile guard) and then `migration-follows-tags.sql` (friends, name
+   tags, follow-scoped result visibility). A database created before those
+   columns existed also needs `migration-add-color.sql` and
+   `migration-add-auth-id.sql` first; every migration is safe to re-run. The last one seeds follows between every pair of accounts
    that have a login, so nobody's standings go empty; guest rows without a
    login show up once someone follows them. Until it is run the app
    behaves as before: everyone sees everyone and the Friends screen says
@@ -426,7 +485,7 @@ app refreshes every time it regains focus.
   database enforces it. Anyone who follows you sees your games.
 - **Name tags**: a 2–5 character tag and/or an icon shown beside your name
   everywhere (Account → Profile, or the website's profile page).
-- **Achievements**: 30+ badges (milestones, scoring, finishing, cricket,
+- **Achievements**: 32 badges (milestones, scoring, finishing, cricket,
   streaks, social, practice, variety) derived from your game history in
   `lib/achievements.js`, so they are always correct and unlock
   retroactively. The game that earns a badge shows a "Badge unlocked"
@@ -466,6 +525,7 @@ app/
   api/signup/route.js     invite-code check + Supabase admin invite
   api/insights/route.js   server-side AI call (secret key lives here)
   api/admin/route.js      admin actions via Supabase service role
+  api/link-players/       links unclaimed player rows to their accounts
   tv/page.js              TV scoreboard: code entry + live big-screen views
   robots.js / sitemap.js  crawl rules: only / is indexable
 components/
@@ -473,6 +533,8 @@ components/
                           game modes, TV mock + setup flow, FAQ, footer…
   auth/                   sign in, invite sign-up, reset, set password
   RegisterSW.js           registers the offline worker (production only)
+  StandaloneRedirect.js   home-screen installs open the app, not the site
+  LoadingScreen.js        launch splash (spinning board, seasonal touches)
   Home.js                 landing view: podium/list leaderboard + highlights
   Setup.js                game type, options, player picker (drag to reorder)
   PlayX01.js              X01 scorer (per-dart entry, checkout tracking, legs)
@@ -483,8 +545,15 @@ components/
   PlayBobs27.js / PlayCheckoutDrill.js / PlayScoringDrill.js   practice drills
   Practice.js             practice hub: bot ladder, drill launchers, PBs, trends
   GameSummary.js          end-of-game summary: winner, Elo, stats, rematch
-  Leaderboard.js          sortable standings (Elo / X01 / Cricket MPR)
-  Profile.js              player page: trend charts + game history
+  Celebration.js          confetti moments on the summary (win, badge unlocked)
+  GameDetail.js           match report: side-by-side numbers, per-round charts
+  Leaderboard.js          standings (Overall Elo / X01 / Cricket / Baseball)
+  Records.js              league records and streaks for every game type
+  Profile.js              player page: career cards, trends, badges, history
+  CareerCards.js          one career card per game type played
+  Achievements.js         badge grid with progress bars
+  Friends.js              follow / unfollow by name or @handle
+  TagEditor.js            name tag editor (app Account + website profile)
   PlayerCard.js           shareable stat card (canvas export with avatar)
   Matchup.js              Elo win-probability predictor + head-to-head
   BlackbirdAI.js          Blackbird AI tab: chat about your own games, with charts
@@ -495,10 +564,16 @@ components/
   Charts.js               dependency-free SVG line + bar charts
   DartBoard.js            SVG dartboard with highlights/hits
   ui.js                   shared UI: Logo (official SVGs), PlayerBadge, BackBar, Stat, Modal
+docs/screenshots/         README screenshots
 lib/
   supabase.js             Supabase client
   cast.js                 TV-cast transport (Realtime broadcast + local)
   darts.js                shared dart/mark formatting helpers
+  recorder.js             stats v2 recording contract used by every play screen
+  gamestats/              stats engine: per-game analyzers, career, records
+  achievements.js         badges derived from game history
+  follows.js              friends: who I follow, who follows me, my circle
+  profile.js              @handle rules and name-tag icons
   summary.js              builds the end-of-game summary from a finished match
   practice.js             ranked-vs-practice rule, practice rows, bot ladder, practice stats
   bots.js                 the bot roster (accuracy, checkout knowledge, colours)
@@ -516,6 +591,11 @@ lib/
   aiChart.js              the chart block protocol between the model and the chat
   constants.js            targets, cricket values, Elo constants, player colors
   prefs.js                font-scale preference
+  occasions.js            date-triggered splash flourishes (birthday, snow)
+  authRedirect.js         safe post-sign-in redirect paths
+  siteUrl.js              absolute site origin for links and the sitemap
+  useSession.js / useMyPlayer.js / useMyAchievements.js   website hooks
+  marketing/games.js      game-mode copy for the website
   prodigy/parser.js       Prodigy D9000W board protocol parser
 packages/
   scoring-core/           pure event-sourced scoring reducer (x01,
@@ -523,12 +603,14 @@ packages/
 tests/                    node --test suite: reducer units, parser units,
                           summary builder, practice rules, drills, board
                           geometry, bot strategy, simulator calibration
-                          (Monte Carlo), app-vs-reducer conformance
-                          fixtures (npm test)
+                          (Monte Carlo), stats engine, achievements,
+                          follows, AI summary/charts, app-vs-reducer
+                          conformance fixtures (npm test)
 tools/                    Prodigy capture/inventory scripts (see tools/README.md)
 supabase/
   schema.sql              run once in the Supabase SQL editor
-  migration-*.sql         historical one-off migrations (already applied)
+  migration-*.sql         one-off migrations, safe to re-run (see Deploy step 2.3)
+  email-templates/        branded invite / reset / confirm emails
 ```
 
 ## License
