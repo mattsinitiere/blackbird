@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
-import { BackBar, Stat, Mini, PlayerBadge, pressProps } from "./ui";
+import { BackBar, Stat, Mini, PlayerBadge, pressProps, GearIcon } from "./ui";
 import AchievementsCard from "./Achievements";
 import CareerCards from "./CareerCards";
 import { computeCareer } from "@/lib/gamestats/career";
@@ -29,7 +29,7 @@ function FollowButton({ isFollowing, onFollow, onUnfollow }) {
   );
 }
 
-function ProfileHeader({ user, player, playerColors, sub, follow }) {
+function ProfileHeader({ user, player, playerColors, sub, follow, social, onOpenFriends, onOpenAccount }) {
   return (
     <div style={{ marginBottom: 16 }}>
       <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
@@ -46,6 +46,11 @@ function ProfileHeader({ user, player, playerColors, sub, follow }) {
           )}
         </div>
         {follow && !follow.isMe && <FollowButton {...follow} />}
+        {follow?.isMe && onOpenAccount && (
+          <button type="button" className="btn btn-sm" style={{ padding: "6px 11px", display: "inline-flex", alignItems: "center" }} onClick={onOpenAccount} title="Settings" aria-label="Settings">
+            <GearIcon />
+          </button>
+        )}
       </div>
       {(player?.bio || player?.location) && (
         <div style={{ marginTop: 10, paddingLeft: 60 }}>
@@ -57,6 +62,19 @@ function ProfileHeader({ user, player, playerColors, sub, follow }) {
               <PinIcon /> {player.location}
             </div>
           )}
+        </div>
+      )}
+      {onOpenFriends && (
+        <div className="profile-social">
+          <button type="button" className="profile-social-btn" onClick={onOpenFriends}>
+            <span className="num">{social?.following?.length || 0}</span> Following
+          </button>
+          <button type="button" className="profile-social-btn" onClick={onOpenFriends}>
+            <span className="num">{social?.followers?.length || 0}</span> {social?.followers?.length === 1 ? "Follower" : "Followers"}
+          </button>
+          <button type="button" className="btn btn-sm profile-social-find" onClick={onOpenFriends}>
+            Find friends
+          </button>
         </div>
       )}
     </div>
@@ -141,7 +159,7 @@ function PracticeCard({ rows, me, onOpen }) {
   );
 }
 
-export default function Profile({ user, player, stats, elo, results, practice = [], onOpenPractice, onOpenAccount, back, playerColors, isMe, isFollowing, onFollow, onUnfollow, social = null, userId = null, openGame = null }) {
+export default function Profile({ user, player, stats, elo, results, practice = [], onOpenPractice, onOpenAccount, back, playerColors, isMe, isFollowing, onFollow, onUnfollow, social = null, userId = null, openGame = null, onOpenFriends = null }) {
   const follow = { isMe: !!isMe, isFollowing, onFollow, onUnfollow };
   const career = useMemo(() => computeCareer({ results, practice }, user), [results, practice, user]);
   // badges are derived from the rows we can see; another player's follows
@@ -162,7 +180,7 @@ export default function Profile({ user, player, stats, elo, results, practice = 
     return (
       <div className="fade">
         <BackBar back={back} />
-        <ProfileHeader user={user} player={player} playerColors={playerColors} follow={follow} />
+        <ProfileHeader user={user} player={player} playerColors={playerColors} follow={follow} social={social} onOpenFriends={isMe ? onOpenFriends : null} onOpenAccount={onOpenAccount} />
         {myPractice.length === 0 ? (
           <p className="subtle">No games logged yet.</p>
         ) : (
@@ -208,10 +226,13 @@ export default function Profile({ user, player, stats, elo, results, practice = 
         player={player}
         playerColors={playerColors}
         follow={follow}
+        social={social}
+        onOpenFriends={isMe ? onOpenFriends : null}
+        onOpenAccount={onOpenAccount}
         sub={`${wins}-${losses} · ${stats.games} games · ${stats.winPct.toFixed(0)}% win`}
       />
 
-      <PlayerCard user={user} handle={player?.handle} stats={stats} elo={elo} onOpenAccount={onOpenAccount} playerColors={playerColors} />
+      <PlayerCard user={user} handle={player?.handle} stats={stats} elo={elo} playerColors={playerColors} />
 
       <div className="grid-3 mb-12">
         <Stat label="Elo" value={Math.round(elo || 1000)} />

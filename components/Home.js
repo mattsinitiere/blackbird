@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react";
-import { Stat, PlayerBadge, pressProps } from "./ui";
+import { PlayerBadge, pressProps } from "./ui";
 import { BarChart } from "./Charts";
 import { BASE_ELO } from "@/lib/constants";
 import { gamesPerWeek } from "@/lib/stats";
@@ -86,17 +86,14 @@ function HighlightIcon({ type }) {
   return <svg {...props}><circle cx="9" cy="9" r="7" /><path d="M6 6l6 6M12 6l-6 6" /></svg>;
 }
 
-export default function Home({ setView, openSetup, stats, elo, players, gameCount, results, openProfile, openFriends, playerColors }) {
+export default function Home({ setView, openSetup, stats, elo, players, results, me, openProfile, playerColors }) {
   const visible = players.filter((p) => !p.hidden);
-  const weekly = gamesPerWeek(results || []);
+  // the signed-in player's own ranked games, one bar per week
+  const weekly = useMemo(() => gamesPerWeek((results || []).filter((r) => r.username === me)), [results, me]);
   const [boardMode, setBoardMode] = useState("podium");
   const ranked = visible
     .map((p) => ({ u: p.username, elo: elo[p.username] || BASE_ELO, s: stats[p.username] }))
     .sort((a, b) => b.elo - a.elo);
-
-  const topAvg = visible.length
-    ? Math.max(0, ...visible.map((p) => stats[p.username]?.x01.threeDartAvg || 0))
-    : 0;
 
   const highlights = useMemo(() => computeHighlights(results), [results]);
 
@@ -106,12 +103,6 @@ export default function Home({ setView, openSetup, stats, elo, players, gameCoun
 
   return (
     <div className="fade">
-      <div className="grid-3 mb-12">
-        <Stat label="Players" value={visible.length} />
-        <Stat label="Games" value={gameCount} />
-        <Stat label="Top avg" value={topAvg ? topAvg.toFixed(1) : "—"} />
-      </div>
-
       <button
         className="btn btn-primary"
         style={{ width: "100%", fontSize: "calc(16px * var(--fs))", padding: 16 }}
@@ -119,23 +110,16 @@ export default function Home({ setView, openSetup, stats, elo, players, gameCoun
       >
         Start a Game
       </button>
-      <div className="row mb-12" style={{ marginTop: 8 }}>
-        <button
-          className="btn"
-          style={{ flex: 1, fontSize: "calc(15px * var(--fs))", padding: 13 }}
-          onClick={() => setView("practice")}
-        >
-          Practice &amp; Bots
-        </button>
-        {openFriends && (
-          <button className="btn" style={{ flex: 1, fontSize: "calc(15px * var(--fs))", padding: 13 }} onClick={openFriends}>
-            Friends
-          </button>
-        )}
-      </div>
+      <button
+        className="btn mb-12"
+        style={{ width: "100%", marginTop: 8, fontSize: "calc(15px * var(--fs))", padding: 13 }}
+        onClick={() => setView("practice")}
+      >
+        Practice &amp; Bots
+      </button>
 
       <div className="card mb-12">
-        <h3 className="section-title">Games · Last 3 Months</h3>
+        <h3 className="section-title">Your Games · Last 3 Months</h3>
         <BarChart data={weekly} />
       </div>
 

@@ -580,6 +580,67 @@ a:focus-visible {
   background: var(--accent);
   color: var(--on-accent);
 }
+/* icon-only tabs; the profile tab (far right) shows the player's badge */
+.navbtn-icon {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 10px 4px;
+  min-height: 48px;
+}
+.navbtn-icon svg {
+  width: calc(24px * var(--fs-chrome));
+  height: calc(24px * var(--fs-chrome));
+}
+.navbtn-me.active {
+  background: var(--accent-soft);
+  box-shadow: inset 0 0 0 2px var(--accent);
+}
+/* own profile: following / followers, like a social app */
+.profile-social {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 16px;
+  margin-top: 12px;
+  padding-left: 60px;
+}
+.profile-social-btn {
+  border: 0;
+  background: none;
+  padding: 4px 0;
+  color: var(--muted);
+  font: inherit;
+  font-size: calc(14px * var(--fs));
+  cursor: pointer;
+}
+.profile-social-btn .num {
+  color: var(--ink);
+  font-weight: 700;
+  margin-right: 3px;
+}
+.profile-social-btn:hover .num,
+.profile-social-btn:focus-visible .num {
+  text-decoration: underline;
+}
+.profile-social-find {
+  margin-left: auto;
+}
+/* live game in progress, on the Play tab */
+.nav-dot {
+  position: absolute;
+  top: 9px;
+  right: calc(50% - 17px);
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--live);
+  box-shadow: 0 0 0 2px var(--surface);
+}
+.navbtn.active .nav-dot {
+  box-shadow: 0 0 0 2px var(--accent);
+}
 /* name tag pill beside a player's name */
 .tag-pill {
   display: inline-flex;

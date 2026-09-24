@@ -15,7 +15,7 @@ import { isRankedMatch, splitResults, botLadder, buildResultRows, humanPlayers, 
 import { computeAchievements, diffUnlocked, seenKey, readSeen, writeSeen } from "@/lib/achievements";
 import { botColors } from "@/lib/bots";
 import { rematchGame } from "@/lib/games";
-import { Logo, GearIcon, CastIcon, PlayerBadge, Modal, pressProps, PlayerLookContext } from "@/components/ui";
+import { Logo, CastIcon, PlayerBadge, Modal, pressProps, PlayerLookContext, HomeIcon, PlayIcon, StatsIcon, MatchupIcon, SparkleIcon } from "@/components/ui";
 import Home from "@/components/Home";
 import Setup from "@/components/Setup";
 import PlayX01 from "@/components/PlayX01";
@@ -360,8 +360,10 @@ export default function Page() {
     [players, playerColors]
   );
   const myName = (session?.user?.user_metadata?.display_name || "").trim();
+  // the profile tab owns my own profile and everything reached from it
+  const onMyProfile = !!myName && profileUser === myName;
+  const meTabActive = (view === "profile" && onMyProfile) || ["friends", "account", "admin"].includes(view);
   const ladder = useMemo(() => botLadder(practice, myName), [practice, myName]);
-  const gameCount = useMemo(() => new Set(results.map((r) => r.gameId)).size, [results]);
 
   const isAdmin = useMemo(
     () => (session?.user?.email || "").toLowerCase() === ADMIN_EMAIL.toLowerCase(),
@@ -584,33 +586,6 @@ export default function Page() {
           <button type="button" className="brand-home" aria-label="Blackbird home" onClick={() => setView("home")}>
             <Logo variant="lockup" height={40} />
           </button>
-          <button
-            className="btn btn-sm"
-            style={{ padding: "6px 11px", display: "inline-flex", alignItems: "center", justifyContent: "center" }}
-            onClick={() => setView("account")}
-            title="Settings"
-            aria-label="Settings"
-          >
-            <GearIcon />
-          </button>
-          <button
-            className="btn btn-sm"
-            style={{
-              padding: "4px 6px",
-              display: "inline-flex",
-              alignItems: "center",
-              justifyContent: "center",
-            }}
-            onClick={() => {
-              const me = session.user?.user_metadata?.display_name;
-              if (me) openProfile(me);
-              else setView("account");
-            }}
-            title="Your stats & card"
-            aria-label="Your profile"
-          >
-            <PlayerBadge username={session.user?.user_metadata?.display_name || "?"} color={playerColors[session.user?.user_metadata?.display_name]} size={28} showName={false} />
-          </button>
         </header>
 
         {loadError && (
@@ -641,7 +616,7 @@ export default function Page() {
         )}
 
         {view === "home" && (
-          <Home setView={setView} openSetup={openSetup} stats={stats} elo={elo} players={circlePlayers} gameCount={gameCount} results={results} openProfile={openProfile} openFriends={openFriends} playerColors={playerColors} />
+          <Home setView={setView} openSetup={openSetup} stats={stats} elo={elo} players={circlePlayers} results={results} me={myName} openProfile={openProfile} playerColors={playerColors} />
         )}
         {view === "setup" && (
           <Setup
@@ -733,6 +708,7 @@ export default function Page() {
             social={social}
             userId={session.user?.id}
             openGame={openGame}
+            onOpenFriends={profileUser === myName ? openFriends : null}
             isFollowing={following === null ? null : following.has(profileUser)}
             onFollow={() => follow(profileUser)}
             onUnfollow={() => unfollow(profileUser)}
@@ -782,7 +758,12 @@ export default function Page() {
             social={social}
             onOpenFriends={openFriends}
             signOut={signOut}
-            back={() => setView("home")}
+            back={() => {
+              // settings open from the profile tab, so Back returns there
+              if (!myName) return setView("home");
+              setProfileUser(myName);
+              setView("profile");
+            }}
           />
         )}
         {view === "admin" && isAdmin && (
@@ -807,12 +788,29 @@ export default function Page() {
           </div>
         </Modal>
       )}
-      <nav className="nav">
-        <button className={`navbtn ${["home", "practice", "friends"].includes(view) ? "active" : ""}`} onClick={() => setView("home")}>Home</button>
-        <button className={`navbtn ${view === "setup" || view === "summary" || ALL_PLAY_VIEWS.includes(view) ? "active" : ""}`} onClick={goPlay}>Play{live ? " ●" : ""}</button>
-        <button className={`navbtn ${["leaderboard", "profile", "records", "game"].includes(view) ? "active" : ""}`} onClick={() => setView("leaderboard")}>Stats</button>
-        <button className={`navbtn ${view === "matchup" ? "active" : ""}`} onClick={() => setView("matchup")}>Matchup</button>
-        <button className={`navbtn ${view === "ai" ? "active" : ""}`} onClick={() => setView("ai")} aria-label="Blackbird AI">AI</button>
+      <nav className="nav" aria-label="Main">
+        {[
+          { key: "home", label: "Home", icon: <HomeIcon />, active: ["home", "practice"].includes(view), go: () => setView("home") },
+          { key: "play", label: live ? "Play (game in progress)" : "Play", icon: <PlayIcon />, active: view === "setup" || view === "summary" || ALL_PLAY_VIEWS.includes(view), go: goPlay, dot: !!live },
+          { key: "stats", label: "Stats", icon: <StatsIcon />, active: ["leaderboard", "records", "game"].includes(view) || (view === "profile" && !onMyProfile), go: () => setView("leaderboard") },
+          { key: "matchup", label: "Matchup", icon: <MatchupIcon />, active: view === "matchup", go: () => setView("matchup") },
+          { key: "ai", label: "Blackbird AI", icon: <SparkleIcon />, active: view === "ai", go: () => setView("ai") },
+        ].map((t) => (
+          <button key={t.key} type="button" className={`navbtn navbtn-icon ${t.active ? "active" : ""}`} onClick={t.go} aria-label={t.label} title={t.label} aria-current={t.active ? "page" : undefined}>
+            {t.icon}
+            {t.dot && <span className="nav-dot" aria-hidden="true" />}
+          </button>
+        ))}
+        <button
+          type="button"
+          className={`navbtn navbtn-icon navbtn-me ${meTabActive ? "active" : ""}`}
+          onClick={() => (myName ? openProfile(myName) : setView("account"))}
+          aria-label="Your profile"
+          title="Your profile"
+          aria-current={meTabActive ? "page" : undefined}
+        >
+          <PlayerBadge username={myName || "?"} color={playerColors[myName]} size={28} showName={false} />
+        </button>
       </nav>
     </main>
     </PlayerLookContext.Provider>

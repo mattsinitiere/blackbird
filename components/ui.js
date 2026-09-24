@@ -286,3 +286,77 @@ export function UndoIcon({ size = "1em" }) {
     </svg>
   );
 }
+
+/* Bottom-nav line icons: 24px grid, 2px stroke, currentColor. */
+function NavSvg({ children, size = 24 }) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+      style={{ display: "block", flex: "none" }}
+    >
+      {children}
+    </svg>
+  );
+}
+
+export function HomeIcon(props) {
+  return (
+    <NavSvg {...props}>
+      <path d="M3 10.5 12 3l9 7.5" />
+      <path d="M5 9v11h14V9" />
+      <path d="M10 20v-6h4v6" />
+    </NavSvg>
+  );
+}
+
+/** A dartboard: three rings and the bull. */
+export function PlayIcon(props) {
+  return (
+    <NavSvg {...props}>
+      <circle cx="12" cy="12" r="9" />
+      <circle cx="12" cy="12" r="5.5" />
+      <circle cx="12" cy="12" r="2" />
+    </NavSvg>
+  );
+}
+
+export function StatsIcon(props) {
+  return (
+    <NavSvg {...props}>
+      <path d="M4 20h16" />
+      <path d="M7 16v-5" />
+      <path d="M12 16V6" />
+      <path d="M17 16v-8" />
+    </NavSvg>
+  );
+}
+
+/** Two players facing off. */
+export function MatchupIcon(props) {
+  return (
+    <NavSvg {...props}>
+      <circle cx="7" cy="8" r="3" />
+      <circle cx="17" cy="8" r="3" />
+      <path d="M2 20a5 5 0 0 1 10 0" />
+      <path d="M12 20a5 5 0 0 1 10 0" />
+    </NavSvg>
+  );
+}
+
+/** The Blackbird AI sparkle. */
+export function SparkleIcon(props) {
+  return (
+    <NavSvg {...props}>
+      <path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9z" />
+      <path d="M19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8z" />
+    </NavSvg>
+  );
+}

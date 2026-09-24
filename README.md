@@ -34,7 +34,7 @@ single source of truth for game data.
 
 | Home | Home (dark) | Game setup |
 |:---:|:---:|:---:|
-| <img src="docs/screenshots/home.png" width="240" alt="Home view with quick stats, games-per-week chart, and the Top of the Board podium"> | <img src="docs/screenshots/home-dark.png" width="240" alt="Home view in the dark theme"> | <img src="docs/screenshots/setup.png" width="240" alt="New game setup: nine game types, three practice drills, cricket variants, friends or a bot"> |
+| <img src="docs/screenshots/home.png" width="240" alt="Home view: Start a Game, Practice and Bots, your games per week over the last 3 months, and the Top of the Board podium"> | <img src="docs/screenshots/home-dark.png" width="240" alt="Home view in the dark theme"> | <img src="docs/screenshots/setup.png" width="240" alt="New game setup: nine game types, three practice drills, cricket variants, friends or a bot"> |
 
 | Live cricket (MPR column) | Live X01 | Game summary |
 |:---:|:---:|:---:|
@@ -50,11 +50,11 @@ single source of truth for game data.
 
 | Achievements | Friends | Practice & bots |
 |:---:|:---:|:---:|
-| <img src="docs/screenshots/achievements.png" width="240" alt="Achievements grid with unlocked badges and progress bars"> | <img src="docs/screenshots/friends.png" width="240" alt="Friends screen: find players by name or @handle, following and followers"> | <img src="docs/screenshots/practice.png" width="240" alt="Practice hub with session counts and the eight-bot ladder"> |
+| <img src="docs/screenshots/achievements.png" width="240" alt="Achievements grid with unlocked badges and progress bars"> | <img src="docs/screenshots/friends.png" width="240" alt="Friends screen, opened from your profile: find players by name or @handle, following and followers"> | <img src="docs/screenshots/practice.png" width="240" alt="Practice hub with session counts and the eight-bot ladder"> |
 
-| Blackbird AI | Phone while casting |
-|:---:|:---:|
-| <img src="docs/screenshots/ai.png" width="240" alt="Blackbird AI chat tab with suggested questions"> | <img src="docs/screenshots/phone-casting.png" width="240" alt="Simplified phone scoring UI while casting, showing the TV code"> |
+| Your profile | Blackbird AI | Phone while casting |
+|:---:|:---:|:---:|
+| <img src="docs/screenshots/profile.png" width="240" alt="Your own profile: badge, @handle, bio, Following and Followers, Find friends and the settings gear; the bottom bar shows line-icon tabs and your avatar"> | <img src="docs/screenshots/ai.png" width="240" alt="Blackbird AI chat tab with suggested questions"> | <img src="docs/screenshots/phone-casting.png" width="240" alt="Simplified phone scoring UI while casting, showing the TV code"> |
 
 **TV scoreboard** (`/tv`, paired with the phone by a 4-character code):
 
@@ -77,8 +77,12 @@ single source of truth for game data.
 - **Player avatars and colors**: every player gets a colored circle badge
   with their initial letter, shown next to their name throughout the app.
   Colors are deterministic by default (a hash of the username) and can be
-  customized in Account settings. The header shows the signed-in user's
-  badge instead of a generic icon.
+  customized in Account settings. The signed-in player's own badge is the
+  far-right tab of the bottom bar and opens their profile.
+- **Bottom bar**: line-icon tabs for Home, Play (a dot while a game is in
+  progress), Stats, Matchup and Blackbird AI, then your avatar for your
+  profile. Your profile holds Following / Followers, Find friends and the
+  settings gear.
 - **TV scoreboard (cast mode)**: tap Cast to TV during any game, put the
   app's `/tv` page on a TV (AirPlay a Safari window, a smart TV browser, or
   a Chromecast tab-cast), enter the 4-character code, and the TV shows a
@@ -116,8 +120,8 @@ single source of truth for game data.
 - **Cricket MPR**: live **marks-per-round** for every player while the game is
   being played, per-round mark history saved with each game, career MPR and
   best-game MPR on profiles, and an MPR-over-time chart.
-- **Home dashboard**: player/game/top-average tiles, a bar chart of games
-  played per week over the last 3 months, a **podium/list leaderboard**
+- **Home dashboard**: Start a Game and Practice & Bots, a bar chart of
+  your own games per week over the last 3 months, a **podium/list leaderboard**
   with a toggle between views (podium shows the top 3 on a visual podium),
   and a **Highlights** section showing records from the last 3 months (most
   active player, most wins, best 3-dart average, highest turn, best
@@ -479,7 +483,8 @@ app refreshes every time it regains focus.
 
 ## Friends, name tags and achievements
 
-- **Friends** (Home → Friends, Standings → Friends, or Account → Manage):
+- **Friends** (your profile → Following / Followers / Find friends, or
+  Standings → Friends):
   follow people by name or @handle. Standings, records, matchups,
   profiles and the AI coach show you plus the players you follow, and the
   database enforces it. Anyone who follows you sees your games.
@@ -557,7 +562,7 @@ components/
   PlayerCard.js           shareable stat card (canvas export with avatar)
   Matchup.js              Elo win-probability predictor + head-to-head
   BlackbirdAI.js          Blackbird AI tab: chat about your own games, with charts
-  Account.js              profile settings, player color, theme, text size
+  Account.js              settings (gear on your profile): name, handle, color, theme, text size
   Admin.js                admin panel (accounts, players, resets)
   tv/TVScoreboard.js      big-screen live scoreboards for every game
   tv/TVSummary.js         big-screen end-of-game summary
