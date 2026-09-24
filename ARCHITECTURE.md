@@ -237,6 +237,13 @@ hand-rolled. This is deliberate: no supply-chain surface, no bundle bloat.
   `auth.admin.inviteUserByEmail` with the display name and handle. Any
   authenticated account can still read the whole league (the RLS posture
   below), which is why the door is a shared code rather than open.
+- **Name tags.** `players.tag` / `players.tag_icon` (rules in
+  `lib/profile.js`: `normalizeTag`, `validateTag`, `TAG_ICONS`). The app
+  shell publishes `{ [username]: { color, tag, tagIcon } }` through
+  `PlayerLookContext` (components/ui.js) so `PlayerBadge` renders the
+  pill at every call site without new props; the TV and the website pass
+  `tag`/`tagIcon` explicitly since they have no provider. Edited by the
+  shared `components/TagEditor.js` on the Account screen and `/profile`.
 - **Friends = one-way follows.** `follows(follower auth id, followed
   players.id)`; no accept step. `lib/follows.js` translates rows to
   usernames; `components/Friends.js` searches the roster by name or

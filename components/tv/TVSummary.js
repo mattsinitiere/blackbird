@@ -1,4 +1,4 @@
-import { PlayerBadge } from "@/components/ui";
+import { PlayerBadge, TagPill } from "@/components/ui";
 
 /** Big-screen end-of-game summary, rendered on /tv from the phone's payload. */
 export default function TVSummary({ summary }) {
@@ -19,7 +19,7 @@ export default function TVSummary({ summary }) {
       <div className="tv-summary-hero">
         <div className="tv-winner-label">winner</div>
         <div className="tv-winner-name">
-          <PlayerBadge username={winner} color={winRow?.color || undefined} size={72} showName={false} /> {winRow?.name || winner}
+          <PlayerBadge username={winner} color={winRow?.color || undefined} size={72} showName={false} /> {winRow?.name || winner} <TagPill tag={winRow?.tag} tagIcon={winRow?.tagIcon} />
         </div>
         {winRow?.elo && (
           <div className="tv-summary-elo">
@@ -35,7 +35,7 @@ export default function TVSummary({ summary }) {
         {rows.map((r) => (
           <div key={r.u} className={`tv-x01-card ${r.isWinner ? "active" : ""}`}>
             <div className="tv-x01-name">
-              <span className="tv-muted">{r.rank}</span> <PlayerBadge username={r.u} color={r.color || undefined} size={44} />
+              <span className="tv-muted">{r.rank}</span> <PlayerBadge username={r.u} color={r.color || undefined} size={44} tag={r.tag || null} tagIcon={r.tagIcon || null} />
               {r.elo && (
                 <span className="tv-summary-delta" style={{ color: r.elo.delta >= 0 ? "var(--accent)" : "var(--red)" }}>
                   {r.elo.delta >= 0 ? "▲" : "▼"}{Math.abs(r.elo.delta)}

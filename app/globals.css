@@ -580,6 +580,50 @@ a:focus-visible {
   background: var(--accent);
   color: var(--on-accent);
 }
+/* name tag pill beside a player's name */
+.tag-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 1px 6px;
+  border-radius: 4px;
+  font-size: calc(10px * var(--fs));
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  line-height: 1.3;
+  color: var(--accent);
+  background: var(--accent-soft);
+  border: 1px solid var(--accent-line);
+  white-space: nowrap;
+  vertical-align: middle;
+  flex: none;
+}
+.tag-pill-icon {
+  font-size: calc(11px * var(--fs));
+  letter-spacing: 0;
+}
+.tv-board .tag-pill,
+.tv-summary .tag-pill {
+  font-size: 1.4vw;
+  padding: 0.2vw 0.6vw;
+}
+.tag-icon-grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 6px;
+}
+.tag-icon-chip {
+  margin: 0;
+  padding: 8px 0;
+  font-size: calc(18px * var(--fs));
+  line-height: 1;
+  width: auto;
+}
+.tag-icon-chip.on {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--on-accent);
+}
 .brand-home {
   flex: 1;
   display: flex;

@@ -1,6 +1,7 @@
-import { useState } from "react";
-import { PlayerBadge } from "./ui";
+import { useState, useContext } from "react";
+import { PlayerBadge, PlayerLookContext } from "./ui";
 import { defaultPlayerColor } from "@/lib/constants";
+import { formatTag } from "@/lib/profile";
 
 const FONT = '"Figtree", Arial, sans-serif';
 
@@ -87,7 +88,7 @@ function paintBackground(ctx, W, H, pal) {
   ctx.globalAlpha = 1;
 }
 
-function drawCard(user, stats, elo, playerColor, handle) {
+function drawCard(user, stats, elo, playerColor, handle, tagText) {
   const W = 1080;
   const H = 1350;
   const pal = themePalette();
@@ -132,10 +133,10 @@ function drawCard(user, stats, elo, playerColor, handle) {
   const nameSize = fitFont(ctx, user, W - 220, 90, "800");
   ctx.font = `800 ${nameSize}px ${FONT}`;
   ctx.fillText(user, cx, 370);
-  if (handle) {
+  if (handle || tagText) {
     ctx.fillStyle = pal.accent;
     ctx.font = `700 30px ${FONT}`;
-    ctx.fillText(`@${handle}`, cx, 410);
+    ctx.fillText([handle ? `@${handle}` : "", tagText || ""].filter(Boolean).join("  ·  "), cx, 410);
   }
 
   // ELO
@@ -201,6 +202,7 @@ function drawCard(user, stats, elo, playerColor, handle) {
 }
 
 export default function PlayerCard({ user, handle, stats, elo, onOpenAccount, playerColors }) {
+  const look = useContext(PlayerLookContext)?.[user];
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState("");
 
@@ -210,7 +212,7 @@ export default function PlayerCard({ user, handle, stats, elo, onOpenAccount, pl
     try {
       await ensureFont();
       const color = playerColors?.[user] || defaultPlayerColor(user);
-      const canvas = drawCard(user, stats, elo, color, handle);
+      const canvas = drawCard(user, stats, elo, color, handle, formatTag(look || {}));
       const blob = await new Promise((res) => canvas.toBlob(res, "image/png"));
       if (!blob) throw new Error("Could not create image.");
       const file = new File([blob], `${user}-blackbird.png`, { type: "image/png" });

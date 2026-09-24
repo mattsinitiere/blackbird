@@ -7,9 +7,10 @@ import { supabase, isConfigured } from "@/lib/supabase";
 import { useSession } from "@/lib/useSession";
 import { useMyPlayer, PLAYER_UPDATED_EVENT } from "@/lib/useMyPlayer";
 import { updatePlayerProfile, setPlayerColor, isHandleAvailable } from "@/lib/db";
-import { normalizeHandle, validateHandle, suggestHandle, BIO_MAX, LOCATION_MAX } from "@/lib/profile";
+import { normalizeHandle, validateHandle, suggestHandle, validateTag, BIO_MAX, LOCATION_MAX } from "@/lib/profile";
+import TagEditor from "@/components/TagEditor";
 import { PLAYER_COLORS, defaultPlayerColor } from "@/lib/constants";
-import { PlayerBadge } from "@/components/ui";
+import { PlayerBadge, TagPill } from "@/components/ui";
 
 function announce() {
   if (typeof window !== "undefined") window.dispatchEvent(new Event(PLAYER_UPDATED_EVENT));
@@ -89,6 +90,9 @@ function ProfileForm({ user, player, color, onSaved }) {
   const [good, setGood] = useState(false);
   const [colorBusy, setColorBusy] = useState(false);
   const [custom, setCustom] = useState(PLAYER_COLORS.includes(color) ? "" : color);
+  const [tag, setTag] = useState(player.tag || "");
+  const [tagIcon, setTagIcon] = useState(player.tagIcon || null);
+  const tagCheck = validateTag(tag);
 
   const check = validateHandle(handle);
   useEffect(() => {
@@ -109,9 +113,10 @@ function ProfileForm({ user, player, color, onSaved }) {
 
   const trimmedName = name.trim();
   const nameChanged = trimmedName && trimmedName !== (meta.display_name || "");
-  const profileChanged = handle !== (player.handle || "") || bio.trim() !== (player.bio || "") || location.trim() !== (player.location || "");
+  const profileChanged =
+    handle !== (player.handle || "") || bio.trim() !== (player.bio || "") || location.trim() !== (player.location || "") || tag !== (player.tag || "") || (tagIcon || null) !== (player.tagIcon || null);
   const handleProblem = !check.ok ? check.reason : avail === false ? "That handle is taken." : "";
-  const canSave = !busy && !handleProblem && avail !== false && (nameChanged || profileChanged);
+  const canSave = !busy && !handleProblem && tagCheck.ok && avail !== false && (nameChanged || profileChanged);
 
   const save = async () => {
     setBusy(true);
@@ -122,7 +127,7 @@ function ProfileForm({ user, player, color, onSaved }) {
         if (error) throw error;
       }
       if (profileChanged) {
-        const r = await updatePlayerProfile(player.username, { handle, bio: bio.trim(), location: location.trim() });
+        const r = await updatePlayerProfile(player.username, { handle, bio: bio.trim(), location: location.trim(), tag: tag || null, tagIcon: tagIcon || null });
         if (!r.ok) throw new Error(r.reason || "Couldn't save.");
       }
       setGood(true);
@@ -161,7 +166,9 @@ function ProfileForm({ user, player, color, onSaved }) {
         <div className="mk-profile-hero">
           <PlayerBadge username={player.username} color={current} size={72} showName={false} />
           <div style={{ minWidth: 0 }}>
-            <div className="display mk-profile-name">{meta.display_name || player.username}</div>
+            <div className="display mk-profile-name">
+              {meta.display_name || player.username} <TagPill tag={player.tag} tagIcon={player.tagIcon} />
+            </div>
             <div className="mk-profile-handle">{player.handle ? `@${player.handle}` : "no handle yet"}</div>
             {player.location && <div className="subtle" style={{ margin: "4px 0 0" }}>{player.location}</div>}
           </div>
@@ -216,6 +223,18 @@ function ProfileForm({ user, player, color, onSaved }) {
 
         <label className="tag" htmlFor="pf-location" style={{ display: "block", margin: "10px 0 6px" }}>Location</label>
         <input id="pf-location" className="input" maxLength={LOCATION_MAX} value={location} placeholder="Home bar or town" onChange={(e) => setLocation(e.target.value)} />
+
+        <TagEditor
+          username={player.username}
+          color={current}
+          tag={tag}
+          tagIcon={tagIcon}
+          idPrefix="pf-tag"
+          onChange={({ tag: t, tagIcon: i }) => {
+            setTag(t);
+            setTagIcon(i);
+          }}
+        />
 
         <div className="tag" style={{ margin: "16px 0 8px" }}>Player colour</div>
         <div className="mk-profile-colors" role="group" aria-label="Player colour">

@@ -66,10 +66,16 @@ export async function POST(req) {
       let players;
       let hasAuthIdCol = true;
       // newest column set first; older databases fall through
-      const res0 = await admin
+      const resTag = await admin
         .from("players")
-        .select("username, hidden, created_at, auth_id, handle")
+        .select("username, hidden, created_at, auth_id, handle, tag, tag_icon")
         .order("created_at", { ascending: true });
+      const res0 = resTag.error
+        ? await admin
+            .from("players")
+            .select("username, hidden, created_at, auth_id, handle")
+            .order("created_at", { ascending: true })
+        : resTag;
       if (!res0.error) {
         players = res0.data;
       } else {

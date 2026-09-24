@@ -1,5 +1,26 @@
+import { createContext, useContext } from "react";
 import { defaultPlayerColor } from "@/lib/constants";
 import { playerLabel } from "@/lib/bots";
+import { tagGlyph } from "@/lib/profile";
+
+/**
+ * How each player looks: { [username]: { color, tag, tagIcon } }. Provided
+ * once by the app shell so PlayerBadge can show name tags everywhere
+ * without every call site threading them through.
+ */
+export const PlayerLookContext = createContext(null);
+
+/** The name tag pill: icon and/or 2–5 letters. Renders nothing without either. */
+export function TagPill({ tag, tagIcon, className = "" }) {
+  const glyph = tagGlyph(tagIcon);
+  if (!glyph && !tag) return null;
+  return (
+    <span className={`tag-pill ${className}`.trim()} aria-label={`tag ${[glyph, tag].filter(Boolean).join(" ")}`}>
+      {glyph && <span className="tag-pill-icon" aria-hidden="true">{glyph}</span>}
+      {tag && <span>{tag}</span>}
+    </span>
+  );
+}
 
 const LOGO_ASPECT = {
   lockup: 3769.755 / 1072.743,
@@ -162,10 +183,14 @@ function isLight(hex) {
   return (r * 299 + g * 587 + b * 114) / 1000 > 160;
 }
 
-export function PlayerBadge({ username, color, size = 24, showName = true }) {
-  const bg = color || defaultPlayerColor(username);
+export function PlayerBadge({ username, color, size = 24, showName = true, tag, tagIcon, showTag }) {
+  const look = useContext(PlayerLookContext)?.[username];
+  const bg = color || look?.color || defaultPlayerColor(username);
   const fg = isLight(bg) ? "#333" : "#fff";
   const label = playerLabel(username);
+  const effTag = tag !== undefined ? tag : look?.tag;
+  const effIcon = tagIcon !== undefined ? tagIcon : look?.tagIcon;
+  const pill = (showTag ?? showName) ? <TagPill tag={effTag} tagIcon={effIcon} /> : null;
   return (
     <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
       <span
@@ -188,6 +213,7 @@ export function PlayerBadge({ username, color, size = 24, showName = true }) {
         {label.charAt(0).toUpperCase()}
       </span>
       {showName && <span style={{ fontWeight: 700 }}>{label}</span>}
+      {pill}
     </span>
   );
 }

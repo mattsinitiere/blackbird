@@ -14,7 +14,7 @@ import { buildSummary } from "@/lib/summary";
 import { isRankedMatch, splitResults, botLadder } from "@/lib/practice";
 import { botColors } from "@/lib/bots";
 import { rematchGame } from "@/lib/games";
-import { Logo, GearIcon, CastIcon, PlayerBadge, Modal, pressProps } from "@/components/ui";
+import { Logo, GearIcon, CastIcon, PlayerBadge, Modal, pressProps, PlayerLookContext } from "@/components/ui";
 import Home from "@/components/Home";
 import Setup from "@/components/Setup";
 import PlayX01 from "@/components/PlayX01";
@@ -341,6 +341,11 @@ export default function Page() {
     () => ({ ...botColors(), ...Object.fromEntries(players.map((p) => [p.username, p.color || defaultPlayerColor(p.username)])) }),
     [players]
   );
+  // how each player looks (colour + name tag), for PlayerBadge everywhere
+  const playerMeta = useMemo(
+    () => Object.fromEntries(players.map((p) => [p.username, { color: playerColors[p.username], tag: p.tag || null, tagIcon: p.tagIcon || null }])),
+    [players, playerColors]
+  );
   const myName = (session?.user?.user_metadata?.display_name || "").trim();
   const ladder = useMemo(() => botLadder(practice, myName), [practice, myName]);
   const gameCount = useMemo(() => new Set(results.map((r) => r.gameId)).size, [results]);
@@ -417,7 +422,7 @@ export default function Page() {
     const game = liveGameRef.current;
     const ranked = isRankedMatch(match);
     const eloAfter = ranked ? applyEloUpdate(elo, match.players, match.winner) : null;
-    const summary = buildSummary({ match, game, eloBefore: ranked ? elo : null, eloAfter, colors: playerColors });
+    const summary = buildSummary({ match, game, eloBefore: ranked ? elo : null, eloAfter, colors: playerColors, meta: playerMeta });
     lastFinishedRef.current = { game, winner: match.winner, summary };
     if (castChannel.current) castChannel.current.send("finished", lastFinishedRef.current);
 
@@ -431,7 +436,7 @@ export default function Page() {
       (typeof crypto !== "undefined" && crypto.randomUUID && crypto.randomUUID()) ||
       `${Date.now()}-${Math.random().toString(16).slice(2)}`;
     await saveMatch(match, eloAfter, ranked);
-  }, [elo, playerColors, persistLive, saveMatch]);
+  }, [elo, playerColors, playerMeta, persistLive, saveMatch]);
 
   const startGame = useCallback((game) => {
     finishingRef.current = false;
@@ -517,6 +522,7 @@ export default function Page() {
   if (!dataReady) return <LoadingScreen text="loading…" />;
 
   return (
+    <PlayerLookContext.Provider value={playerMeta}>
     <main className="app shell">
       <div className="scroll">
         <div className="container">
@@ -746,5 +752,6 @@ export default function Page() {
         <button className={`navbtn ${view === "ai" ? "active" : ""}`} onClick={() => setView("ai")} aria-label="Blackbird AI">AI</button>
       </nav>
     </main>
+    </PlayerLookContext.Provider>
   );
 }

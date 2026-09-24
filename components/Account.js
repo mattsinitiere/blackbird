@@ -3,8 +3,9 @@ import { BackBar, PlayerBadge } from "./ui";
 import { supabase } from "@/lib/supabase";
 import { isHandleAvailable } from "@/lib/db";
 import { FONT_SCALES, PLAYER_COLORS, defaultPlayerColor } from "@/lib/constants";
+import TagEditor from "./TagEditor";
 import { applyFontScale } from "@/lib/prefs";
-import { normalizeHandle, validateHandle, suggestHandle, BIO_MAX, LOCATION_MAX } from "@/lib/profile";
+import { normalizeHandle, validateHandle, suggestHandle, validateTag, BIO_MAX, LOCATION_MAX } from "@/lib/profile";
 
 /**
  * @handle, bio and location editor for the signed-in account's own player
@@ -14,6 +15,8 @@ function ProfileEditor({ player, updatePlayerProfile, playerColors }) {
   const [handle, setHandle] = useState(player.handle || suggestHandle(player.username));
   const [bio, setBio] = useState(player.bio || "");
   const [location, setLocation] = useState(player.location || "");
+  const [tag, setTag] = useState(player.tag || "");
+  const [tagIcon, setTagIcon] = useState(player.tagIcon || null);
   const [avail, setAvail] = useState(null); // null unknown | true | false
   const [msg, setMsg] = useState("");
   const [good, setGood] = useState(false);
@@ -21,8 +24,9 @@ function ProfileEditor({ player, updatePlayerProfile, playerColors }) {
   const timer = useRef(null);
 
   const check = validateHandle(handle);
+  const tagCheck = validateTag(tag);
   const unchanged =
-    handle === (player.handle || "") && bio === (player.bio || "") && location === (player.location || "");
+    handle === (player.handle || "") && bio === (player.bio || "") && location === (player.location || "") && tag === (player.tag || "") && (tagIcon || null) === (player.tagIcon || null);
 
   useEffect(() => {
     if (!check.ok || handle === player.handle) {
@@ -41,21 +45,21 @@ function ProfileEditor({ player, updatePlayerProfile, playerColors }) {
   const save = async () => {
     setBusy(true);
     setMsg("");
-    const r = await updatePlayerProfile(player.username, { handle, bio: bio.trim(), location: location.trim() });
+    const r = await updatePlayerProfile(player.username, { handle, bio: bio.trim(), location: location.trim(), tag: tag || null, tagIcon: tagIcon || null });
     setGood(r.ok);
     setMsg(r.ok ? "Profile saved." : r.reason);
     setBusy(false);
   };
 
   const handleProblem = !check.ok ? check.reason : avail === false ? "That handle is taken." : "";
-  const canSave = !busy && !unchanged && check.ok && avail !== false;
+  const canSave = !busy && !unchanged && check.ok && tagCheck.ok && avail !== false;
 
   return (
     <div className="card mb-12">
       <div className="tag" style={{ marginBottom: 10 }}>Profile</div>
 
       <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 14 }}>
-        <PlayerBadge username={player.username} color={playerColors?.[player.username]} size={44} showName={false} />
+        <PlayerBadge username={player.username} color={playerColors?.[player.username]} size={44} showName={false} tag={null} tagIcon={null} />
         <div style={{ minWidth: 0 }}>
           <div className="display" style={{ fontSize: "calc(18px * var(--fs))" }}>{player.username}</div>
           <div className="tag" style={{ textTransform: "none", letterSpacing: 0, color: "var(--accent)" }}>
@@ -101,6 +105,17 @@ function ProfileEditor({ player, updatePlayerProfile, playerColors }) {
         value={location}
         placeholder="Home bar or town"
         onChange={(e) => setLocation(e.target.value)}
+      />
+
+      <TagEditor
+        username={player.username}
+        color={playerColors?.[player.username]}
+        tag={tag}
+        tagIcon={tagIcon}
+        onChange={({ tag: t, tagIcon: i }) => {
+          setTag(t);
+          setTagIcon(i);
+        }}
       />
 
       {msg && (

@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { normalizeHandle, validateHandle, suggestHandle, formatHandle } from "../lib/profile.js";
+import { normalizeHandle, validateHandle, suggestHandle, formatHandle, normalizeTag, validateTag, isTagIcon, tagGlyph, formatTag, TAG_ICONS } from "../lib/profile.js";
 
 test("normalizeHandle strips @, case and punctuation", () => {
   assert.equal(normalizeHandle("@Matt S."), "matts");
@@ -30,4 +30,22 @@ test("suggestHandle always yields a valid handle", () => {
 test("formatHandle", () => {
   assert.equal(formatHandle("matt"), "@matt");
   assert.equal(formatHandle(null), "");
+});
+
+test("tags: normalise, validate, icons, format", () => {
+  assert.equal(normalizeTag("ab c-1!"), "ABC1");
+  assert.equal(normalizeTag("lonhorns"), "LONHO");
+  assert.equal(validateTag("").ok, true);
+  assert.equal(validateTag("A").ok, false);
+  assert.equal(validateTag("ABCDEF").ok, false);
+  assert.equal(validateTag("ab").ok, false); // must already be upper-case
+  assert.equal(validateTag("ADMIN").ok, false);
+  assert.equal(validateTag("BB").ok, true);
+  assert.equal(isTagIcon("crown"), true);
+  assert.equal(isTagIcon("dragon"), false);
+  assert.equal(tagGlyph("crown"), "👑");
+  assert.equal(formatTag({ tag: "BB", tagIcon: "crown" }), "👑 BB");
+  assert.equal(formatTag({ tag: "BB" }), "BB");
+  assert.equal(formatTag({}), "");
+  assert.equal(TAG_ICONS.length, 12);
 });

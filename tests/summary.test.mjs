@@ -147,3 +147,11 @@ test("drill summaries: titles, ranking and highlights", () => {
   assert.equal(co.rows[0].primary.label, "of 5");
   assert.deepEqual(co.highlights.map((h) => [h.label, h.value, h.player]), [["Highest checkout", 100, "A"]]);
 });
+
+test("name tags ride on the summary rows", () => {
+  const s = buildSummary({ match: x01Match, game: null, eloBefore: null, eloAfter: null, colors: {}, meta: { Ann: { tag: "BB", tagIcon: "crown" } } });
+  const ann = s.rows.find((r) => r.u === "Ann");
+  assert.equal(ann.tag, "BB");
+  assert.equal(ann.tagIcon, "crown");
+  assert.equal(s.rows.find((r) => r.u !== "Ann").tag, null);
+});

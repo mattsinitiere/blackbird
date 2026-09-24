@@ -239,8 +239,10 @@ Run `supabase/schema.sql` once in the Supabase SQL editor. Three tables:
   of `a-z 0-9 _`), `bio`, `location`, `hidden` (kept out of standings),
   `color` (optional hex color for their avatar badge), `elo` (current
   rating), `auth_id` (the login account that owns the row, once claimed),
-  `created_at`. A trigger lets only the owning account edit `handle`,
-  `bio` and `location`.
+  `created_at`, and a **name tag**: `tag` (2–5 upper-case letters/digits)
+  and `tag_icon` (an id from `lib/profile.js` `TAG_ICONS`), shown as a
+  small pill beside the name everywhere. A trigger lets only the owning
+  account edit `handle`, `bio`, `location` and the tag.
 - **`game_results`** — one row **per player per finished game**: `game_id`
   (shared by all rows of one game), `username`, `game_type`
   (`x01` | `cricket` | `baseball`), `config`, `winner`, `result`
