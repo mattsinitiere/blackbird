@@ -103,12 +103,19 @@ export default function Page() {
   const liveGameRef = useRef(null);
   const castTimer = useRef(null);
   const lastCastAt = useRef(0);
+  // avatar colours ride along with every state so the TV matches the phone
+  const playerColorsRef = useRef({});
 
   const sendCastState = useCallback(() => {
     if (!castChannel.current || !liveGameRef.current || !liveProgress.current) return;
+    const colors = {};
+    for (const u of liveGameRef.current.players || []) {
+      if (playerColorsRef.current[u]) colors[u] = playerColorsRef.current[u];
+    }
     castChannel.current.send("state", {
       game: liveGameRef.current,
       snapshot: stripHistory(liveProgress.current),
+      colors,
     });
   }, []);
 
@@ -344,6 +351,9 @@ export default function Page() {
     () => ({ ...botColors(), ...Object.fromEntries(players.map((p) => [p.username, p.color || defaultPlayerColor(p.username)])) }),
     [players]
   );
+  useEffect(() => {
+    playerColorsRef.current = playerColors;
+  }, [playerColors]);
   // how each player looks (colour + name tag), for PlayerBadge everywhere
   const playerMeta = useMemo(
     () => Object.fromEntries(players.map((p) => [p.username, { color: playerColors[p.username], tag: p.tag || null, tagIcon: p.tagIcon || null }])),

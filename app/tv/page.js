@@ -1,11 +1,11 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback, Suspense } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { openCastChannel, normalizeCastCode, castAvailable } from "@/lib/cast";
 import TVScoreboard from "@/components/tv/TVScoreboard";
 import TVSummary from "@/components/tv/TVSummary";
-import { Logo } from "@/components/ui";
+import { Logo, PlayerLookContext } from "@/components/ui";
 
 /**
  * TV scoreboard screen. Open this page on anything that can show a
@@ -32,6 +32,10 @@ function TV() {
   const [snapshot, setSnapshot] = useState(null);
   const [winner, setWinner] = useState(null);
   const [summary, setSummary] = useState(null);
+  // { username: hex } from the phone; PlayerBadge falls back to the hashed
+  // default for anyone missing (an older phone build sends none)
+  const [colors, setColors] = useState({});
+  const looks = useMemo(() => Object.fromEntries(Object.entries(colors).map(([u, color]) => [u, { color }])), [colors]);
   // false until anything arrives from the phone — used to tell a wrong
   // code apart from "right code, game not started yet"
   const [linked, setLinked] = useState(false);
@@ -81,6 +85,7 @@ function TV() {
         if (event === "state") {
           setGame(payload.game);
           setSnapshot(payload.snapshot);
+          setColors(payload.colors || {});
           setWinner(null);
           setSummary(null);
           setStatus("live");
@@ -134,7 +139,9 @@ function TV() {
   if (status === "live" && game && snapshot) {
     return (
       <main className={`tv ${displayMode === "score" ? "tv-scoreonly" : ""}`}>
-        <TVScoreboard game={game} snapshot={snapshot} />
+        <PlayerLookContext.Provider value={looks}>
+          <TVScoreboard game={game} snapshot={snapshot} />
+        </PlayerLookContext.Provider>
         <div className="tv-footer">
           <span>Blackbird · code {code}</span>
           <button className="tv-style-btn" onClick={toggleDisplay}>
