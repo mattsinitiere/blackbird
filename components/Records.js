@@ -78,8 +78,10 @@ function computeRecords(results) {
       if (r.result === "win" && pp.checkout && (!highCheckout || pp.checkout > highCheckout.val)) {
         highCheckout = { val: pp.checkout, user: r.username, date: r.completedAt };
       }
-      if (r.result === "win" && pp.dartsThrown && (!bestLeg || pp.dartsThrown < bestLeg.val)) {
-        bestLeg = { val: pp.dartsThrown, user: r.username, date: r.completedAt };
+      const wonLegs = Array.isArray(pp.legs) ? pp.legs.filter((l) => l.w === r.username && l.d > 0).map((l) => l.d) : [];
+      const legDarts = wonLegs.length ? Math.min(...wonLegs) : pp.dartsThrown;
+      if (r.result === "win" && legDarts && (!bestLeg || legDarts < bestLeg.val)) {
+        bestLeg = { val: legDarts, user: r.username, date: r.completedAt };
       }
       if (pp.highestTurn && (!highTurn || pp.highestTurn > highTurn.val)) {
         highTurn = { val: pp.highestTurn, user: r.username, date: r.completedAt };

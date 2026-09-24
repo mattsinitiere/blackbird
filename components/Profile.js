@@ -263,7 +263,7 @@ export default function Profile({ user, player, stats, elo, results, practice = 
 
       {stats.cricket.games > 0 && Object.keys(stats.cricket.perNumber || {}).length > 0 && (
       <div className="card mb-12">
-        <h3 className="section-title">Cricket Number Strengths</h3>
+        <h3 className="section-title">Cricket Number Hits</h3>
         <div className="grid-4" style={{ gap: 6 }}>
           {["20", "19", "18", "17", "16", "15", "B"].map((k) => {
             const pn = (stats.cricket.perNumber || {})[k];
@@ -278,7 +278,8 @@ export default function Profile({ user, player, stats, elo, results, practice = 
           })}
         </div>
         <div className="tag" style={{ marginTop: 6, textTransform: "none", letterSpacing: 0 }}>
-          Average marks per dart thrown at each number
+          Average ring (1 single, 2 double, 3 treble) on the darts that landed in each number
+          {stats.cricket.missPct != null && ` · ${Math.round(stats.cricket.missPct)}% of darts missed the scoring numbers over ${stats.cricket.loggedGames} logged game${stats.cricket.loggedGames === 1 ? "" : "s"}`}
         </div>
       </div>
       )}

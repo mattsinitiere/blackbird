@@ -7,6 +7,7 @@ import { PlayerBadge, UndoIcon } from "./ui";
 import { botFor, playerLabel } from "@/lib/bots";
 import { pickCricketTarget, botThrow } from "@/lib/botStrategy";
 import { useBotTurn } from "@/lib/useBotTurn";
+import { createRecorder, ensureRecorder, stamp, recordVisit, finishRecorder } from "@/lib/recorder";
 
 const numOf = (t) => (t === "B" ? 25 : Number(t));
 
@@ -14,8 +15,8 @@ export default function PlayCricket({ game, resume, onProgress, onFinish, onQuit
   const { players } = game;
   const variant = game.config?.variant || "standard";
 
-  const blank = () =>
-    players.reduce((o, u) => {
+  const blank = () => {
+    const st = players.reduce((o, u) => {
       o[u] = {
         marks: { 20: 0, 19: 0, 18: 0, 17: 0, 16: 0, 15: 0, B: 0 },
         points: 0,
@@ -26,8 +27,11 @@ export default function PlayCricket({ game, resume, onProgress, onFinish, onQuit
       };
       return o;
     }, {});
+    st.rec = createRecorder({ players, startedAt: game.startedAt });
+    return st;
+  };
 
-  const [state, setState] = useState(() => resume?.state ?? blank());
+  const [state, setState] = useState(() => ensureRecorder(resume?.state ?? blank(), { players, startedAt: game.startedAt }));
   const [turn, setTurn] = useState(() => resume?.turn ?? 0);
   const [darts, setDarts] = useState(() => resume?.darts ?? []);
   const [ring, setRing] = useState(() => resume?.ring ?? 1);
@@ -43,17 +47,20 @@ export default function PlayCricket({ game, resume, onProgress, onFinish, onQuit
   const cur = players[turn % players.length];
   const allClosed = (marks) => X01_TARGETS.every((t) => marks[t] >= 3);
 
-  const addDart = (target, ringOverride) => {
+  // target "M" is a miss (off 20–15 and bull); `land` is a bot's real landing
+  const addDart = (target, ringOverride, land) => {
     if (darts.length >= 3) return;
     const maxRing = target === "B" ? 2 : 3;
-    const r = ringOverride || ring;
-    setDarts((d) => [...d, { target, ring: Math.min(r, maxRing) }]);
+    const r = target === "M" ? 0 : Math.min(ringOverride || ring, maxRing);
+    const dart = stamp({ target, ring: r, land }, game.startedAt);
+    setDarts((d) => [...d, dart]);
     setRing(1); // back to Single after every dart
   };
   const removeDart = (i) => setDarts((d) => d.filter((_, idx) => idx !== i));
 
   const finish = (ns, winner) => {
     doneRef.current = true;
+    const completedAt = new Date().toISOString();
     const perPlayer = {};
     players.forEach((u) => {
       perPlayer[u] = {
@@ -62,7 +69,9 @@ export default function PlayCricket({ game, resume, onProgress, onFinish, onQuit
         roundMarks: ns[u].roundMarks || [],
         mpr: ns[u].rounds ? Math.round((ns[u].markCount / ns[u].rounds) * 100) / 100 : 0,
         pointsScored: ns[u].points,
+        dartsThrown: ns[u].log.length,
         darts: ns[u].log,
+        ...finishRecorder(ns.rec, u, completedAt),
       };
     });
     onFinish({
@@ -72,7 +81,7 @@ export default function PlayCricket({ game, resume, onProgress, onFinish, onQuit
       players,
       winner,
       perPlayer,
-      completedAt: new Date().toISOString(),
+      completedAt,
     });
   };
 
@@ -83,8 +92,18 @@ export default function PlayCricket({ game, resume, onProgress, onFinish, onQuit
 
     if (!me.roundMarks) me.roundMarks = []; // resumed games saved before per-round tracking
     let roundMarks = 0;
+    let dead = 0;
+    const s0 = { m: { ...me.marks }, p: me.points };
+    const recDarts = [];
 
     for (const dt of darts) {
+      if (dt.target === "M") {
+        // a miss: the real landing when a bot threw it, else unknown (0/0)
+        const land = dt.land ? { n: dt.land.n, mult: dt.land.mult } : { n: 0, mult: 0 };
+        me.log.push(land);
+        recDarts.push({ ...land, t: dt.t, x: { m: 0 } });
+        continue;
+      }
       const before = me.marks[dt.target];
       const after = before + dt.ring;
       const anyOpen = players.some((o) => o !== cur && ns[o].marks[dt.target] < 3);
@@ -98,6 +117,8 @@ export default function PlayCricket({ game, resume, onProgress, onFinish, onQuit
       const liveScoring = variant !== "noscore" && anyOpen ? scoringHits : 0;
       me.markCount += closingHits + liveScoring;
       roundMarks += closingHits + liveScoring;
+      dead += dt.ring - (closingHits + liveScoring);
+      recDarts.push({ n: numOf(dt.target), mult: dt.ring, t: dt.t, x: { m: closingHits + liveScoring } });
       if (scoringHits > 0) {
         const value = CRICKET_VALUE[dt.target] * scoringHits;
         if (variant === "noscore") {
@@ -113,6 +134,12 @@ export default function PlayCricket({ game, resume, onProgress, onFinish, onQuit
     }
     me.rounds += 1;
     me.roundMarks.push(roundMarks);
+    recordVisit(ns.rec, cur, {
+      r: Math.floor(turn / players.length),
+      s0,
+      darts: recDarts,
+      out: { marks: roundMarks, pts: me.points - s0.p, dead },
+    });
     setState(ns);
     setDarts([]);
 
@@ -171,7 +198,8 @@ export default function PlayCricket({ game, resume, onProgress, onFinish, onQuit
         { n: 20, mult: 3 };
       const land = botThrow(bot, target);
       const t = land.n === 25 ? "B" : String(land.n);
-      if (X01_TARGETS.includes(t)) addDart(t, land.mult);
+      // off-target landings are recorded as misses with their real position
+      addDart(X01_TARGETS.includes(t) ? t : "M", land.mult, land);
       setBotThrows((b) => b + 1);
     },
   });
@@ -182,7 +210,7 @@ export default function PlayCricket({ game, resume, onProgress, onFinish, onQuit
 
   // numbers the current player still needs to close
   const openTargets = X01_TARGETS.filter((t) => state[cur].marks[t] < 3).map(numOf);
-  const boardHits = darts.map((d) => ({ n: numOf(d.target), mult: d.ring }));
+  const boardHits = darts.filter((d) => d.target !== "M").map((d) => ({ n: numOf(d.target), mult: d.ring }));
 
   const liveMpr = (u) =>
     state[u].rounds ? (state[u].markCount / state[u].rounds).toFixed(2) : "—";
@@ -271,6 +299,14 @@ export default function PlayCricket({ game, resume, onProgress, onFinish, onQuit
               {t === "B" ? "Bull" : t}
             </button>
           ))}
+          <button
+            className="chip"
+            style={{ fontSize: "calc(16px * var(--fs))", padding: "15px 0", opacity: darts.length >= 3 ? 0.4 : 1 }}
+            onClick={() => addDart("M")}
+            aria-label="Miss"
+          >
+            Miss
+          </button>
         </div>
 
         <div className="flex-wrap" style={{ marginTop: 10, minHeight: 30 }}>
@@ -281,8 +317,7 @@ export default function PlayCricket({ game, resume, onProgress, onFinish, onQuit
               style={{ padding: "5px 10px", fontSize: "calc(13px * var(--fs))" }}
               onClick={() => removeDart(i)}
             >
-              {d.ring === 1 ? "S" : d.ring === 2 ? "D" : "T"}
-              {d.target} ✕
+              {d.target === "M" ? "Miss" : `${d.ring === 1 ? "S" : d.ring === 2 ? "D" : "T"}${d.target}`} ✕
             </button>
           ))}
           {darts.length === 0 && <span className="tag">no darts entered yet</span>}

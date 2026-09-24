@@ -5,14 +5,18 @@ import { PlayerBadge, UndoIcon } from "./ui";
 import { botFor, playerLabel } from "@/lib/bots";
 import { pickBaseballTarget, botThrow } from "@/lib/botStrategy";
 import { useBotTurn } from "@/lib/useBotTurn";
+import { createRecorder, ensureRecorder, stamp, recordVisit, finishRecorder, stripDarts } from "@/lib/recorder";
 
 export default function PlayBaseball({ game, resume, onProgress, onFinish, onQuit, castActive, playerColors }) {
   const { players } = game;
   const n = players.length;
 
-  const blank = () =>
-    players.reduce((o, u) => ((o[u] = { innings: [], total: 0, log: [] }), o), {});
-  const [state, setState] = useState(() => resume?.state ?? blank());
+  const blank = () => {
+    const st = players.reduce((o, u) => ((o[u] = { innings: [], total: 0, log: [] }), o), {});
+    st.rec = createRecorder({ players, startedAt: game.startedAt });
+    return st;
+  };
+  const [state, setState] = useState(() => ensureRecorder(resume?.state ?? blank(), { players, startedAt: game.startedAt }));
   const [turn, setTurn] = useState(() => resume?.turn ?? 0);
   const [turnDarts, setTurnDarts] = useState(() => resume?.turnDarts ?? []);
   const [history, setHistory] = useState(() => resume?.history ?? []);
@@ -31,7 +35,7 @@ export default function PlayBaseball({ game, resume, onProgress, onFinish, onQui
   const addDart = (mult) => {
     if (turnDarts.length >= 3) return;
     // mult 0 = miss
-    const dart = mult === 0 ? { n: 0, mult: 0 } : { n: target, mult };
+    const dart = stamp(mult === 0 ? { n: 0, mult: 0 } : { n: target, mult }, game.startedAt);
     const next = [...turnDarts, dart];
     if (next.length === 3) commitInning(next);
     else setTurnDarts(next);
@@ -41,9 +45,10 @@ export default function PlayBaseball({ game, resume, onProgress, onFinish, onQui
     setHistory((h) => [...h, { state: JSON.parse(JSON.stringify(state)), turn }]);
     const runs = darts.reduce((a, d) => a + (d.n === target ? d.mult : 0), 0);
     const ns = JSON.parse(JSON.stringify(state));
+    recordVisit(ns.rec, cur, { r: inning - 1, s0: ns[cur].total, darts, out: { runs } });
     ns[cur].innings = [...ns[cur].innings, runs];
     ns[cur].total += runs;
-    ns[cur].log = [...ns[cur].log, ...darts];
+    ns[cur].log = [...ns[cur].log, ...stripDarts(darts)];
     setState(ns);
     setTurnDarts([]);
 
@@ -55,8 +60,11 @@ export default function PlayBaseball({ game, resume, onProgress, onFinish, onQui
       if (leaders.length === 1 || n === 1) {
         const winner = leaders[0] || cur;
         doneRef.current = true;
+        const completedAt = new Date().toISOString();
         const perPlayer = {};
-        players.forEach((u) => (perPlayer[u] = { runs: ns[u].total, darts: ns[u].log }));
+        players.forEach((u) => {
+          perPlayer[u] = { runs: ns[u].total, innings: ns[u].innings, dartsThrown: ns[u].log.length, darts: ns[u].log, ...finishRecorder(ns.rec, u, completedAt) };
+        });
         onFinish({
           id: game.id,
           gameType: "baseball",
@@ -64,7 +72,7 @@ export default function PlayBaseball({ game, resume, onProgress, onFinish, onQui
           players,
           winner,
           perPlayer,
-          completedAt: new Date().toISOString(),
+          completedAt,
         });
         return;
       }

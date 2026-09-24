@@ -7,6 +7,7 @@ import { getCheckoutPath, isCheckoutRange } from "@/lib/checkouts";
 import { botFor, playerLabel } from "@/lib/bots";
 import { pickX01Target, botThrow } from "@/lib/botStrategy";
 import { useBotTurn } from "@/lib/useBotTurn";
+import { createRecorder, ensureRecorder, stamp, recordVisit, finishRecorder, stripDarts } from "@/lib/recorder";
 
 export default function PlayX01({ game, resume, onProgress, onFinish, onQuit, castActive, playerColors }) {
   const { players, config } = game;
@@ -25,9 +26,12 @@ export default function PlayX01({ game, resume, onProgress, onFinish, onQuit, ca
       (o, u) => ((o[u] = [{ sum: 0, count: 0 }, { sum: 0, count: 0 }, { sum: 0, count: 0 }]), o),
       {}
     ),
+    // stats v2: every visit with its darts, and the legs already played
+    rec: createRecorder({ players, startedAt: game.startedAt }),
+    legs: players.reduce((o, u) => ((o[u] = []), o), {}),
   });
 
-  const [s, setS] = useState(() => resume?.s ?? blank());
+  const [s, setS] = useState(() => ensureRecorder(resume?.s ?? blank(), { players, startedAt: game.startedAt }));
   const [turn, setTurn] = useState(() => resume?.turn ?? 0);
   const [turnDarts, setTurnDarts] = useState(() => resume?.turnDarts ?? []);
   const [mult, setMult] = useState(() => resume?.mult ?? 1);
@@ -48,17 +52,28 @@ export default function PlayX01({ game, resume, onProgress, onFinish, onQuit, ca
 
   const finishGame = useCallback((ns, winner) => {
     doneRef.current = true;
+    const completedAt = new Date().toISOString();
     const perPlayer = {};
     players.forEach((u) => {
+      // whole-match totals: the legs already played plus the final leg
+      const prior = (ns.legs && ns.legs[u]) || [];
+      const dartPos = [0, 1, 2].map((i) => ({
+        sum: prior.reduce((a, l) => a + (l.dartPos?.[i]?.sum || 0), 0) + (ns.dartPos[u][i]?.sum || 0),
+        count: prior.reduce((a, l) => a + (l.dartPos?.[i]?.count || 0), 0) + (ns.dartPos[u][i]?.count || 0),
+      }));
       perPlayer[u] = {
-        dartsThrown: ns.darts[u],
-        pointsScored: ns.points[u],
-        highestTurn: ns.highestTurn[u],
+        dartsThrown: prior.reduce((a, l) => a + l.d, 0) + ns.darts[u],
+        pointsScored: prior.reduce((a, l) => a + (l.points || 0), 0) + ns.points[u],
+        highestTurn: Math.max(ns.highestTurn[u], ...prior.map((l) => l.highestTurn || 0)),
         checkout: u === winner ? ns.checkout[u] : 0,
         finalScore: ns.scores[u],
-        darts: ns.log[u],
-        dartPos: ns.dartPos[u],
+        darts: [...prior.flatMap((l) => l.log || []), ...ns.log[u]],
+        dartPos,
         legsWon: isLegs ? (legsWon[u] + (u === winner ? 1 : 0)) : undefined,
+        legs: isLegs
+          ? [...prior.map(({ w, d, co, s0 }) => ({ w, d, co, s0 })), { w: winner, d: ns.darts[u], co: u === winner ? ns.checkout[u] : 0, s0: start }]
+          : undefined,
+        ...finishRecorder(ns.rec, u, completedAt),
       };
     });
     onFinish({
@@ -68,9 +83,9 @@ export default function PlayX01({ game, resume, onProgress, onFinish, onQuit, ca
       players,
       winner,
       perPlayer,
-      completedAt: new Date().toISOString(),
+      completedAt,
     });
-  }, [game, players, config, isLegs, legsWon, onFinish]);
+  }, [game, players, config, isLegs, legsWon, onFinish, start]);
 
   const commit = (darts, kind) => {
     setHistory((h) => [...h, { s: JSON.parse(JSON.stringify(s)), turn }]);
@@ -78,8 +93,14 @@ export default function PlayX01({ game, resume, onProgress, onFinish, onQuit, ca
     const scoreBefore = s.scores[cur];
     const ns = JSON.parse(JSON.stringify(s));
     ns.darts[cur] += darts.length;
-    ns.log[cur] = [...ns.log[cur], ...darts];
+    ns.log[cur] = [...ns.log[cur], ...stripDarts(darts)];
     const counted = kind !== "bust";
+    recordVisit(ns.rec, cur, {
+      r: (ns.legs && ns.legs[cur] ? ns.legs[cur].length : 0),
+      s0: scoreBefore,
+      darts,
+      out: { k: kind, s: counted ? sum : 0, rem: counted ? scoreBefore - sum : scoreBefore },
+    });
     darts.forEach((d, i) => {
       if (i > 2) return;
       ns.dartPos[cur][i].count += 1;
@@ -112,9 +133,20 @@ export default function PlayX01({ game, resume, onProgress, onFinish, onQuit, ca
         }
         setLegHistory(lh => [...lh, { winner: cur, darts: ns.darts[cur], checkout: scoreBefore }]);
         setLegsWon(newLegsWon);
-        setS(blank());
+        // keep the finished leg (per player) and the recorder; fresh scores
+        const nb = blank();
+        nb.rec = ns.rec;
+        players.forEach((u) => {
+          nb.legs[u] = [
+            ...((ns.legs && ns.legs[u]) || []),
+            { w: cur, d: ns.darts[u], co: u === cur ? scoreBefore : 0, s0: start, points: ns.points[u], highestTurn: ns.highestTurn[u], dartPos: ns.dartPos[u], log: ns.log[u] },
+          ];
+        });
+        const legsPlayed = nb.legs[cur].length;
+        setS(nb);
         setHistory([]);
-        setTurn(0);
+        // the throw alternates each leg
+        setTurn(legsPlayed % players.length);
         setMsg(`${playerLabel(cur)} wins leg ${newLegsWon[cur]}!`);
         return;
       }
@@ -126,7 +158,8 @@ export default function PlayX01({ game, resume, onProgress, onFinish, onQuit, ca
     setTurn((t) => t + 1);
   };
 
-  const addDart = (dart) => {
+  const addDart = (raw) => {
+    const dart = stamp(raw, game.startedAt);
     const next = [...turnDarts, dart];
     const rem = s.scores[cur] - next.reduce((a, d) => a + dartValue(d), 0);
     if (rem < 0) return commit(next, "bust");
