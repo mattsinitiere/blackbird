@@ -338,7 +338,8 @@ load the client pulls all `game_results` rows and derives:
   "You vs" card and the AI's `headToHead`).
 - **Finishing order**: `recordGame` saves `stats.place` on each row
   (`finishPlaces` in `lib/summary.js`: winner 1st, the rest by the
-  summary's per-game score, ties share). Rows before Sept 2026 have none.
+  summary's per-game score; tied losers get none). Rows before Sept 2026
+  have none.
 - **Home dashboard** buckets unique games (dedup by `game_id`) into 13
   seven-day windows for the games-per-week bar chart.
 

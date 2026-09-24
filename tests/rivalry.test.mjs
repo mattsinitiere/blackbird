@@ -87,14 +87,14 @@ test("AI summary answers 'my W/L vs chuck' with handles and a mode split", () =>
   assert.ok(s.roster.some((p) => p.name === "Chuck" && p.handle === "chuck"));
 });
 
-test("finishPlaces: winner first, the rest by score, ties share a place", () => {
+test("finishPlaces: winner first, the rest by score, tied losers get no place", () => {
   const places = finishPlaces({
     gameType: "baseball",
     players: ["A", "B", "C", "D"],
     winner: "C",
     perPlayer: { A: { runs: 4 }, B: { runs: 9 }, C: { runs: 12 }, D: { runs: 4 } },
   });
-  assert.deepEqual(places, { C: 1, B: 2, A: 3, D: 3 });
+  assert.deepEqual(places, { C: 1, B: 2, A: null, D: null });
 });
 
 test("finishPlaces: cutthroat cricket ranks the lowest points higher", () => {
@@ -113,6 +113,8 @@ test("buildResultRows stores the place on each row's stats, and nothing when not
   const withPlaces = buildResultRows({ ...base, places: { A: 1, B: 2 } });
   assert.deepEqual(withPlaces.map((r) => r.stats.place), [1, 2]);
   assert.equal(withPlaces[0].stats.runs, 5);
+  const tied = buildResultRows({ ...base, places: { A: 1, B: null } });
+  assert.equal(tied[1].stats.place, undefined, "an unknown place is not stored");
   const without = buildResultRows(base);
   assert.equal(without[0].stats.place, undefined);
 });

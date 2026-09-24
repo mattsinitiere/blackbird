@@ -53,8 +53,9 @@ needed new capture.
    2nd/3rd place had to be re-derived from each player's stats (23
    multiplayer baseball rows). **Fixed going forward:** each row now saves
    `stats.place` (`finishPlaces` in `lib/summary.js`, written by
-   `recordGame`). Old rows stay without it, and the profile shows "Lost"
-   rather than guessing.
+   `recordGame`). Losers whose scores tie (every knocked-out Killer player
+   ends on 0 lives) get no place rather than a guess. Old rows stay
+   without it, and the profile shows "Lost" rather than guessing.
 2. **Timing and visit logs for non-X01 games before the recorder.** Can't be
    fixed after the fact.
 
