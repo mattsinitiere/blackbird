@@ -38,6 +38,7 @@ function buildPersonalPrompt(summary, question, history) {
     "`form` compares the last 10 games with the 10 before, and the last 30 days with the 30 before. " +
     "`trends.byMonth` and `trends.byWeek` are period tables (3-dart average, first-9, checkout %, win %, MPR, tons). " +
     "`series` holds the same trends as named point lists {x, y, date, label, n} where n is the sample size. " +
+    "`achievements` lists the badges the player has earned (with dates) and the badges closest to unlocking with their progress; mention a fresh badge or a close one when it fits. " +
     "`headToHead` is the record against each opponent, `recentGames` one row per recent game with its derived numbers, " +
     "and `practice` the drill log, solo X01 sessions and the bot ladder. " +
     "Checkout % is checkouts hit divided by checkout chances; a chance is one dart thrown while the remaining score could be finished with that dart. " +

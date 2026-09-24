@@ -1,0 +1,92 @@
+import { test } from "node:test";
+import assert from "node:assert/strict";
+import { ACHIEVEMENTS, computeAchievements, diffUnlocked, nextUp, readSeen, writeSeen, seenKey } from "../lib/achievements.js";
+
+const T = (n) => ({ n, mult: 3 });
+const D = (n) => ({ n, mult: 2 });
+const S = (n) => ({ n, mult: 1 });
+let id = 0;
+const at = (d) => `2026-09-${String(d).padStart(2, "0")}T20:00:00.000Z`;
+function game(dayN, gameType, winner, opp, stats, config = {}, me = "Ann") {
+  return { id: ++id, gameId: `g${id}`, username: me, gameType, config, winner, result: winner === me ? "win" : "loss", opponents: [opp], stats, eloAfter: 1000 + id * 20, completedAt: at(dayN) };
+}
+// a 180 leg finished on the bull: T20 T20 T20 (180) ... D25 last
+const bullLeg = { dartsThrown: 6, pointsScored: 301, highestTurn: 180, checkout: 121, darts: [T(20), T(20), T(20), T(20), S(11), D(25)] };
+const results = [
+  game(1, "x01", "Bob", "Bob", { dartsThrown: 30, pointsScored: 280, highestTurn: 60, checkout: 0, darts: [] }, { startScore: 301, doubleOut: true }),
+  game(2, "x01", "Bob", "Bob", { dartsThrown: 30, pointsScored: 280, highestTurn: 60, checkout: 0 }, { startScore: 301, doubleOut: true }),
+  game(3, "x01", "Bob", "Bob", { dartsThrown: 30, pointsScored: 280, highestTurn: 60, checkout: 0 }, { startScore: 301, doubleOut: true }),
+  game(4, "x01", "Ann", "Bob", bullLeg, { startScore: 301, doubleOut: true }),           // comeback, first win, 180, bull finish, ton-plus finish
+  game(5, "cricket", "Ann", "Bob", { marks: 20, rounds: 6, roundMarks: [4, 3, 3, 4, 3, 3], mpr: 3.33, pointsScored: 10 }),
+  game(6, "baseball", "Ann", "Bob", { runs: 9, darts: [] }),                               // hat-trick, all-rounder
+];
+const practice = [
+  { id: 900, gameId: "p1", username: "Ann", gameType: "bobs27", config: {}, winner: "Ann", result: "practice", opponents: [], stats: { finalScore: 90, doublesHit: 30, roundsCompleted: 21, busted: false, dartsThrown: 63, darts: [] }, eloAfter: 1000, completedAt: at(7) },
+  { id: 901, gameId: "p2", username: "Ann", gameType: "x01", config: { startScore: 301 }, winner: "Ann", result: "practice", opponents: ["bot:rook"], stats: { dartsThrown: 20, pointsScored: 301, highestTurn: 100, checkout: 40 }, eloAfter: 1000, completedAt: at(8) },
+];
+const social = { following: [{ username: "Bob", createdAt: at(9) }], followers: [] };
+
+test("every badge has the required shape", () => {
+  for (const a of ACHIEVEMENTS) {
+    assert.ok(a.id && a.title && a.description && a.icon && a.category, a.id);
+    assert.equal(typeof a.test, "function", a.id);
+  }
+  assert.ok(ACHIEVEMENTS.length >= 30);
+});
+
+test("earned dates come from the game that earned the badge", () => {
+  const b = Object.fromEntries(computeAchievements({ me: "Ann", results, practice, social }).map((x) => [x.id, x]));
+  assert.equal(b.first_game.earnedAt, at(1));
+  assert.equal(b.first_win.earnedAt, at(4));
+  assert.equal(b.one_eighty.earnedAt, at(4));
+  assert.equal(b.bull_finish.earnedAt, at(4));
+  assert.equal(b.checkout_100.earnedAt, at(4));
+  assert.equal(b.comeback.earnedAt, at(4));
+  assert.equal(b.cricket_first_win.earnedAt, at(5));
+  assert.equal(b.mpr_3.earnedAt, at(5));
+  assert.equal(b.streak_3.earnedAt, at(6));
+  assert.equal(b.all_rounder.earnedAt, at(6));
+  assert.equal(b.first_drill.earnedAt, at(7));
+  assert.equal(b.bobs27_clean.earnedAt, at(7));
+  assert.equal(b.bot_slayer.earnedAt, at(8));
+  assert.equal(b.first_follow.earnedAt, at(9));
+  assert.equal(b.games_10.unlocked, false);
+  assert.deepEqual(b.games_10.progress, { value: 6, target: 10 });
+  assert.deepEqual(b.streak_7.progress, { value: 3, target: 7 });
+  assert.equal(b.ton_up.earnedAt, at(4));
+  assert.equal(b.checkout_170.unlocked, false);
+  assert.equal(b.explorer.progress.value, 4); // x01, cricket, baseball, bobs27
+});
+
+test("a row without a dart log still earns the 180 badge from highestTurn", () => {
+  const b = computeAchievements({ me: "Ann", results: [game(1, "x01", "Ann", "Bob", { dartsThrown: 9, pointsScored: 501, highestTurn: 180, checkout: 40 }, { startScore: 501, doubleOut: true })], practice: [] });
+  assert.equal(b.find((x) => x.id === "one_eighty").unlocked, true);
+  assert.equal(b.find((x) => x.id === "short_leg").unlocked, true);
+});
+
+test("selfOnly badges are omitted without social data", () => {
+  const ids = computeAchievements({ me: "Ann", results, practice }).map((b) => b.id);
+  assert.ok(!ids.includes("first_follow"));
+  assert.ok(!ids.includes("crew_5"));
+  assert.ok(ids.includes("rivalry_10"));
+});
+
+test("diffUnlocked returns exactly the badges the appended game earns", () => {
+  const before = computeAchievements({ me: "Ann", results: results.slice(0, 5), practice: [] });
+  const after = computeAchievements({ me: "Ann", results, practice: [] });
+  assert.deepEqual(diffUnlocked(before, after).map((b) => b.id).sort(), ["all_rounder", "streak_3"]);
+});
+
+test("nextUp orders locked badges by progress", () => {
+  const b = computeAchievements({ me: "Ann", results, practice, social });
+  const ids = nextUp(b, 3).map((x) => x.id);
+  assert.equal(ids[0], "explorer"); // 4/6 beats games_10 at 6/10
+  assert.ok(ids.length === 3);
+});
+
+test("seen bookkeeping is safe without storage", () => {
+  assert.deepEqual([...readSeen(null, "k")], []);
+  const mem = {}; const storage = { getItem: (k) => mem[k] ?? null, setItem: (k, v) => { mem[k] = v; } };
+  writeSeen(storage, seenKey("u1"), ["a", "b", "a"]);
+  assert.deepEqual([...readSeen(storage, seenKey("u1"))], ["a", "b"]);
+});

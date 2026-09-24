@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { PlayerBadge, UndoIcon } from "./ui";
 import Celebration from "./Celebration";
 
@@ -20,8 +20,14 @@ function EloDelta({ elo, size = 12 }) {
  * End-of-game screen. Pure presentation of a summary from lib/summary.js;
  * the shell owns saving, rematch and navigation.
  */
-export default function GameSummary({ summary, saveState, saveError, onRetrySave, onRematch, onNewGame, onDone, playerColors }) {
-  const [celeb, setCeleb] = useState(true);
+export default function GameSummary({ summary, saveState, saveError, onRetrySave, onRematch, onNewGame, onDone, playerColors, newBadges = [] }) {
+  // the winner moment, then one moment per badge unlocked by this game.
+  // `next` is stable so the overlay's timer never restarts on re-render.
+  const [queue, setQueue] = useState(() => [
+    { type: "win", label: `${(summary?.rows?.find((r) => r.isWinner) || summary?.rows?.[0])?.name || summary?.winner} wins` },
+    ...newBadges.map((b) => ({ type: "badge", label: `${b.badge.icon} ${b.badge.title} · ${b.username}` })),
+  ]);
+  const next = useCallback(() => setQueue((q) => q.slice(1)), []);
   if (!summary) return null;
   const { winner, title, rows, highlights, ranked, durationMin, totalDarts } = summary;
   const winRow = rows.find((r) => r.isWinner) || rows[0];
@@ -34,7 +40,7 @@ export default function GameSummary({ summary, saveState, saveError, onRetrySave
 
   return (
     <div className="fade">
-      {celeb && <Celebration type="win" label={`${winName} wins`} onDone={() => setCeleb(false)} />}
+      {queue[0] && <Celebration key={queue.length} type={queue[0].type} label={queue[0].label} onDone={next} />}
 
       <div className="card mb-12" style={{ textAlign: "center", borderColor: "var(--accent)", background: "var(--accent-soft)" }}>
         <div className="tag" style={{ color: "var(--accent)" }}>Winner</div>
@@ -53,6 +59,25 @@ export default function GameSummary({ summary, saveState, saveError, onRetrySave
           {meta.length > 0 && ` · ${meta.join(" · ")}`}
         </div>
       </div>
+
+      {newBadges.length > 0 && (
+        <div className="card mb-12 badge-unlocked" style={{ borderColor: "var(--amber)" }}>
+          <div className="tag" style={{ color: "var(--amber)", marginBottom: 8 }}>Badge unlocked</div>
+          <div className="stack-8">
+            {newBadges.map((b) => (
+              <div key={`${b.username}-${b.badge.id}`} style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                <span className="badge-icon" aria-hidden="true">{b.badge.icon}</span>
+                <div style={{ minWidth: 0 }}>
+                  <div style={{ fontWeight: 700 }}>{b.badge.title}</div>
+                  <div className="tag" style={{ textTransform: "none", letterSpacing: 0 }}>
+                    {b.badge.description} · {b.username}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       <SaveLine ranked={ranked} saveState={saveState} saveError={saveError} onRetry={onRetrySave} />
 

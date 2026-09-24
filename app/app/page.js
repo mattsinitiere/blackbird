@@ -11,7 +11,8 @@ import { ADMIN_EMAIL, defaultPlayerColor } from "@/lib/constants";
 import { applyFontScale } from "@/lib/prefs";
 import { makeCastCode, openCastChannel, castAvailable, stripHistory } from "@/lib/cast";
 import { buildSummary } from "@/lib/summary";
-import { isRankedMatch, splitResults, botLadder } from "@/lib/practice";
+import { isRankedMatch, splitResults, botLadder, buildResultRows, humanPlayers, resultFromRow } from "@/lib/practice";
+import { computeAchievements, diffUnlocked, seenKey, readSeen, writeSeen } from "@/lib/achievements";
 import { botColors } from "@/lib/bots";
 import { rematchGame } from "@/lib/games";
 import { Logo, GearIcon, CastIcon, PlayerBadge, Modal, pressProps, PlayerLookContext } from "@/components/ui";
@@ -426,17 +427,40 @@ export default function Page() {
     lastFinishedRef.current = { game, winner: match.winner, summary };
     if (castChannel.current) castChannel.current.send("finished", lastFinishedRef.current);
 
+    // badges this game unlocks: compare before/after using the rows the save
+    // will write (only for players whose history we can see)
+    let newBadges = [];
+    try {
+      const pending = buildResultRows({ gameId: "pending", gameType: match.gameType, config: match.config, players: match.players, winner: match.winner, perPlayer: match.perPlayer, ranked, eloAfter, currentElo: elo, completedAt: match.completedAt }).map((r) => resultFromRow(r));
+      const { competitive: addC, practice: addP } = splitResults(pending);
+      const circle = new Set(circlePlayers.map((p) => p.username));
+      for (const u of humanPlayers(match.players)) {
+        if (u !== myName && !circle.has(u)) continue;
+        const soc = u === myName ? social : null;
+        const before = computeAchievements({ me: u, results, practice, social: soc });
+        const after = computeAchievements({ me: u, results: [...results, ...addC], practice: [...practice, ...addP], social: soc });
+        for (const b of diffUnlocked(before, after)) newBadges.push({ username: u, badge: b });
+      }
+      const mine = newBadges.filter((b) => b.username === myName).map((b) => b.badge.id);
+      if (mine.length && typeof window !== "undefined") {
+        const key = seenKey(session?.user?.id);
+        writeSeen(window.localStorage, key, [...readSeen(window.localStorage, key), ...mine]);
+      }
+    } catch (e) {
+      newBadges = [];
+    }
+
     // show the summary now; the save runs behind it
     setLive(null);
     setNotice("");
-    setFinished({ summary, match, game, eloAfter, ranked });
+    setFinished({ summary, match, game, eloAfter, ranked, newBadges });
     setView("summary");
     // ranked games save win/loss + Elo; solo, bot and drill games save as practice
     match.gameId =
       (typeof crypto !== "undefined" && crypto.randomUUID && crypto.randomUUID()) ||
       `${Date.now()}-${Math.random().toString(16).slice(2)}`;
     await saveMatch(match, eloAfter, ranked);
-  }, [elo, playerColors, playerMeta, persistLive, saveMatch]);
+  }, [elo, playerColors, playerMeta, persistLive, saveMatch, results, practice, circlePlayers, social, myName, session]);
 
   const startGame = useCallback((game) => {
     finishingRef.current = false;
@@ -644,6 +668,8 @@ export default function Page() {
         {view === "playScoringDrill" && live && <PlayScoringDrill game={live} resume={liveProgress.current} onProgress={saveProgress} onFinish={finishMatch} onQuit={askQuit} castActive={!!castCode} playerColors={playerColors} />}
         {view === "summary" && finished && (
           <GameSummary
+            key={finished.summary.completedAt}
+            newBadges={finished.newBadges || []}
             summary={finished.summary}
             saveState={saveState}
             saveError={saveError}
@@ -673,6 +699,8 @@ export default function Page() {
             }
             playerColors={playerColors}
             isMe={profileUser === myName}
+            social={social}
+            userId={session.user?.id}
             isFollowing={following === null ? null : following.has(profileUser)}
             onFollow={() => follow(profileUser)}
             onUnfollow={() => unfollow(profileUser)}

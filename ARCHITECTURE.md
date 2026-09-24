@@ -628,6 +628,22 @@ websockets — that gets a manual smoke test after deploy.
   don't exist yet, so Android install prompts don't fire (ROADMAP #25).
 - Multiplayer Elo updates winner-pairwise only.
 
+## 15b. Friends, tags and achievements (summary)
+
+- `lib/follows.js` + `components/Friends.js` + the follow-scoped RLS
+  (§5): the circle is the data, not a filter.
+- `lib/profile.js` tag rules + `PlayerLookContext` (§11).
+- `lib/achievements.js`: `ACHIEVEMENTS` definitions with `test(ctx) →
+  { earnedAt, progress }`, `computeAchievements` (per player, from rows
+  via `lib/gamestats`), `diffUnlocked` (used by `finishMatch` on the rows
+  the save is about to write, so the "Badge unlocked" card and the second
+  celebration moment appear before the network round-trip), `nextUp`
+  (the AI coach's "closest badges"), and the per-account "seen" set in
+  localStorage that drives the "New" chips on the profile grid
+  (`components/Achievements.js`). Social badges are self-only because
+  other players' follows are private. The website reuses the same
+  computation in `lib/useMyAchievements.js`.
+
 ## 16. How to extend
 
 - **New game type**: build `PlayNewGame.js` honoring the §8 contract, add

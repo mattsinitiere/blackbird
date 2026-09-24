@@ -407,6 +407,21 @@ app refreshes every time it regains focus.
 - The **AI key** stays on the server; `/api/insights` verifies a valid login
   before calling the model, so a stranger can't burn your quota.
 
+## Friends, name tags and achievements
+
+- **Friends** (Home → Friends, Standings → Friends, or Account → Manage):
+  follow people by name or @handle. Standings, records, matchups,
+  profiles and the AI coach show you plus the players you follow, and the
+  database enforces it. Anyone who follows you sees your games.
+- **Name tags**: a 2–5 character tag and/or an icon shown beside your name
+  everywhere (Account → Profile, or the website's profile page).
+- **Achievements**: 30+ badges (milestones, scoring, finishing, cricket,
+  streaks, social, practice, variety) derived from your game history in
+  `lib/achievements.js`, so they are always correct and unlock
+  retroactively. The game that earns a badge shows a "Badge unlocked"
+  moment after the winner; profiles carry the full grid with progress
+  bars; the website profile shows a badge strip.
+
 ## Known limitations (by design)
 
 - Friends are one-way: anyone who follows you sees your games; there is

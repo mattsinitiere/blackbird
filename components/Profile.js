@@ -1,5 +1,7 @@
-import { useState } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { BackBar, Stat, Mini, PlayerBadge } from "./ui";
+import AchievementsCard from "./Achievements";
+import { computeAchievements, readSeen, writeSeen, seenKey } from "@/lib/achievements";
 import { LineChart } from "./Charts";
 import PlayerCard from "./PlayerCard";
 import { playerTimeline } from "@/lib/stats";
@@ -137,8 +139,20 @@ function PracticeCard({ rows, me, onOpen }) {
   );
 }
 
-export default function Profile({ user, player, stats, elo, results, practice = [], onOpenPractice, onOpenAccount, back, playerColors, isMe, isFollowing, onFollow, onUnfollow }) {
+export default function Profile({ user, player, stats, elo, results, practice = [], onOpenPractice, onOpenAccount, back, playerColors, isMe, isFollowing, onFollow, onUnfollow, social = null, userId = null }) {
   const follow = { isMe: !!isMe, isFollowing, onFollow, onUnfollow };
+  // badges are derived from the rows we can see; another player's follows
+  // are private, so their social badges are left out
+  const badges = useMemo(() => computeAchievements({ me: user, results, practice, social: isMe ? social : null }), [user, results, practice, isMe, social]);
+  const [seen, setSeen] = useState(() => new Set());
+  useEffect(() => {
+    if (!isMe || typeof window === "undefined") return;
+    const key = seenKey(userId);
+    setSeen(readSeen(window.localStorage, key));
+    // after a moment, everything unlocked counts as seen (the "New" chips show once)
+    const t = setTimeout(() => writeSeen(window.localStorage, key, [...readSeen(window.localStorage, key), ...badges.filter((b) => b.unlocked).map((b) => b.id)]), 4000);
+    return () => clearTimeout(t);
+  }, [isMe, userId, badges]);
   const myPractice = practice.filter((r) => r.username === user);
 
   if (!stats) {
@@ -154,6 +168,7 @@ export default function Profile({ user, player, stats, elo, results, practice = 
             <PracticeCard rows={myPractice} me={user} onOpen={onOpenPractice} />
           </>
         )}
+        <AchievementsCard badges={badges} isMe={!!isMe} seen={seen} />
       </div>
     );
   }
@@ -341,6 +356,8 @@ export default function Profile({ user, player, stats, elo, results, practice = 
         </div>
       </div>
       )}
+
+      <AchievementsCard badges={badges} isMe={!!isMe} seen={seen} />
 
       {myPractice.length > 0 && <PracticeCard rows={myPractice} me={user} onOpen={onOpenPractice} />}
 

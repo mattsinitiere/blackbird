@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { supabase, isConfigured } from "@/lib/supabase";
 import { useSession } from "@/lib/useSession";
 import { useMyPlayer, PLAYER_UPDATED_EVENT } from "@/lib/useMyPlayer";
+import { useMyAchievements } from "@/lib/useMyAchievements";
 import { updatePlayerProfile, setPlayerColor, isHandleAvailable } from "@/lib/db";
 import { normalizeHandle, validateHandle, suggestHandle, validateTag, BIO_MAX, LOCATION_MAX } from "@/lib/profile";
 import TagEditor from "@/components/TagEditor";
@@ -63,7 +64,7 @@ export default function ProfilePage() {
       </Link>
       <h1>Your profile</h1>
       {player ? (
-        <ProfileForm key={player.username} user={session.user} player={player} color={color} onSaved={reload} />
+        <ProfileForm key={player.username} user={session.user} player={player} color={color} onSaved={reload} session={session} />
       ) : (
         <div className="card">
           <p className="subtle" style={{ marginTop: 0 }}>
@@ -78,8 +79,10 @@ export default function ProfilePage() {
   );
 }
 
-function ProfileForm({ user, player, color, onSaved }) {
+function ProfileForm({ user, player, color, onSaved, session }) {
   const meta = user?.user_metadata || {};
+  const { badges, social } = useMyAchievements(session, player);
+  const unlocked = badges.filter((b) => b.unlocked);
   const [name, setName] = useState(meta.display_name || player.username);
   const [handle, setHandle] = useState(player.handle || suggestHandle(player.username));
   const [bio, setBio] = useState(player.bio || "");
@@ -187,7 +190,35 @@ function ProfileForm({ user, player, color, onSaved }) {
             <dt>Standings</dt>
             <dd>{player.hidden ? "Hidden" : "Visible"}</dd>
           </div>
+          {social && (
+            <>
+              <div>
+                <dt>Following</dt>
+                <dd>{social.following.length}</dd>
+              </div>
+              <div>
+                <dt>Followers</dt>
+                <dd>{social.followers.length}</dd>
+              </div>
+            </>
+          )}
+          {badges.length > 0 && (
+            <div>
+              <dt>Badges</dt>
+              <dd>{unlocked.length} / {badges.length}</dd>
+            </div>
+          )}
         </dl>
+        {unlocked.length > 0 && (
+          <div className="mk-badge-strip" aria-label="Badges earned">
+            {unlocked.slice(0, 18).map((b) => (
+              <span key={b.id} className="mk-badge" title={`${b.title}: ${b.description}`}>
+                <span aria-hidden="true">{b.icon}</span>
+                <span className="mk-badge-title">{b.title}</span>
+              </span>
+            ))}
+          </div>
+        )}
         <Link className="btn" href="/app" style={{ width: "100%", marginTop: 14 }}>
           Open Blackbird
         </Link>
