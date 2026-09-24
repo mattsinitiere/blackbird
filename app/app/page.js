@@ -3,7 +3,8 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { supabase, isConfigured } from "@/lib/supabase";
-import { getPlayers, addPlayer as dbAddPlayer, linkPlayerAuth as dbLinkPlayerAuth, setPlayerHidden as dbSetPlayerHidden, setPlayerColor as dbSetPlayerColor, updatePlayerProfile as dbUpdatePlayerProfile, getGameResults, recordGame } from "@/lib/db";
+import { getPlayers, addPlayer as dbAddPlayer, linkPlayerAuth as dbLinkPlayerAuth, setPlayerHidden as dbSetPlayerHidden, setPlayerColor as dbSetPlayerColor, updatePlayerProfile as dbUpdatePlayerProfile, getGameResults, recordGame, getFollows, followPlayer as dbFollowPlayer, unfollowPlayer as dbUnfollowPlayer } from "@/lib/db";
+import { followingUsernames, followerUsernames, circlePlayers as circleOf, followsForSocial } from "@/lib/follows";
 import { normalizeHandle, validateHandle } from "@/lib/profile";
 import { computeStats, eloMapFromPlayers, applyEloUpdate } from "@/lib/stats";
 import { ADMIN_EMAIL, defaultPlayerColor } from "@/lib/constants";
@@ -39,6 +40,7 @@ import Admin from "@/components/Admin";
 import LoadingScreen from "@/components/LoadingScreen";
 import GameSummary from "@/components/GameSummary";
 import BlackbirdAI from "@/components/BlackbirdAI";
+import Friends from "@/components/Friends";
 
 const PLAY_VIEWS = { x01: "playX01", cricket: "playCricket", baseball: "playBaseball", aroundTheClock: "playAroundTheClock", killer: "playKiller", shanghai: "playShanghai", halveit: "playHalveIt", gotcha: "playGotcha", tictactoe: "playTicTacToe", bobs27: "playBobs27", checkoutDrill: "playCheckoutDrill", scoringDrill: "playScoringDrill" };
 
@@ -57,6 +59,9 @@ export default function Page() {
   const [dataReady, setDataReady] = useState(false);
   const [players, setPlayers] = useState([]);
   const [allResults, setAllResults] = useState([]);
+  // follows rows visible to me; null until loaded, or when the follows
+  // table is not installed yet (then everyone is in my circle)
+  const [follows, setFollows] = useState(null);
   // competitive rows drive stats/Elo/standings; practice rows feed the practice log
   const { competitive: results, practice } = useMemo(() => splitResults(allResults), [allResults]);
   const [loadError, setLoadError] = useState("");
@@ -233,9 +238,10 @@ export default function Page() {
 
   const refresh = useCallback(async () => {
     try {
-      const [p, r] = await Promise.all([getPlayers(), getGameResults()]);
+      const [p, r, f] = await Promise.all([getPlayers(), getGameResults(), getFollows()]);
       setPlayers(p);
       setAllResults(r);
+      setFollows(f);
       setLoadError("");
     } catch (e) {
       setLoadError(e.message || "Failed to load data.");
@@ -312,10 +318,22 @@ export default function Page() {
   }, [session, dataReady, players, refresh]);
 
   const usernames = useMemo(() => players.map((p) => p.username), [players]);
-  // players who appear in standings (guests + self-hidden are excluded)
+  const myAuthId = session?.user?.id || null;
+  const myPlayerRow = useMemo(() => {
+    const name = (session?.user?.user_metadata?.display_name || "").trim().toLowerCase();
+    return players.find((p) => p.authId === myAuthId) || players.find((p) => p.username.toLowerCase() === name) || null;
+  }, [players, session, myAuthId]);
+  // who I follow (null = follows not installed: everyone) and who follows me
+  const following = useMemo(() => (follows === null ? null : followingUsernames(follows, players, myAuthId)), [follows, players, myAuthId]);
+  const followers = useMemo(() => followerUsernames(follows, players, myPlayerRow?.id), [follows, players, myPlayerRow]);
+  const social = useMemo(() => followsForSocial(follows, players, { myAuthId, myPlayerId: myPlayerRow?.id }), [follows, players, myAuthId, myPlayerRow]);
+  // my circle: me plus the players I follow. The database only returns
+  // their result rows, so every screen below is friends-only by construction
+  const circlePlayers = useMemo(() => circleOf(players, following, myPlayerRow?.username || (session?.user?.user_metadata?.display_name || "").trim()), [players, following, myPlayerRow, session]);
+  // players who appear in standings (self-hidden are excluded)
   const visibleUsernames = useMemo(
-    () => players.filter((p) => !p.hidden).map((p) => p.username),
-    [players]
+    () => circlePlayers.filter((p) => !p.hidden).map((p) => p.username),
+    [circlePlayers]
   );
   const stats = useMemo(() => computeStats(results), [results]);
   const elo = useMemo(() => eloMapFromPlayers(players), [players]);
@@ -434,6 +452,26 @@ export default function Page() {
     setView("profile");
   };
 
+  const [friendsFrom, setFriendsFrom] = useState("home");
+  const openFriends = () => {
+    if (view !== "friends") setFriendsFrom(view);
+    setView("friends");
+  };
+  const follow = useCallback(async (username) => {
+    const p = players.find((x) => x.username === username);
+    if (!p?.id || !myAuthId) return { ok: false, reason: "Player not found." };
+    const r = await dbFollowPlayer(myAuthId, p.id);
+    if (r.ok) await refresh();
+    return r;
+  }, [players, myAuthId, refresh]);
+  const unfollow = useCallback(async (username) => {
+    const p = players.find((x) => x.username === username);
+    if (!p?.id || !myAuthId) return { ok: false, reason: "Player not found." };
+    const r = await dbUnfollowPlayer(myAuthId, p.id);
+    if (r.ok) await refresh();
+    return r;
+  }, [players, myAuthId, refresh]);
+
   const signOut = async () => {
     signingOutRef.current = true;
     await supabase.auth.signOut();
@@ -543,14 +581,15 @@ export default function Page() {
         )}
 
         {view === "home" && (
-          <Home setView={setView} openSetup={openSetup} stats={stats} elo={elo} players={players} gameCount={gameCount} results={results} openProfile={openProfile} playerColors={playerColors} />
+          <Home setView={setView} openSetup={openSetup} stats={stats} elo={elo} players={circlePlayers} gameCount={gameCount} results={results} openProfile={openProfile} openFriends={openFriends} playerColors={playerColors} />
         )}
         {view === "setup" && (
           <Setup
             key={setupInitial?.key || "default"}
             initial={setupInitial}
-            players={players}
+            players={circlePlayers}
             playerColors={playerColors}
+            onOpenFriends={openFriends}
             me={session.user?.user_metadata?.display_name || ""}
             ladder={ladder}
             onStart={startGame}
@@ -610,7 +649,7 @@ export default function Page() {
           />
         )}
         {view === "leaderboard" && (
-          <Leaderboard usernames={visibleUsernames} stats={stats} elo={elo} openProfile={openProfile} openRecords={() => setView("records")} back={() => setView("home")} playerColors={playerColors} />
+          <Leaderboard usernames={visibleUsernames} stats={stats} elo={elo} openProfile={openProfile} openRecords={() => setView("records")} openFriends={openFriends} back={() => setView("home")} playerColors={playerColors} />
         )}
         {view === "profile" && profileUser && (
           <Profile
@@ -627,6 +666,10 @@ export default function Page() {
                 : null
             }
             playerColors={playerColors}
+            isMe={profileUser === myName}
+            isFollowing={following === null ? null : following.has(profileUser)}
+            onFollow={() => follow(profileUser)}
+            onUnfollow={() => unfollow(profileUser)}
             back={() => setView(profileFrom)}
           />
         )}
@@ -637,7 +680,22 @@ export default function Page() {
           <Matchup usernames={visibleUsernames} elo={elo} results={results} stats={stats} back={() => setView("home")} playerColors={playerColors} />
         )}
         {view === "ai" && (
-          <BlackbirdAI me={myName} userId={session.user?.id} stats={stats} elo={elo} results={results} practice={practice} players={players} playerColors={playerColors} />
+          <BlackbirdAI me={myName} userId={session.user?.id} stats={stats} elo={elo} results={results} practice={practice} players={circlePlayers} social={social} playerColors={playerColors} />
+        )}
+        {view === "friends" && (
+          <Friends
+            players={players}
+            me={myName}
+            following={following}
+            followers={followers}
+            social={social}
+            follow={follow}
+            unfollow={unfollow}
+            openProfile={openProfile}
+            playerColors={playerColors}
+            installed={follows !== null}
+            back={() => setView(friendsFrom)}
+          />
         )}
         {view === "account" && (
           <Account
@@ -652,6 +710,8 @@ export default function Page() {
             playerColors={playerColors}
             isAdmin={isAdmin}
             onOpenAdmin={() => setView("admin")}
+            social={social}
+            onOpenFriends={openFriends}
             signOut={signOut}
             back={() => setView("home")}
           />
@@ -679,7 +739,7 @@ export default function Page() {
         </Modal>
       )}
       <nav className="nav">
-        <button className={`navbtn ${["home", "practice"].includes(view) ? "active" : ""}`} onClick={() => setView("home")}>Home</button>
+        <button className={`navbtn ${["home", "practice", "friends"].includes(view) ? "active" : ""}`} onClick={() => setView("home")}>Home</button>
         <button className={`navbtn ${view === "setup" || view === "summary" || ALL_PLAY_VIEWS.includes(view) ? "active" : ""}`} onClick={goPlay}>Play{live ? " ●" : ""}</button>
         <button className={`navbtn ${["leaderboard", "profile", "records"].includes(view) ? "active" : ""}`} onClick={() => setView("leaderboard")}>Stats</button>
         <button className={`navbtn ${view === "matchup" ? "active" : ""}`} onClick={() => setView("matchup")}>Matchup</button>

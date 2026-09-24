@@ -14,8 +14,18 @@ create table if not exists players (
   auth_id uuid,                            -- owning login account, once claimed
   handle text,                             -- @handle, unique (see migration-add-profile.sql)
   bio text,
-  location text
+  location text,
+  tag text,                                -- name tag, 2-5 upper-case letters/digits
+  tag_icon text                            -- name tag icon id (see lib/profile.js TAG_ICONS)
 );
+alter table players drop constraint if exists players_tag_format;
+alter table players add constraint players_tag_format
+  check (tag is null or tag ~ '^[A-Z0-9]{2,5}$');
+alter table players drop constraint if exists players_tag_icon_set;
+alter table players add constraint players_tag_icon_set
+  check (tag_icon is null or tag_icon in (
+    'crown','flame','bolt','star','target','skull','bird','clover','diamond','anchor','ghost','rocket'
+  ));
 
 -- Matches: one row per completed game.
 create table if not exists matches (
@@ -66,12 +76,43 @@ create table if not exists game_results (
 );
 create index if not exists game_results_username_idx on game_results (username);
 create index if not exists game_results_game_idx on game_results (game_id);
+create unique index if not exists game_results_game_user_idx on game_results (game_id, username);
 alter table game_results enable row level security;
+
+-- Friends: an account follows player rows. You read your own result rows
+-- and the rows of players you follow; anyone may insert (whoever finishes
+-- a game writes every participant's row).
+create table if not exists follows (
+  follower   uuid not null references auth.users (id) on delete cascade,
+  followed   uuid not null references players (id)   on delete cascade,
+  created_at timestamptz not null default now(),
+  primary key (follower, followed)
+);
+create index if not exists follows_followed_idx on follows (followed);
+create index if not exists players_auth_id_idx  on players (auth_id);
+alter table follows enable row level security;
+create policy "members read own follows"
+  on follows for select to authenticated
+  using (follower = (select auth.uid())
+      or followed in (select p.id from players p where p.auth_id = (select auth.uid())));
+create policy "members follow"
+  on follows for insert to authenticated
+  with check (follower = (select auth.uid())
+      and not exists (select 1 from players p where p.id = followed and p.auth_id = (select auth.uid())));
+create policy "members unfollow"
+  on follows for delete to authenticated
+  using (follower = (select auth.uid()));
+
 create policy "members read results"
-  on game_results for select to authenticated using (true);
+  on game_results for select to authenticated
+  using (username in (
+    select p.username from players p
+    where p.auth_id = (select auth.uid())
+       or p.id in (select f.followed from follows f where f.follower = (select auth.uid()))));
 create policy "members add results"
   on game_results for insert to authenticated with check (true);
 
 -- Profile fields: unique @handle + owner-only edits.
 -- (Full details and the backfill live in migration-add-profile.sql; run that
--- file too on a fresh install.)
+-- file too on a fresh install, then migration-follows-tags.sql for the
+-- tag-aware owner guard.)

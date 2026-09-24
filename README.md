@@ -246,6 +246,14 @@ Run `supabase/schema.sql` once in the Supabase SQL editor. Three tables:
   (`x01` | `cricket` | `baseball`), `config`, `winner`, `result`
   (`win`/`loss`), `opponents`, `elo_after`, `completed_at`, and `stats` —
   a JSONB blob of that player's performance.
+- **`follows`** — friends. One row per (account, player row) pair:
+  `follower` (the account's auth id), `followed` (`players.id`),
+  `created_at`. Follows are one-way with no accept step. Row Level
+  Security on `game_results` only returns your own rows and the rows of
+  players you follow, so standings, records, matchups, profiles and the
+  AI coach are "you plus who you follow" by construction. Anyone can still
+  insert result rows (whoever finishes a game writes every participant's
+  row), so the restriction is on reading, not writing.
 - **`matches`** — legacy one-row-per-game table kept for the admin "rebuild
   from old games" migration; new games do not write to it.
 
@@ -311,8 +319,14 @@ Push this repo to GitHub. Every later `git push` to `main` redeploys Vercel.
 ## 2. Supabase (database + login)
 1. https://supabase.com → **New project** (set + save a DB password).
 2. **SQL Editor → New query** → paste all of `supabase/schema.sql` → **Run**.
-3. Run `supabase/migration-add-color.sql`, `migration-add-auth-id.sql` and
-   `migration-add-profile.sql` (player colors, account links, @handles).
+3. Run `supabase/migration-add-color.sql`, `migration-add-auth-id.sql`,
+   `migration-add-profile.sql` (player colors, account links, @handles) and
+   `migration-follows-tags.sql` (friends, name tags, follow-scoped result
+   visibility). The last one seeds follows between every pair of accounts
+   that have a login, so nobody's standings go empty; guest rows without a
+   login show up once someone follows them. Until it is run the app
+   behaves as before: everyone sees everyone and the Friends screen says
+   so.
 4. **Settings → API** → copy **Project URL** and the **anon public** key.
 5. **Authentication → Providers → Email**: enabled, with "Confirm email"
    **ON**. New players arrive through an invite email, and accepting it
@@ -393,6 +407,10 @@ app refreshes every time it regains focus.
 
 ## Known limitations (by design)
 
+- Friends are one-way: anyone who follows you sees your games; there is
+  no accept step. Result rows are readable only by yourself and your
+  followers, but any member can still *insert* rows under any username
+  (the scorer writes every participant's row), exactly as before.
 - X01 double-out is trusted, not verified (you enter darts per turn).
 - Best-of legs are X01 only.
 - Multiplayer Elo updates the winner pairwise; losers aren't ranked vs each

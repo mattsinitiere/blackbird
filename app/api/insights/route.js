@@ -31,6 +31,7 @@ function buildPersonalPrompt(summary, question, history) {
     "You are talking directly to that player: say 'you' and 'your', never their name in the third person. " +
     "Use ONLY the JSON data provided; never invent stats, games, opponents or dates.\n\n" +
     "THE DATA: `me` has career totals per game type (X01, cricket, baseball and the party games). " +
+    "`me.rankInCircle` and `me.circleSize` rank the player among their circle (themselves plus the players they follow), never a whole league; `me.circle` counts who they follow and who follows them. " +
     "`checkouts` has finishing stats replayed from every X01 dart log: checkout chances (darts thrown at a finish), " +
     "checkouts hit, checkout percentage, by range, highest and average finish, busts. " +
     "`scoring` has 100+, 140+ and 180 visits and per-dart-position averages. " +
@@ -70,7 +71,7 @@ ${JSON.stringify(summary)}`;
 
 function buildPrompt(kind, summary, question) {
   const system =
-    "You are a sharp darts analyst for a small friendly league. " +
+    "You are a sharp darts analyst for a darts player and the people they follow. " +
     "Use ONLY the JSON data provided; never invent stats or names. " +
     "The data may include aggregate player stats AND individual game results " +
     "(with per-game stats like highestTurn, checkout, runs, mpr, dartsThrown, dates, opponents). " +

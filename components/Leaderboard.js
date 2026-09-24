@@ -2,7 +2,7 @@ import { useState } from "react";
 import { BackBar, PlayerBadge, pressProps } from "./ui";
 import { BASE_ELO } from "@/lib/constants";
 
-export default function Leaderboard({ usernames, stats, elo, openProfile, openRecords, back, playerColors }) {
+export default function Leaderboard({ usernames, stats, elo, openProfile, openRecords, openFriends, back, playerColors }) {
   const [mode, setMode] = useState("overall");
 
   const rows = usernames
@@ -71,13 +71,27 @@ export default function Leaderboard({ usernames, stats, elo, openProfile, openRe
         ))}
       </div>
 
-      {openRecords && (
-        <button className="btn mb-12" style={{ width: "100%" }} onClick={openRecords}>
-          Records
-        </button>
+      {(openRecords || openFriends) && (
+        <div className="row mb-12">
+          {openRecords && (
+            <button className="btn" style={{ flex: 1 }} onClick={openRecords}>
+              Records
+            </button>
+          )}
+          {openFriends && (
+            <button className="btn" style={{ flex: 1 }} onClick={openFriends}>
+              Friends
+            </button>
+          )}
+        </div>
       )}
 
-      {rows.length === 0 && <p className="subtle">No completed games in this category yet.</p>}
+      {rows.length === 0 && (
+        <p className="subtle">
+          No completed games in this category yet.
+          {openFriends && " Standings show you and the players you follow."}
+        </p>
+      )}
 
       <div className="stack-8">
         {rows.map((r, i) => {

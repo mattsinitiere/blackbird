@@ -78,7 +78,8 @@ test("career checkout percentage and ranges", () => {
   assert.equal(s.checkouts.highest, 40);
   assert.equal(s.me.x01.checkoutPct, 37.5);
   assert.equal(s.me.games, 4);
-  assert.equal(s.me.rank, 1);
+  assert.equal(s.me.rankInCircle, 1);
+  assert.equal(s.me.circleSize, 2);
 });
 
 test("monthly checkout trend is a named series with sample sizes", () => {

@@ -54,7 +54,7 @@ function BirdAvatar() {
  * The conversation is kept per account in localStorage so it survives a
  * reload.
  */
-export default function BlackbirdAI({ me, userId, stats, elo, results, practice, players, playerColors }) {
+export default function BlackbirdAI({ me, userId, stats, elo, results, practice, players, social, playerColors }) {
   const storageKey = `bb-ai-chat-${userId || "anon"}`;
   const [messages, setMessages] = useState([]);
   const [loaded, setLoaded] = useState(false);
@@ -83,7 +83,7 @@ export default function BlackbirdAI({ me, userId, stats, elo, results, practice,
   }, []);
   useEffect(scrollToBottom, [messages, busy, scrollToBottom]);
 
-  const summary = useMemo(() => buildMySummary({ me, stats, elo, results, practice, players }), [me, stats, elo, results, practice, players]);
+  const summary = useMemo(() => buildMySummary({ me, stats, elo, results, practice, players, social }), [me, stats, elo, results, practice, players, social]);
   const hasData = (summary.me.games || 0) + summary.practice.sessions > 0;
 
   const send = async (text) => {

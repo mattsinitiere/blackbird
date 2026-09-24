@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { BackBar, Stat, Mini, PlayerBadge } from "./ui";
 import { LineChart } from "./Charts";
 import PlayerCard from "./PlayerCard";
@@ -6,12 +7,30 @@ import { gameName } from "@/lib/summary";
 import { playerLabel } from "@/lib/bots";
 import { computePractice } from "@/lib/practice";
 
-function ProfileHeader({ user, player, playerColors, sub }) {
+function FollowButton({ isFollowing, onFollow, onUnfollow }) {
+  const [busy, setBusy] = useState(false);
+  if (isFollowing == null) return null;
+  const act = async () => {
+    setBusy(true);
+    try {
+      await (isFollowing ? onUnfollow() : onFollow());
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <button className={`btn btn-sm ${isFollowing ? "" : "btn-primary"}`} style={{ flex: "none" }} onClick={act} disabled={busy} aria-pressed={isFollowing}>
+      {busy ? "…" : isFollowing ? "Following" : "Follow"}
+    </button>
+  );
+}
+
+function ProfileHeader({ user, player, playerColors, sub, follow }) {
   return (
     <div style={{ marginBottom: 16 }}>
       <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
         <PlayerBadge username={user} color={playerColors?.[user]} size={48} showName={false} />
-        <div style={{ minWidth: 0 }}>
+        <div style={{ minWidth: 0, flex: 1 }}>
           <div className="display" style={{ fontSize: "calc(22px * var(--fs))", lineHeight: 1.1 }}>{user}</div>
           {player?.handle && (
             <div style={{ fontWeight: 700, fontSize: "calc(14px * var(--fs))", color: "var(--accent)", marginTop: 2 }}>
@@ -22,6 +41,7 @@ function ProfileHeader({ user, player, playerColors, sub }) {
             <div className="tag" style={{ textTransform: "none", letterSpacing: 0, marginTop: 2 }}>{sub}</div>
           )}
         </div>
+        {follow && !follow.isMe && <FollowButton {...follow} />}
       </div>
       {(player?.bio || player?.location) && (
         <div style={{ marginTop: 10, paddingLeft: 60 }}>
@@ -117,14 +137,15 @@ function PracticeCard({ rows, me, onOpen }) {
   );
 }
 
-export default function Profile({ user, player, stats, elo, results, practice = [], onOpenPractice, onOpenAccount, back, playerColors }) {
+export default function Profile({ user, player, stats, elo, results, practice = [], onOpenPractice, onOpenAccount, back, playerColors, isMe, isFollowing, onFollow, onUnfollow }) {
+  const follow = { isMe: !!isMe, isFollowing, onFollow, onUnfollow };
   const myPractice = practice.filter((r) => r.username === user);
 
   if (!stats) {
     return (
       <div className="fade">
         <BackBar back={back} />
-        <ProfileHeader user={user} player={player} playerColors={playerColors} />
+        <ProfileHeader user={user} player={player} playerColors={playerColors} follow={follow} />
         {myPractice.length === 0 ? (
           <p className="subtle">No games logged yet.</p>
         ) : (
@@ -167,6 +188,7 @@ export default function Profile({ user, player, stats, elo, results, practice = 
         user={user}
         player={player}
         playerColors={playerColors}
+        follow={follow}
         sub={`${wins}-${losses} · ${stats.games} games · ${stats.winPct.toFixed(0)}% win`}
       />
 

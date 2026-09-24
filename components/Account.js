@@ -113,7 +113,7 @@ function ProfileEditor({ player, updatePlayerProfile, playerColors }) {
   );
 }
 
-export default function Account({ user, players, results, addPlayer, setPlayerHidden, setPlayerColor, updatePlayerProfile, myPlayer: myPlayerProp, playerColors, isAdmin, onOpenAdmin, signOut, back }) {
+export default function Account({ user, players, results, addPlayer, setPlayerHidden, setPlayerColor, updatePlayerProfile, myPlayer: myPlayerProp, playerColors, isAdmin, onOpenAdmin, social, onOpenFriends, signOut, back }) {
   const meta = user?.user_metadata || {};
   const [name, setName] = useState(meta.display_name || "");
   const [theme, setTheme] = useState(meta.theme === "dark" ? "dark" : "light");
@@ -252,6 +252,23 @@ export default function Account({ user, players, results, addPlayer, setPlayerHi
 
       {myPlayer && updatePlayerProfile && (
         <ProfileEditor key={myPlayer.username} player={myPlayer} updatePlayerProfile={updatePlayerProfile} playerColors={playerColors} />
+      )}
+
+      {onOpenFriends && (
+        <div className="card mb-12">
+          <div className="between">
+            <div>
+              <div className="tag" style={{ marginBottom: 4 }}>Friends</div>
+              <div style={{ fontWeight: 700 }}>
+                Following {social?.following?.length || 0} · Followers {social?.followers?.length || 0}
+              </div>
+              <div className="tag" style={{ textTransform: "none", letterSpacing: 0, marginTop: 2 }}>
+                You see the games of the people you follow.
+              </div>
+            </div>
+            <button className="btn btn-sm" onClick={onOpenFriends}>Manage</button>
+          </div>
+        </div>
       )}
 
       <div className="card mb-12">

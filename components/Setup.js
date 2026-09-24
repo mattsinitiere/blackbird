@@ -105,7 +105,7 @@ function BotIcon({ size = "1em" }) {
   );
 }
 
-export default function Setup({ players, onStart, back, me, playerColors, ladder = [], initial = null }) {
+export default function Setup({ players, onStart, back, me, playerColors, ladder = [], initial = null, onOpenFriends = null }) {
   const meName = (me || "").trim();
   const [selected, setSelected] = useState(meName ? [meName] : []);
   const [gameType, setGameType] = useState(initial?.gameType || "x01");
@@ -146,10 +146,9 @@ export default function Setup({ players, onStart, back, me, playerColors, ladder
 
   const { onDragStart, onDragOver, onDragEnd, onTouchStart, onTouchMove, onTouchEnd, pillRefs } = useDragReorder(selected, setSelected);
 
-  const anyLinked = players.some((p) => p.authId);
-  const eligible = anyLinked
-    ? players.filter((p) => p.authId).map((p) => p.username)
-    : players.map((p) => p.username);
+  // the roster is my circle (me + who I follow); guests without a login
+  // can still be picked once followed
+  const eligible = players.map((p) => p.username);
 
   const rosterOptions = eligible.filter((u) => !selected.includes(u));
 
@@ -603,8 +602,15 @@ export default function Setup({ players, onStart, back, me, playerColors, ladder
           </select>
         )}
         {rosterOptions.length === 0 && selected.length < (exactTwo ? 2 : 4) && (
-          <p className="tag mt-12" style={{ textTransform: "none", letterSpacing: 0 }}>
-            No other players available. Players need a login account to appear here.
+          <p className="tag mt-12" style={{ textTransform: "none", letterSpacing: 0, display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+            <span>No other players available.</span>
+            {onOpenFriends ? (
+              <button type="button" className="btn btn-sm" onClick={onOpenFriends}>
+                Follow players
+              </button>
+            ) : (
+              <span>Follow players to pick them here.</span>
+            )}
           </p>
         )}
 

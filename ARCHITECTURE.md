@@ -237,10 +237,23 @@ hand-rolled. This is deliberate: no supply-chain surface, no bundle bloat.
   `auth.admin.inviteUserByEmail` with the display name and handle. Any
   authenticated account can still read the whole league (the RLS posture
   below), which is why the door is a shared code rather than open.
-- **RLS posture** (see `supabase/schema.sql`): any *authenticated* account
-  may read and insert players/game_results and update players (needed for
-  Elo write-back). Nothing is deletable or rewritable via the anon key —
-  destructive operations exist only behind `/api/admin`.
+- **Friends = one-way follows.** `follows(follower auth id, followed
+  players.id)`; no accept step. `lib/follows.js` translates rows to
+  usernames; `components/Friends.js` searches the roster by name or
+  @handle and follows/unfollows; `app/app/page.js` derives `following`,
+  `followers`, `social` and `circlePlayers` (me + who I follow), which is
+  what Home, Setup and the AI coach receive as `players`.
+- **RLS posture** (see `supabase/schema.sql` and
+  `migration-follows-tags.sql`): any *authenticated* account may read
+  players, insert players/game_results and update players (needed for Elo
+  write-back), and may read only its own follows (plus follows of its own
+  player row). `game_results` SELECT is restricted to rows whose username
+  is the caller's own player or a player the caller follows, so every
+  screen is friends-only without a single client-side filter. Before the
+  migration runs `getFollows()` returns null and the app treats everyone
+  as the circle. Nothing is deletable or rewritable via the anon key
+  except your own follows — destructive operations exist only behind
+  `/api/admin`.
 - **Admin** = the single email in `ADMIN_EMAIL` (checked client-side for UI
   and re-verified server-side in `/api/admin`, which is the only holder of
   the service-role key). Admin can manage accounts, delete/hide players,
@@ -595,7 +608,12 @@ websockets — that gets a manual smoke test after deploy.
   account), so a phone reload mid-game restores the leg — but the
   snapshot is device-local: switching phones mid-game still loses it
   (server-side persistence arrives with the Prodigy sync work).
-- Full-table reads on load (fine at league scale; see §7).
+- Full-table reads on load (fine at league scale; see §7). With follows
+  installed the read is "my rows plus my followees' rows", never the whole
+  table.
+- Any member can insert `game_results` rows under any username (the scorer
+  writes every participant's row); the follow policy limits reads, not
+  writes. Tightening writes needs a server route.
 - One leg per match; double-out is trusted, not verified.
 - Cast codes are 4 characters and channels are public: a guessed code can
   watch a scoreboard (read-only, no data access) — acceptable here.
