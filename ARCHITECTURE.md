@@ -288,24 +288,35 @@ Three tables (full DDL in `supabase/schema.sql`):
   "rebuild from old games" migration (`stats.js: replayMatchesToResults`).
   New games never write to it.
 
-`stats` JSONB shapes by game type:
-
-| Game | Stats blob |
-|------|-----------|
-| x01 | `dartsThrown`, `pointsScored`, `highestTurn`, `checkout`, `finalScore`, `darts[]` (every dart as `{n, mult}`), `dartPos[3]` (per-position sum/count) |
-| cricket | `marks`, `rounds`, `roundMarks[]` (marks per round), `mpr`, `pointsScored`, `darts[]` |
-| baseball | `runs`, `darts[]` |
+`stats` JSONB is **stats v2** (see the README table for every game): the
+legacy per-game keys plus `v: 2`, `startedAt`, `durationMs` and a uniform
+`visits[]` (`{ i, r, s0, darts: [{n, mult, t}], out }`) written by
+`lib/recorder.js`, with game-specific extras (`legs[]`, `innings[]`,
+`roundScores[]`, `events[]`, `line[]`). Legacy rows keep only the old
+keys.
 
 Because `stats` is free-form JSONB, **adding a stat or a whole game type
-requires no migration** — old rows simply lack the new keys and the readers
-tolerate that (e.g. cricket games recorded before per-round tracking have
-totals but no `roundMarks`).
+requires no migration** — old rows simply lack the new keys and the stats
+engine (§7) tolerates that, reporting through quality flags what a row can
+and cannot tell (e.g. cricket games recorded before v2 never logged
+misses, so their per-number rates are null).
 
 ## 7. Read path: aggregation at read time
 
 There are no aggregate tables, no materialized views, no cron. On every
 load the client pulls all `game_results` rows and derives:
 
+- **`lib/gamestats/`** — the stats engine. `analyzeGame(row)` turns any
+  row (v2 or legacy) into one normalized analysis: `darts` (enriched),
+  `visits`, `rounds`, `totals`, `perDart`, `metrics`, `series`, and
+  `quality` (`legacy`, `hasVisits`, `hasMisses`, `exactLanding`,
+  `hasTimes`, `partial`, `notes`). One analyzer per game type; legacy
+  rows are replayed with the game's own rules where that is exact (X01
+  visits, baseball innings, halve-it rounds, drills) and flagged where it
+  is not. `computeCareer` aggregates per game type with coverage counts;
+  `computeRecords` finds league records; the match report
+  (`components/GameDetail.js`), the profile's `CareerCards`, the
+  end-of-game highlights and the AI coach all read through it.
 - **`computeStats(results)`** (`lib/stats.js`) → per-player career stats:
   overall W/L and win %, X01 3-dart average (points/darts×3), per-dart-
   position averages, highest turn, best leg, highest checkout; cricket
@@ -344,8 +355,16 @@ page.js.finishMatch  computes Elo, writes rows, refreshes, resets view
 
 - `onProgress` feeds two consumers: a `useRef` (`liveProgress`) used to
   **resume** the live game if the user navigates away and back, and the
-  **TV-cast publisher** (§9). It is an in-memory checkpoint only — a page
-  reload loses the live game (ROADMAP #24).
+  **TV-cast publisher** (§9); it is also persisted to `localStorage` so a
+  reload restores the leg (§15).
+- **Recording contract (stats v2)**: every play screen keeps a recorder
+  (`lib/recorder.js`) inside its engine state (`s.rec` / `state.rec`), so
+  the undo snapshots, resume and the cast carry it for free. Taps are
+  stamped with a throw time in `addDart`; the single commit point calls
+  `recordVisit` with the round index, the state before, the darts and
+  the outcome; `finishRecorder` spreads the v2 block into `perPlayer`.
+  Six party games publish their engine under `s`, the drills under
+  `state`; the generic TV view reads either.
 - **Solo games are practice**: `lib/practice.js` `isRankedMatch` decides
   (two or more real players, no bot, not a drill). Practice games are
   saved with `result = 'practice'` and the player's Elo unchanged; the
@@ -589,9 +608,16 @@ no test-framework dependency):
   across frames, every observed line type, malformed input never throws.
 - `tests/conformance.test.mjs` — replays `tests/fixtures/conformance.json`
   (games recorded from the **real UI** by the Playwright harness) through
-  `packages/scoring-core` and asserts the winner and full per-player
-  stats match byte-for-byte. This is the guarantee that the extracted
-  reducer and the shipping play components implement identical rules.
+  `packages/scoring-core` and asserts the winner and, for the keys the
+  core emits, the per-player stats match byte-for-byte (the app records
+  more than the core derives: stats v2 visits, timings). This is the
+  guarantee that the extracted reducer and the shipping play components
+  implement identical rules. A follow-up teaches `deriveCompletedResult`
+  to emit `visits` so the compared set grows back to the full block.
+- `tests/recorder.test.mjs` and `tests/gamestats/*.test.mjs` — the
+  recorder and every analyzer, each with a v2 fixture and a legacy
+  fixture (exact fallbacks asserted where provable, `null` plus a quality
+  note where not), plus career aggregation and records.
 
 **Per-change browser verification** — a Playwright harness (kept outside
 the repo) that:
@@ -646,10 +672,12 @@ websockets — that gets a manual smoke test after deploy.
 
 ## 16. How to extend
 
-- **New game type**: build `PlayNewGame.js` honoring the §8 contract, add
-  the option in `Setup.js`, register the view in `page.js` (three
-  touchpoints), add a `GAME_NAMES` entry and `describe` case in
-  `lib/summary.js`, add a stats bucket in `lib/stats.js` (competitive
+- **New game type**: build `PlayNewGame.js` honoring the §8 contract
+  (recorder calls at its commit point), add the option in `Setup.js`,
+  register the view in `page.js` (three touchpoints), add a `GAME_NAMES`
+  entry and `describe` case in `lib/summary.js`, an analyzer in
+  `lib/gamestats/` (registered in its `index.js`, plus a career builder
+  and record categories), a stats bucket in `lib/stats.js` (competitive
   games only), and optionally a `TVScoreboard` view. No DB work. A new
   **drill** is the same minus the stats bucket, plus its id in
   `PRACTICE_ONLY` (`lib/practice.js`) and a metric in `computePractice`;

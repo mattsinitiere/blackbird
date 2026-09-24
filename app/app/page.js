@@ -42,6 +42,8 @@ import LoadingScreen from "@/components/LoadingScreen";
 import GameSummary from "@/components/GameSummary";
 import BlackbirdAI from "@/components/BlackbirdAI";
 import Friends from "@/components/Friends";
+import GameDetail from "@/components/GameDetail";
+import { rowsFromMatch } from "@/lib/gamestats";
 
 const PLAY_VIEWS = { x01: "playX01", cricket: "playCricket", baseball: "playBaseball", aroundTheClock: "playAroundTheClock", killer: "playKiller", shanghai: "playShanghai", halveit: "playHalveIt", gotcha: "playGotcha", tictactoe: "playTicTacToe", bobs27: "playBobs27", checkoutDrill: "playCheckoutDrill", scoringDrill: "playScoringDrill" };
 
@@ -481,6 +483,24 @@ export default function Page() {
     setView("profile");
   };
 
+  // match report: the rows of one game (saved, or the one just finished)
+  const [gameRows, setGameRows] = useState(null);
+  const [gameFrom, setGameFrom] = useState("home");
+  const openGame = (row) => {
+    if (!row?.gameId) return;
+    const rows = allResults.filter((x) => x.gameId === row.gameId);
+    if (!rows.length) return;
+    if (view !== "game") setGameFrom(view);
+    setGameRows(rows);
+    setView("game");
+  };
+  const openReport = () => {
+    if (!finished?.match) return;
+    setGameFrom("summary");
+    setGameRows(rowsFromMatch(finished.match));
+    setView("game");
+  };
+
   const [friendsFrom, setFriendsFrom] = useState("home");
   const openFriends = () => {
     if (view !== "friends") setFriendsFrom(view);
@@ -627,7 +647,7 @@ export default function Page() {
           />
         )}
         {view === "practice" && (
-          <Practice practice={practice} me={myName} onStart={openSetup} back={() => setView("home")} playerColors={playerColors} />
+          <Practice practice={practice} me={myName} onStart={openSetup} openGame={openGame} back={() => setView("home")} playerColors={playerColors} />
         )}
         {((ALL_PLAY_VIEWS.includes(view) && live) || view === "summary") && castAvailable() && (
           <div className="card pad-sm mb-12" style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
@@ -670,6 +690,7 @@ export default function Page() {
           <GameSummary
             key={finished.summary.completedAt}
             newBadges={finished.newBadges || []}
+            onOpenReport={openReport}
             summary={finished.summary}
             saveState={saveState}
             saveError={saveError}
@@ -701,6 +722,7 @@ export default function Page() {
             isMe={profileUser === myName}
             social={social}
             userId={session.user?.id}
+            openGame={openGame}
             isFollowing={following === null ? null : following.has(profileUser)}
             onFollow={() => follow(profileUser)}
             onUnfollow={() => unfollow(profileUser)}
@@ -708,7 +730,10 @@ export default function Page() {
           />
         )}
         {view === "records" && (
-          <Records usernames={visibleUsernames} stats={stats} results={results} back={() => setView("leaderboard")} playerColors={playerColors} />
+          <Records usernames={visibleUsernames} stats={stats} results={results} practice={practice} openGame={openGame} back={() => setView("leaderboard")} playerColors={playerColors} />
+        )}
+        {view === "game" && gameRows && (
+          <GameDetail rows={gameRows} playerColors={playerColors} back={() => setView(gameFrom)} />
         )}
         {view === "matchup" && (
           <Matchup usernames={visibleUsernames} elo={elo} results={results} stats={stats} back={() => setView("home")} playerColors={playerColors} />
@@ -775,7 +800,7 @@ export default function Page() {
       <nav className="nav">
         <button className={`navbtn ${["home", "practice", "friends"].includes(view) ? "active" : ""}`} onClick={() => setView("home")}>Home</button>
         <button className={`navbtn ${view === "setup" || view === "summary" || ALL_PLAY_VIEWS.includes(view) ? "active" : ""}`} onClick={goPlay}>Play{live ? " ●" : ""}</button>
-        <button className={`navbtn ${["leaderboard", "profile", "records"].includes(view) ? "active" : ""}`} onClick={() => setView("leaderboard")}>Stats</button>
+        <button className={`navbtn ${["leaderboard", "profile", "records", "game"].includes(view) ? "active" : ""}`} onClick={() => setView("leaderboard")}>Stats</button>
         <button className={`navbtn ${view === "matchup" ? "active" : ""}`} onClick={() => setView("matchup")}>Matchup</button>
         <button className={`navbtn ${view === "ai" ? "active" : ""}`} onClick={() => setView("ai")} aria-label="Blackbird AI">AI</button>
       </nav>

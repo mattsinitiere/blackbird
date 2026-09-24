@@ -20,7 +20,7 @@ function EloDelta({ elo, size = 12 }) {
  * End-of-game screen. Pure presentation of a summary from lib/summary.js;
  * the shell owns saving, rematch and navigation.
  */
-export default function GameSummary({ summary, saveState, saveError, onRetrySave, onRematch, onNewGame, onDone, playerColors, newBadges = [] }) {
+export default function GameSummary({ summary, saveState, saveError, onRetrySave, onRematch, onNewGame, onDone, onOpenReport, playerColors, newBadges = [] }) {
   // the winner moment, then one moment per badge unlocked by this game.
   // `next` is stable so the overlay's timer never restarts on re-render.
   const [queue, setQueue] = useState(() => [
@@ -132,6 +132,12 @@ export default function GameSummary({ summary, saveState, saveError, onRetrySave
             ))}
           </div>
         </div>
+      )}
+
+      {onOpenReport && (
+        <button className="btn mb-12" style={{ width: "100%" }} onClick={onOpenReport}>
+          Match report · every dart
+        </button>
       )}
 
       <button className="btn btn-primary" style={{ width: "100%", fontSize: "calc(16px * var(--fs))", padding: 16, display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 8 }} onClick={onRematch}>

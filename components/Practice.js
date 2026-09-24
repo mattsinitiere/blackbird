@@ -51,7 +51,7 @@ export function practiceLabel(r) {
  * dashboard (weekly sessions, personal bests, trends, recent sessions).
  * Everything here comes from practice rows; nothing counts toward stats.
  */
-export default function Practice({ practice, me, onStart, back, playerColors }) {
+export default function Practice({ practice, me, onStart, back, playerColors , openGame }) {
   const p = useMemo(() => computePractice(practice, me), [practice, me]);
   const weekly = useMemo(() => gamesPerWeek((practice || []).filter((r) => r.username === me)), [practice, me]);
   const pbTiles = [];
@@ -163,7 +163,12 @@ export default function Practice({ practice, me, onStart, back, playerColors }) 
         <h3 className="section-title">Recent</h3>
         {p.recent.length === 0 && <span className="tag">No practice yet. Pick a drill or a bot above.</span>}
         {p.recent.map((r, i) => (
-          <div key={i} className="between" style={{ padding: "8px 0", borderBottom: i < p.recent.length - 1 ? "1px solid var(--line)" : "none", fontSize: "calc(14px * var(--fs))" }}>
+          <div
+            key={i}
+            className="between"
+            style={{ padding: "8px 0", borderBottom: i < p.recent.length - 1 ? "1px solid var(--line)" : "none", fontSize: "calc(14px * var(--fs))", cursor: openGame ? "pointer" : undefined }}
+            {...(openGame ? pressProps(() => openGame(r)) : {})}
+          >
             <span style={{ flex: 1, minWidth: 0 }}>
               <span style={{ display: "block" }}>
                 {practiceLabel(r)}

@@ -59,7 +59,7 @@ test("describeGame derives per-game finishing numbers from the log", () => {
   assert.equal(g.game, "x01");
   assert.equal(g.checkoutChances, 2);
   assert.equal(g.checkoutHit, 1);
-  assert.equal(g.checkout, 40);
+  assert.equal(g.checkout, 20); // the finishing visit started on 20 (the stored 40 in this fixture is stale)
   assert.equal(g.threeDartAvg, 75.8); // 101 points in 4 darts
   assert.equal(g.date, "2026-07-03");
 });
@@ -75,7 +75,7 @@ test("career checkout percentage and ranges", () => {
   assert.equal(s.checkouts.byRange["2-40"].hits, 2);
   assert.equal(s.checkouts.byRange["101-170"].chances, 4);
   assert.equal(s.checkouts.byRange["101-170"].hits, 1);
-  assert.equal(s.checkouts.highest, 40);
+  assert.equal(s.checkouts.highest, 101); // hit2 took out 101 in one visit
   assert.equal(s.me.x01.checkoutPct, 37.5);
   assert.equal(s.me.games, 4);
   assert.equal(s.me.rankInCircle, 1);

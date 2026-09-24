@@ -1,7 +1,18 @@
-import { BackBar, Mini, PlayerBadge } from "./ui";
+import { useMemo } from "react";
+import { BackBar, PlayerBadge, pressProps } from "./ui";
+import { computeRecords } from "@/lib/gamestats/records";
 
-export default function Records({ usernames, stats, results, back, playerColors }) {
-  const records = computeRecords(results);
+const fmt = (iso) => {
+  try {
+    return new Date(iso).toLocaleDateString(undefined, { month: "short", day: "numeric" });
+  } catch {
+    return "";
+  }
+};
+
+/** League records for every game type, from the stats engine (lib/gamestats/records.js). */
+export default function Records({ usernames, stats, results, practice = [], openGame, back, playerColors }) {
+  const records = useMemo(() => computeRecords({ results, practice }), [results, practice]);
 
   return (
     <div className="fade">
@@ -10,14 +21,19 @@ export default function Records({ usernames, stats, results, back, playerColors 
       {records.length === 0 && <p className="subtle">Play some games to see records here.</p>}
 
       <div className="stack-8">
-        {records.map((r, i) => (
-          <div key={i} className="card pad-sm" style={{ display: "flex", alignItems: "center", gap: 12 }}>
-            <div style={{ flex: 1 }}>
+        {records.map((r) => (
+          <div
+            key={r.id}
+            className="card pad-sm"
+            style={{ display: "flex", alignItems: "center", gap: 12, cursor: openGame ? "pointer" : undefined }}
+            {...(openGame ? pressProps(() => openGame({ gameId: r.gameId })) : {})}
+          >
+            <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ fontWeight: 700, fontSize: "calc(14px * var(--fs))" }}>{r.title}</div>
-              <div className="tag" style={{ marginTop: 2 }}><PlayerBadge username={r.holder} color={playerColors?.[r.holder]} size={18} /> {r.detail ? `· ${r.detail}` : ""}</div>
+              <div className="tag" style={{ marginTop: 2 }}><PlayerBadge username={r.holder} color={playerColors?.[r.holder]} size={18} /> · {fmt(r.date)}</div>
             </div>
-            <div className="num" style={{ fontSize: "calc(20px * var(--fs))", color: "var(--accent)" }}>
-              {r.value}
+            <div className="num" style={{ fontSize: "calc(20px * var(--fs))", color: "var(--accent)", flex: "none" }}>
+              {r.display}
             </div>
           </div>
         ))}
@@ -51,57 +67,4 @@ export default function Records({ usernames, stats, results, back, playerColors 
       )}
     </div>
   );
-}
-
-function computeRecords(results) {
-  const out = [];
-  let bestMpr = null;
-  let highCheckout = null;
-  let bestLeg = null;
-  let highTurn = null;
-  let bestBaseball = null;
-
-  const byGame = {};
-  for (const r of results) {
-    const k = r.gameId || r.completedAt;
-    if (!byGame[k]) byGame[k] = [];
-    byGame[k].push(r);
-  }
-
-  for (const r of results) {
-    const pp = r.stats || {};
-    if (r.gameType === "cricket" && pp.rounds) {
-      const mpr = (pp.marks || 0) / pp.rounds;
-      if (!bestMpr || mpr > bestMpr.val) bestMpr = { val: mpr, user: r.username, date: r.completedAt };
-    }
-    if (r.gameType === "x01") {
-      if (r.result === "win" && pp.checkout && (!highCheckout || pp.checkout > highCheckout.val)) {
-        highCheckout = { val: pp.checkout, user: r.username, date: r.completedAt };
-      }
-      const wonLegs = Array.isArray(pp.legs) ? pp.legs.filter((l) => l.w === r.username && l.d > 0).map((l) => l.d) : [];
-      const legDarts = wonLegs.length ? Math.min(...wonLegs) : pp.dartsThrown;
-      if (r.result === "win" && legDarts && (!bestLeg || legDarts < bestLeg.val)) {
-        bestLeg = { val: legDarts, user: r.username, date: r.completedAt };
-      }
-      if (pp.highestTurn && (!highTurn || pp.highestTurn > highTurn.val)) {
-        highTurn = { val: pp.highestTurn, user: r.username, date: r.completedAt };
-      }
-    }
-    if (r.gameType === "baseball" && r.result === "win") {
-      const runs = pp.runs || 0;
-      if (!bestBaseball || runs > bestBaseball.val) bestBaseball = { val: runs, user: r.username, date: r.completedAt };
-    }
-  }
-
-  const fmt = (iso) => {
-    try { return new Date(iso).toLocaleDateString(undefined, { month: "short", day: "numeric" }); } catch { return ""; }
-  };
-
-  if (highTurn) out.push({ title: "Highest Turn", value: highTurn.val, holder: highTurn.user, detail: fmt(highTurn.date) });
-  if (highCheckout) out.push({ title: "Highest Checkout", value: highCheckout.val, holder: highCheckout.user, detail: fmt(highCheckout.date) });
-  if (bestLeg) out.push({ title: "Best Leg (Fewest Darts)", value: `${bestLeg.val}d`, holder: bestLeg.user, detail: fmt(bestLeg.date) });
-  if (bestMpr) out.push({ title: "Best MPR Game", value: bestMpr.val.toFixed(2), holder: bestMpr.user, detail: fmt(bestMpr.date) });
-  if (bestBaseball) out.push({ title: "Most Runs (Baseball)", value: bestBaseball.val, holder: bestBaseball.user, detail: fmt(bestBaseball.date) });
-
-  return out;
 }

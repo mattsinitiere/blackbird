@@ -1,6 +1,8 @@
 import { useState, useEffect, useMemo } from "react";
-import { BackBar, Stat, Mini, PlayerBadge } from "./ui";
+import { BackBar, Stat, Mini, PlayerBadge, pressProps } from "./ui";
 import AchievementsCard from "./Achievements";
+import CareerCards from "./CareerCards";
+import { computeCareer } from "@/lib/gamestats/career";
 import { computeAchievements, readSeen, writeSeen, seenKey } from "@/lib/achievements";
 import { LineChart } from "./Charts";
 import PlayerCard from "./PlayerCard";
@@ -139,8 +141,9 @@ function PracticeCard({ rows, me, onOpen }) {
   );
 }
 
-export default function Profile({ user, player, stats, elo, results, practice = [], onOpenPractice, onOpenAccount, back, playerColors, isMe, isFollowing, onFollow, onUnfollow, social = null, userId = null }) {
+export default function Profile({ user, player, stats, elo, results, practice = [], onOpenPractice, onOpenAccount, back, playerColors, isMe, isFollowing, onFollow, onUnfollow, social = null, userId = null, openGame = null }) {
   const follow = { isMe: !!isMe, isFollowing, onFollow, onUnfollow };
+  const career = useMemo(() => computeCareer({ results, practice }, user), [results, practice, user]);
   // badges are derived from the rows we can see; another player's follows
   // are private, so their social badges are left out
   const badges = useMemo(() => computeAchievements({ me: user, results, practice, social: isMe ? social : null }), [user, results, practice, isMe, social]);
@@ -168,6 +171,7 @@ export default function Profile({ user, player, stats, elo, results, practice = 
             <PracticeCard rows={myPractice} me={user} onOpen={onOpenPractice} />
           </>
         )}
+        <CareerCards career={career} />
         <AchievementsCard badges={badges} isMe={!!isMe} seen={seen} />
       </div>
     );
@@ -241,110 +245,7 @@ export default function Profile({ user, player, stats, elo, results, practice = 
         )}
       </div>
 
-      {stats.x01.games > 0 && (
-      <div className="card mb-12">
-        <h3 className="section-title">X01</h3>
-        <div className="grid-4">
-          <Mini label="3-dart avg" value={stats.x01.threeDartAvg.toFixed(1)} />
-          <Mini label="High turn" value={stats.x01.highestTurn} />
-          <Mini label="Best leg" value={stats.x01.bestLeg ? `${stats.x01.bestLeg}d` : "—"} />
-          <Mini label="High out" value={stats.x01.highestCheckout || "—"} />
-        </div>
-        <div className="grid-3" style={{ marginTop: 8 }}>
-          <Mini label="1st dart" value={dartAvg[0] ? dartAvg[0].toFixed(1) : "—"} />
-          <Mini label="2nd dart" value={dartAvg[1] ? dartAvg[1].toFixed(1) : "—"} />
-          <Mini label="3rd dart" value={dartAvg[2] ? dartAvg[2].toFixed(1) : "—"} />
-        </div>
-        <div className="tag" style={{ marginTop: 10 }}>
-          {stats.x01.wins}-{stats.x01.games - stats.x01.wins} record
-        </div>
-      </div>
-      )}
-
-      {stats.cricket.games > 0 && (
-      <div className="card mb-12">
-        <h3 className="section-title">Cricket</h3>
-        <div className="grid-4">
-          <Mini label="MPR" value={stats.cricket.mpr.toFixed(2)} />
-          <Mini label="Best MPR" value={stats.cricket.bestMpr ? stats.cricket.bestMpr.toFixed(2) : "—"} />
-          <Mini label="Win %" value={stats.cricket.winPct.toFixed(0)} />
-          <Mini label="Games" value={stats.cricket.games} />
-        </div>
-        {lastCricket && (
-          <div style={{ marginTop: 10 }}>
-            <div className="tag" style={{ marginBottom: 6 }}>
-              Last game · MPR {(lastCricket.stats.mpr ?? (lastCricket.stats.rounds ? lastCricket.stats.marks / lastCricket.stats.rounds : 0)).toFixed(2)} · marks by round
-            </div>
-            <div className="flex-wrap">
-              {lastCricket.stats.roundMarks.map((m, i) => (
-                <span key={i} className="chip" style={{ padding: "4px 9px", fontSize: "calc(12px * var(--fs))" }}>
-                  R{i + 1}: {m}
-                </span>
-              ))}
-            </div>
-          </div>
-        )}
-      </div>
-      )}
-
-      {stats.x01.games > 0 && stats.x01.first9Avg > 0 && (
-      <div className="card mb-12">
-        <h3 className="section-title">X01 Advanced</h3>
-        <div className="grid-3">
-          <Mini label="First 9 avg" value={stats.x01.first9Avg.toFixed(1)} />
-          <Mini label="High out" value={stats.x01.highestCheckout || "—"} />
-          <Mini label="High turn" value={stats.x01.highestTurn} />
-        </div>
-      </div>
-      )}
-
-      {stats.cricket.games > 0 && Object.keys(stats.cricket.perNumber || {}).length > 0 && (
-      <div className="card mb-12">
-        <h3 className="section-title">Cricket Number Hits</h3>
-        <div className="grid-4" style={{ gap: 6 }}>
-          {["20", "19", "18", "17", "16", "15", "B"].map((k) => {
-            const pn = (stats.cricket.perNumber || {})[k];
-            if (!pn || !pn.darts) return null;
-            const avg = (pn.hits / pn.darts).toFixed(2);
-            return (
-              <div key={k} style={{ textAlign: "center" }}>
-                <div className="num" style={{ fontSize: "calc(16px * var(--fs))", color: "var(--accent)" }}>{avg}</div>
-                <div className="tag">{k === "B" ? "Bull" : k}</div>
-              </div>
-            );
-          })}
-        </div>
-        <div className="tag" style={{ marginTop: 6, textTransform: "none", letterSpacing: 0 }}>
-          Average ring (1 single, 2 double, 3 treble) on the darts that landed in each number
-          {stats.cricket.missPct != null && ` · ${Math.round(stats.cricket.missPct)}% of darts missed the scoring numbers over ${stats.cricket.loggedGames} logged game${stats.cricket.loggedGames === 1 ? "" : "s"}`}
-        </div>
-      </div>
-      )}
-
-      {stats.baseball.games > 0 && (
-      <div className="card mb-12">
-        <h3 className="section-title">Baseball</h3>
-        <div className="grid-3">
-          <Mini label="Avg runs" value={stats.baseball.avgRuns.toFixed(1)} />
-          <Mini label="Win %" value={stats.baseball.winPct.toFixed(0)} />
-          <Mini label="Games" value={stats.baseball.games} />
-        </div>
-      </div>
-      )}
-
-      {(stats.aroundTheClock.games > 0 || stats.killer.games > 0 || stats.shanghai.games > 0 || stats.halveit.games > 0 || stats.gotcha.games > 0 || stats.tictactoe.games > 0) && (
-      <div className="card mb-12">
-        <h3 className="section-title">Other Games</h3>
-        <div className="grid-3" style={{ gap: 8 }}>
-          {stats.aroundTheClock.games > 0 && <Mini label="Clock" value={`${stats.aroundTheClock.wins}-${stats.aroundTheClock.games - stats.aroundTheClock.wins}`} />}
-          {stats.killer.games > 0 && <Mini label="Killer" value={`${stats.killer.wins}-${stats.killer.games - stats.killer.wins}`} />}
-          {stats.shanghai.games > 0 && <Mini label="Shanghai" value={`${stats.shanghai.wins}-${stats.shanghai.games - stats.shanghai.wins}`} />}
-          {stats.halveit.games > 0 && <Mini label="Halve It" value={`${stats.halveit.wins}-${stats.halveit.games - stats.halveit.wins}`} />}
-          {stats.gotcha.games > 0 && <Mini label="Gotcha" value={`${stats.gotcha.wins}-${stats.gotcha.games - stats.gotcha.wins}`} />}
-          {stats.tictactoe.games > 0 && <Mini label="Tic-Tac-Toe" value={`${stats.tictactoe.wins}-${stats.tictactoe.games - stats.tictactoe.wins}`} />}
-        </div>
-      </div>
-      )}
+      <CareerCards career={career} />
 
       {stats.bestWinStreak > 0 && (
       <div className="card mb-12">
@@ -368,7 +269,8 @@ export default function Profile({ user, player, stats, elo, results, practice = 
           <div
             key={i}
             className="between"
-            style={{ padding: "8px 0", borderBottom: "1px solid var(--line)", fontSize: "calc(14px * var(--fs))" }}
+            style={{ padding: "8px 0", borderBottom: "1px solid var(--line)", fontSize: "calc(14px * var(--fs))", cursor: openGame ? "pointer" : undefined }}
+            {...(openGame ? pressProps(() => openGame(r)) : {})}
           >
             <span style={{ flex: 1, minWidth: 0 }}>
               <span style={{ display: "block" }}>

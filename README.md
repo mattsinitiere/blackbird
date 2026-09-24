@@ -259,22 +259,32 @@ Run `supabase/schema.sql` once in the Supabase SQL editor. Three tables:
 - **`matches`** — legacy one-row-per-game table kept for the admin "rebuild
   from old games" migration; new games do not write to it.
 
-The `stats` JSONB per game type:
+The `stats` JSONB per game type (**stats v2**, written by every play screen
+since the recording contract in `lib/recorder.js`; older rows keep the
+legacy keys only and the stats engine replays what it can):
 
-| Game | Fields |
-|------|--------|
-| x01 | `dartsThrown`, `pointsScored`, `highestTurn`, `checkout`, `finalScore`, `legsWon` (best-of only), `darts` (full dart log), `dartPos` (per-dart-position sums) |
-| cricket | `marks`, `rounds`, `roundMarks[]` (marks each round), `mpr`, `pointsScored`, `darts` (full dart log) |
-| baseball | `runs`, `darts` |
-| aroundTheClock | `dartsThrown`, `targetsHit`, `darts` |
-| killer | `dartsThrown`, `livesRemaining`, `isKiller`, `darts` |
-| shanghai | `totalScore`, `roundScores[]`, `dartsThrown`, `shanghai`, `darts` |
-| halveit | `finalScore`, `halves`, `dartsThrown`, `darts` |
-| gotcha | `finalScore`, `resetsDealt`, `resetsReceived`, `dartsThrown`, `darts` |
-| tictactoe | `squaresClaimed`, `dartsThrown`, `darts` |
-| bobs27 | `finalScore`, `doublesHit`, `roundsCompleted`, `busted`, `dartsThrown`, `darts` |
-| checkoutDrill | `finishes`, `hit`, `dartsPerHit`, `highestCheckout`, `results[]` (target, darts, hit), `dartsThrown`, `darts` |
-| scoringDrill | `total`, `turns`, `avgPerTurn`, `trebles`, `onTarget`, `hitRate`, `bestVisit`, `visits[]`, `dartsThrown`, `darts` |
+| Game | Legacy keys (still written) | Added by v2 |
+|------|--------|--------|
+| every game | `dartsThrown`, `darts[]` (every dart as `{n, mult}`, misses included) | `v: 2`, `startedAt`, `durationMs`, `visits[]` — one entry per visit: `{ i, r, s0, darts: [{n, mult, t}], out }` (`r` = leg / inning / round / finish index, `s0` = state before the visit, `t` = ms since the game started, `out` = the visit's outcome) |
+| x01 | `pointsScored`, `highestTurn`, `checkout`, `finalScore`, `dartPos[3]`, `legsWon` | `legs[]` (`{w, d, co, s0}` per leg; totals are now whole-match), `out = {k: score\|bust\|win, s, rem}` |
+| cricket | `marks`, `rounds`, `roundMarks[]`, `mpr`, `pointsScored` | misses in `darts[]`, per-dart marks credited (`x.m`), `out = {marks, pts, dead}` |
+| baseball | `runs` | `innings[]`, `out = {runs}` |
+| aroundTheClock | `targetsHit` | `out = {hit, tgt}` |
+| killer | `livesRemaining`, `isKiller` | `events[]` (`killer`, `hit`, `self`, `elim`), `out = {l, k, ev}` |
+| shanghai | `totalScore`, `roundScores[]`, `shanghai` | `out = {s, sh}` |
+| halveit | `finalScore`, `halves` | `roundScores[]` (0 when halved), `out = {s, halved, sc}` |
+| gotcha | `finalScore`, `resetsDealt`, `resetsReceived` | `events[]` (`reset`), `out = {k, s, sc, reset[]}` |
+| tictactoe | `squaresClaimed` | `line[]`, board strings in `s0` / `out.b`, `out.c` / `out.x` (claimed / cancelled squares) |
+| bobs27 | `finalScore`, `doublesHit`, `roundsCompleted`, `busted` | `out = {hits, delta, sc}` |
+| checkoutDrill | `finishes`, `hit`, `dartsPerHit`, `highestCheckout`, `results[]` | `out = {k: open\|hit\|bust\|miss, rem}` |
+| scoringDrill | `total`, `turns`, `avgPerTurn`, `trebles`, `onTarget`, `hitRate`, `bestVisit` | `visitScores[]` (was `visits[]`), `out = {s}` |
+
+`lib/gamestats/` is the **stats engine**: `analyzeGame(row)` turns any row
+(v2 or legacy) into one normalized analysis with per-dart, per-visit and
+per-round numbers plus quality flags saying what the row can and cannot
+tell you; `computeCareer` aggregates per game type with coverage counts;
+`computeRecords` finds league records for every game; the match report,
+profile cards, end-of-game highlights and the AI coach all read through it.
 
 `result` is `'win'` or `'loss'` for ranked games (two or more people, no
 bot, not a drill) and **`'practice'`** for everything else: solo games,
@@ -284,12 +294,13 @@ unchanged in `elo_after`, name the bot in `opponents` (`bot:rook` …) and
 sees them. Bots never get a row of their own.
 
 `lib/summary.js` turns these same fields into the end-of-game summary, so a
-new game type only needs a `describe` case there to get a summary screen
-and a TV summary for free.
+new game type needs a `describe` case there, recorder calls in its play
+screen and an analyzer in `lib/gamestats/` to get a summary screen, a TV
+summary, a match report and career cards.
 
-Because `stats` is JSONB, adding new per-game fields (like `roundMarks`)
-requires **no SQL migration** — old rows simply lack the new keys and the
-stats code tolerates that.
+Because `stats` is JSONB, adding new per-game fields requires **no SQL
+migration** — old rows simply lack the new keys and the stats engine
+tolerates that (and says so through its quality flags).
 
 **Row Level Security**: any authenticated user in your Supabase project can
 read and insert players/results (and update players for Elo writes). Nobody

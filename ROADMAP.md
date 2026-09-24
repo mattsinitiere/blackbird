@@ -375,3 +375,14 @@ the homebrew rig plugs into); the camera rig is an experiment against
 that contract; sell only after the gate and the betas. The app roadmap
 continues in parallel — the rig is only worth $699 if the software on
 the TV is worth watching.
+
+## Stats engine follow-ups
+
+- Teach `packages/scoring-core` `deriveCompletedResult` to emit the stats
+  v2 `visits[]` (one entry per commit) so the conformance suite compares
+  the whole per-player block again.
+- Paginate or trim `getGameResults` (select without `stats` for lists)
+  once the follow-scoped read gets large; the v2 blob is roughly 3–4×
+  the old one per game.
+- Tighten `game_results` inserts behind a server route so a member can
+  only write rows for games they took part in.

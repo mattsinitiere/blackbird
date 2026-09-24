@@ -624,6 +624,110 @@ a:focus-visible {
   border-color: var(--accent);
   color: var(--on-accent);
 }
+/* career cards */
+.career-bars {
+  display: grid;
+  gap: 4px;
+}
+.career-bar {
+  display: grid;
+  grid-template-columns: 52px 1fr 64px;
+  align-items: center;
+  gap: 8px;
+  font-size: calc(12px * var(--fs));
+}
+.career-bar-label {
+  color: var(--ink-soft);
+  font-weight: 600;
+}
+.career-bar-track {
+  height: 8px;
+  border-radius: 4px;
+  background: var(--line);
+  overflow: hidden;
+}
+.career-bar-track span {
+  display: block;
+  height: 100%;
+  background: var(--accent);
+  border-radius: 4px;
+}
+.career-bar-value {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-soft);
+}
+
+/* match report */
+.report-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 170px), 1fr));
+  gap: 10px;
+}
+.report-grid .card.is-winner {
+  border-color: var(--accent);
+}
+.report-metrics {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px 10px;
+  margin: 0;
+}
+.report-metrics dt {
+  font-size: calc(10px * var(--fs));
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+}
+.report-metrics dd {
+  margin: 0;
+  font-weight: 700;
+  font-size: calc(15px * var(--fs));
+  font-variant-numeric: tabular-nums;
+}
+.report-visit {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 0;
+  border-bottom: 1px solid var(--line);
+  font-size: calc(13px * var(--fs));
+}
+.report-visit:last-child {
+  border-bottom: 0;
+}
+.report-visit-round {
+  flex: none;
+  min-width: 44px;
+}
+.report-darts {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+  flex: 1;
+  min-width: 0;
+}
+.report-dart {
+  padding: 2px 6px;
+  border-radius: var(--radius-xs);
+  border: 1px solid var(--line);
+  background: var(--surface-2);
+  font-weight: 600;
+  font-size: calc(12px * var(--fs));
+  font-variant-numeric: tabular-nums;
+}
+.report-dart.miss {
+  color: var(--muted);
+  border-style: dashed;
+}
+.report-outcome {
+  flex: none;
+  text-align: right;
+  color: var(--ink-soft);
+  font-weight: 600;
+  max-width: 45%;
+}
+
 /* achievements */
 .badge-grid {
   display: grid;
