@@ -219,7 +219,6 @@ export default function PlayCricket({ game, resume, onProgress, onFinish, onQuit
 
   return (
     <div className="fade">
-      {!bot && <CricketHint variant={variant} me={cur} players={players} state={state} prefs={hints?.prefs} />}
       {celeb && <Celebration type={celeb.type} label={celeb.label} onDone={() => setCeleb(null)} />}
       <div className="between mb-12">
         <div>
@@ -233,6 +232,7 @@ export default function PlayCricket({ game, resume, onProgress, onFinish, onQuit
         </button>
       </div>
 
+      {!bot && <CricketHint variant={variant} me={cur} players={players} state={state} prefs={hints?.prefs} />}
       {!castActive && (
       <div className="card pad-sm mb-12" style={{ overflowX: "auto" }}>
         <table className="cricket-table">

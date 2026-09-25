@@ -386,3 +386,16 @@ the TV is worth watching.
   the old one per game.
 - Tighten `game_results` inserts behind a server route so a member can
   only write rows for games they took part in.
+
+
+## Deferred (September 2026)
+
+- **Voice scoring** (calling darts aloud to enter scores) and **voice
+  coaching** (spoken Merlin / Blackbird AI) are explicitly deferred. Nothing
+  in the app requests microphone access or ships audio dependencies. When
+  picked up, they need their own privacy review (microphone permission,
+  on-device vs server speech recognition) and must feed the existing scoring
+  engine rather than a parallel one.
+- Also out of scope for the training release: camera scoring, throw-mechanics
+  analysis, match replay, editing saved training plans, automatic rewriting
+  of plans, push notifications or scheduled emails, and paid model tiers.

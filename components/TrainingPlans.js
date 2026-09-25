@@ -428,27 +428,33 @@ function PlanBuilder({ unlocked, alterEgoOk, onClose, onSaved }) {
               </div>
               {s.items.map((it, ii) => (
                 <div key={ii} className="plan-build-item">
-                  <select className="select" aria-label="Drill" value={it.type} onChange={(e) => upd(si, (x) => ({ ...x, items: x.items.map((y, j) => (j === ii ? defaultItem(e.target.value, unlocked) : y)) }))}>
-                    {kinds.map((k) => (
-                      <option key={k.value} value={k.value}>{k.label}</option>
-                    ))}
-                  </select>
-                  {Object.entries(ITEM_KINDS[it.type].options).map(([k, opts]) => {
-                    const choices = it.type === "bot" && k === "bot" ? opts.filter((o) => unlocked.includes(o)) : opts;
-                    return (
-                      <select key={k} className="select" aria-label={k} value={String(it.config[k])} onChange={(e) => {
-                        const raw = e.target.value;
-                        const v = choices.find((o) => String(o) === raw);
-                        upd(si, (x) => ({ ...x, items: x.items.map((y, j) => (j === ii ? { ...y, config: { ...y.config, [k]: v } } : y)) }));
-                      }}>
-                        {choices.map((o) => (
-                          <option key={String(o)} value={String(o)}>{optionLabel(it.type, k, o)}</option>
-                        ))}
-                      </select>
-                    );
-                  })}
-                  <button type="button" className="btn btn-sm" aria-label="Move drill up" disabled={ii === 0} onClick={() => upd(si, (x) => ({ ...x, items: move(x.items, ii, -1) }))}>↑</button>
-                  <button type="button" className="btn btn-sm" aria-label="Remove drill" disabled={s.items.length === 1} onClick={() => upd(si, (x) => ({ ...x, items: x.items.filter((_, j) => j !== ii) }))}>✕</button>
+                  <div className="plan-build-item-top">
+                    <select className="select" aria-label={`Drill ${ii + 1}`} value={it.type} onChange={(e) => upd(si, (x) => ({ ...x, items: x.items.map((y, j) => (j === ii ? defaultItem(e.target.value, unlocked) : y)) }))}>
+                      {kinds.map((k) => (
+                        <option key={k.value} value={k.value}>{k.label}</option>
+                      ))}
+                    </select>
+                    <button type="button" className="btn btn-sm" aria-label={`Move drill ${ii + 1} up`} disabled={ii === 0} onClick={() => upd(si, (x) => ({ ...x, items: move(x.items, ii, -1) }))}>↑</button>
+                    <button type="button" className="btn btn-sm" aria-label={`Remove drill ${ii + 1}`} disabled={s.items.length === 1} onClick={() => upd(si, (x) => ({ ...x, items: x.items.filter((_, j) => j !== ii) }))}>✕</button>
+                  </div>
+                  {Object.keys(ITEM_KINDS[it.type].options).length > 0 && (
+                    <div className="plan-build-opts">
+                      {Object.entries(ITEM_KINDS[it.type].options).map(([k, opts]) => {
+                        const choices = it.type === "bot" && k === "bot" ? opts.filter((o) => unlocked.includes(o)) : opts;
+                        return (
+                          <select key={k} className="select" aria-label={k} value={String(it.config[k])} onChange={(e) => {
+                            const raw = e.target.value;
+                            const v = choices.find((o) => String(o) === raw);
+                            upd(si, (x) => ({ ...x, items: x.items.map((y, j) => (j === ii ? { ...y, config: { ...y.config, [k]: v } } : y)) }));
+                          }}>
+                            {choices.map((o) => (
+                              <option key={String(o)} value={String(o)}>{optionLabel(it.type, k, o)}</option>
+                            ))}
+                          </select>
+                        );
+                      })}
+                    </div>
+                  )}
                 </div>
               ))}
               {s.items.length < PLAN_BOUNDS.itemsPerSession[1] && (

@@ -545,38 +545,63 @@ Everything visual flows from CSS custom properties in `globals.css`:
 
 ### `/api/insights` (POST)
 
-The only AI touchpoint. The client pre-aggregates a compact summary (never
-raw rows) and sends `{kind, summary, question?, history?}` with the caller's
-Supabase access token. `kind: "me"` is the Blackbird AI tab. Its summary is
-built by `lib/aiSummary.js` from the rows the app already holds:
+Blackbird AI. The body is whitelisted to `{kind, question, history,
+gameId, style}`; anything else a browser sends (a player name, a summary,
+a model, an effort, token budgets) is ignored. Kinds:
 
-- `me`: career totals per game type (from `computeStats`).
-- `checkouts` and `scoring`: replayed from every X01 dart log with
-  `lib/x01log.js`, which walks the saved `darts` array under the same rules
-  as `PlayX01` to count checkout chances (darts thrown while the remaining
-  score could be finished with that dart), checkouts hit, busts and
-  100+/140+/180 visits. The app never stored these, so they are derived at
-  read time; rows without a log count finishes but not chances.
-- `form` (last 10 vs previous 10 games, last 30 vs previous 30 days),
-  `trends.byMonth` / `trends.byWeek` tables, and `series`: named point
-  lists (`checkoutPctByMonth`, `x01AvgByGame`, `eloByGame`, ...) the model
-  can quote or chart by key.
-- `headToHead` (per opponent: overall and `byGameType` record, streak,
-  last five, @handle; explained in `definitions.headToHead`), `roster`
-  (names and @handles, so "chuck" matches `Chuck`), `recentGames` (one
-  derived row per game, no dart logs) and the practice log. See
-  docs/ANALYTICS_REVIEW.md.
+- `me`: the chat, streamed as newline-delimited JSON (`status`, `delta`,
+  `reset`, `done`, `error`).
+- `game`: one game's match report.
+- `weekly`: the weekly report card.
 
-The last few chat turns ride along so follow-ups keep context. The prompt
-tells the model it may append one fenced ```` ```chart ```` block naming a
-series key (or ad-hoc `points`); the route strips it with
-`lib/aiChart.js`, resolves it against the summary's own series so the
-numbers drawn are the app's, and returns `{text, chart, model}`. The chat
-renders `chart` with the same `LineChart`/`BarChart` as the Profile page.
-The older `league|player|matchup|custom` kinds remain for tooling. The
-route verifies the token server-side, builds a prompt, and dispatches on
-`AI_PROVIDER`: Gemini / Groq / OpenAI / Anthropic, each with a default
-model and key from non-public env vars.
+Who "me" is comes from the session token only: `lib/aiServer.js`
+`authenticate` verifies it, and `lib/data/serverData.js` maps the auth user
+to `players.auth_id`. Every read runs as that user, so row-level security
+and the follow-based visibility rules still apply.
+
+**Data (lib/data/).** The summary (`lib/aiSummary.js`) is built on the
+server from targeted, keyset-paginated queries:
+
+- the caller's own rows in full;
+- light rows (no stats) for their circle, used only for standings;
+- their follows and their own activity events.
+
+Tools (`lib/data/scopedTools.js`) fetch only what each call needs, with
+player, mode, date window, opponent, ranked/practice and game-id filters
+pushed into the query. Every read carries a coverage report (rows, distinct
+games, oldest and newest, logs, complete/sample/partial). The paginator
+(`lib/data/paginate.js`) continues past short pages, stops only on an empty
+page, detects a stuck cursor, honours an as-of bound and reports partial
+coverage when a safety bound is hit. Calendars use America/Chicago
+(`lib/data/tz.js`). See docs/TRAINING_AND_COACHING.md.
+
+**Model.** `lib/aiProviders.js`: OpenAI `gpt-6-luna` on Chat Completions
+with tools, and `reasoning_effort` sent explicitly on every request
+(`AI_REASONING_EFFORT`, default `none`). There is no routing and no
+fallback model. A provider rejection of the effort or the tools fails with
+a configuration error; nothing is silently dropped. The one allowed retry
+is non-streaming when a model refuses to stream (logged as `no-stream`).
+
+**Answer Style** (Brief / Balanced / Detailed) adds one length instruction
+to the prompt. The model, effort, token ceilings and tool budget are
+identical for every style.
+
+**Replies.** A reply may carry up to three fenced blocks: charts (resolved
+against the app's own series), follow-ups and practice actions (validated
+against real drills). Each request is logged to `ai_request_log` through
+`ai_log_request()`: model, effort, tokens, tool calls, duration, status and
+fallback, never prompts or answers. `via: "plain"` marks an answer made from
+the summary without tools; the chat labels it as such.
+
+### `/api/plans` (POST)
+
+Training plans. `draft` runs Create With Merlin: it validates the model's
+JSON against the drill allowlist, with one repair retry, and needs no AI
+call for the starter assessment. `create` re-validates the definition,
+checks that every drill is playable, and saves it with the service role
+through `create_training_plan()`, which enforces three plans per account
+and idempotency. Listing, deleting and recording progress go straight to
+Supabase under RLS. See docs/TRAINING_AND_COACHING.md.
 
 ### `/api/admin` (POST)
 

@@ -136,8 +136,8 @@ export default function AdminAnalytics() {
                   <div>
                     <div className="an-sub">Top users</div>
                     {d.ai.topUsers.length === 0 && <div className="an-row"><span>None yet</span></div>}
-                    {d.ai.topUsers.map((u) => (
-                      <div key={u.name} className="an-row">
+                    {d.ai.topUsers.map((u, i) => (
+                      <div key={`${u.name}-${i}`} className="an-row">
                         <span>{u.name}</span>
                         <b className="num">{n(u.requests)}</b>
                       </div>
