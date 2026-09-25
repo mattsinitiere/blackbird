@@ -101,14 +101,14 @@ function roundRect4(ctx, x, y, w, h, [tl, tr, br, bl]) {
 
 /**
  * The card's QR code in the "Flight" style: dots joined into strokes,
- * leaf-shaped corner squares pointing at the centre, and the Blackbird mark
+ * leaf-shaped corner squares pointing at the center, and the Blackbird mark
  * in the middle (error correction H covers it). Always navy on white, so it
  * scans on either theme.
  */
 function drawQR(ctx, text, x, y, size, logo, ink) {
   const { n, dark } = qrMatrix(text);
   const m = size / n;
-  const hole = Math.round(n * 0.22) | 1; // odd, so it centres on a module
+  const hole = Math.round(n * 0.22) | 1; // odd, so it centers on a module
   const h0 = (n - hole) / 2;
   const inHole = (r, c) => r >= h0 - 0.5 && r < h0 + hole && c >= h0 - 0.5 && c < h0 + hole;
   const on = (r, c) => dark(r, c) && !inFinder(n, r, c) && !inHole(r, c);
@@ -125,7 +125,7 @@ function drawQR(ctx, text, x, y, size, logo, ink) {
       if (on(r + 1, c)) ctx.fillRect(px + m * 0.08, py + m / 2, m * 0.84, m);
     }
   }
-  // leaf eyes: the corner nearest the code's centre stays square
+  // leaf eyes: the corner nearest the code's center stays square
   for (const [er, ec, sharp] of [[0, 0, 2], [0, n - 7, 3], [n - 7, 0, 1]]) {
     const ex = x + ec * m;
     const ey = y + er * m;
@@ -361,7 +361,7 @@ export function drawCard({ user, stats, elo, playerColor, handle, look = {}, ima
   const footTop = Y + CH - 96;
   const rows = Math.max(1, Math.ceil(tiles.length / 2));
   const tileH = Math.min(124, (footTop - 32 - gridTop - gap * (rows - 1)) / rows);
-  // fewer stats: centre the grid in the space instead of leaving a gap below
+  // fewer stats: center the grid in the space instead of leaving a gap below
   const gridH = rows * tileH + gap * (rows - 1);
   const gridY = gridTop + Math.max(0, (footTop - 32 - gridTop - gridH) / 2);
   tiles.forEach((t, i) => {
@@ -432,7 +432,7 @@ export default function PlayerCard({ user, handle, stats, elo, onOpenAccount, pl
       }
     } catch (e) {
       if (e && e.name === "AbortError") {
-        /* user cancelled the share sheet */
+        /* user canceled the share sheet */
       } else {
         setNote(e.message || "Couldn't export the card.");
       }

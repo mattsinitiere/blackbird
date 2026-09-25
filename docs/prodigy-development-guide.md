@@ -1415,7 +1415,7 @@ Use the board's existing helper syntax rather than assuming `start-stop-daemon` 
 
 ### 19.1 Physical fallback
 
-The strongest recovery method is a labelled stock SD card. If Blackbird prevents normal boot:
+The strongest recovery method is a labeled stock SD card. If Blackbird prevents normal boot:
 
 1. Disconnect power.
 2. Restore the stock card.

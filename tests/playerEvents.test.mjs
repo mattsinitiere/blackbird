@@ -2,7 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { activityFromEvents, customisedParts, profileEventsToRecord } from "../lib/playerEvents.js";
 
-test("events become visit days and first-customised dates", () => {
+test("events become visit days and first-customized dates", () => {
   const a = activityFromEvents([
     { kind: "visit", detail: "", day: "2026-09-02" },
     { kind: "visit", detail: "", day: "2026-09-01" },

@@ -34,7 +34,7 @@ function PartyHat() {
  * Blackbird mark, an arc sweeps the outer ring (a dart's flight path), the
  * mark pops in and gently breathes, the wordmark rises, and a few status
  * lines show it's working. The logo files swap with the
- * theme (colour on light, white on dark) and the arc uses the accent. page.js keeps this up for 1–3 seconds per open (plus however
+ * theme (color on light, white on dark) and the arc uses the accent. page.js keeps this up for 1–3 seconds per open (plus however
  * long auth/data actually take) so launching always has a moment of
  * perceived loading. Honors prefers-reduced-motion.
  *

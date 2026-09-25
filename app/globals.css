@@ -19,7 +19,7 @@
   --accent-line: #cbc9dd;
   --on-accent: #ffffff;
   --accent-glow: #8177c5;
-  /* "current thrower" state, the one non-brand colour in the system */
+  /* "current thrower" state, the one non-brand color in the system */
   --live: #16835c;
   --live-soft: #edf8f3;
   --red: #e03a3a;
@@ -151,7 +151,7 @@ select {
   }
 }
 
-/* official logo: colour on light, white on dark (see Logo in components/ui.js) */
+/* official logo: color on light, white on dark (see Logo in components/ui.js) */
 .logo {
   display: inline-flex;
   flex: none;
@@ -936,8 +936,9 @@ button.badge-tile {
   height: calc(44px * var(--fs));
   flex: none;
 }
+/* only the logo itself goes Home, not the whole header row */
 .brand-home {
-  flex: 1;
+  flex: none;
   display: flex;
   align-items: center;
   padding: 0;
@@ -5073,6 +5074,7 @@ html:not([data-theme="dark"]) .app.is-profile {
 /* ---------- Home search (components/Search.js) ---------- */
 .header-search {
   flex: none;
+  margin-left: auto;
   display: inline-grid;
   place-items: center;
   width: 42px;
@@ -5317,4 +5319,23 @@ html:not([data-theme="dark"]) .app.is-profile {
 .search-chip-icon svg {
   width: 16px;
   height: 16px;
+}
+
+/* ---------- Launch TV (bottom of Home) ---------- */
+.home-tv {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  min-height: 48px;
+  margin-top: 22px;
+  font-weight: 700;
+  text-decoration: none;
+}
+.home-tv-note {
+  margin: 8px 0 0;
+  text-align: center;
+  font-size: calc(12.5px * var(--fs));
+  color: var(--muted);
 }

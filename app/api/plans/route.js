@@ -61,7 +61,7 @@ export async function POST(req) {
       const { rows, coverage } = await fetchResults(sb, { username: me }, { requested: "your history, for the plan baseline" });
       const baseline = planBaseline(rows, me);
       if (input.goal === "assessment" || needsStarter(baseline)) {
-        // not enough history to personalise: a labelled assessment, no AI call
+        // not enough history to personalize: a labeled assessment, no AI call
         return jsonRes({ draft: starterPlan(), baseline, starter: true, coverage });
       }
       const left = await takeRequest(sb);

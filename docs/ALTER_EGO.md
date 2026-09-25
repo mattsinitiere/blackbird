@@ -139,10 +139,10 @@ between sessions. It returns `null` for a missing or corrupt snapshot.
 - It does not reconstruct physical mechanics or the player's real aim
   dispersion: scoring logs record landings, not intent, so only a single
   isotropic scoring sigma is fitted from the average.
-- The simulator is an isotropic Gaussian around the bed centre: no
-  vertical/horizontal bias, no favourite-miss (e.g. 5 vs 1) pattern, no
+- The simulator is an isotropic Gaussian around the bed center: no
+  vertical/horizontal bias, no favorite-miss (e.g. 5 vs 1) pattern, no
   grouping.
-- Logs lack intended targets, so finishing is modelled from checkout-chance
+- Logs lack intended targets, so finishing is modeled from checkout-chance
   darts (hits ÷ chances) and mapped to a generic D16/D20 hit rate. Players
   who finish mostly on the bull or small doubles will be approximated.
 - It does not model tiredness, pressure, match situation or streaks, and
@@ -168,7 +168,7 @@ players, other modes) and freezing rules apply as for X01.
     (`pickCricketTarget`) and PlayCricket's MPR rule, so the marks a real
     game wastes on closed numbers are part of the fit. 12 bisection steps
     (~0.03 mm), about 0.2 s per fit.
-  - Baseball (`sigmaForBaseballRPI`) aims at the treble of numbers 1–9, the
+  - Baseball (`sigmaForBaseballRPI`) aims at the triple of numbers 1–9, the
     same aim the Baseball bots use (`pickBaseballTarget`).
 - **Tolerances** (tests, independent seed): Cricket MPR within ±0.1 for
   targets 0.8–3.4; Baseball runs per inning within ±0.1 for 0.8–5.
@@ -184,7 +184,7 @@ Caveats, stated on the card too:
   strategy, not the player's. A player who, say, chases points early will
   see a different game shape at the same MPR.
 - Every Cricket number (and the bull) is treated as equally hard, and one
-  sigma covers everything: no favourite numbers, no bull specialists.
+  sigma covers everything: no favorite numbers, no bull specialists.
 - The self-play fit assumes an evenly matched opponent; against a much
   stronger or weaker player the in-game MPR shifts a little, because more or
   fewer marks land on numbers the opponent has already closed.

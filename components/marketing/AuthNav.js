@@ -9,7 +9,7 @@ import { PlayerBadge } from "@/components/ui";
 
 /**
  * Header actions that follow the session: Sign In + Sign Up for visitors,
- * Sign out + avatar (in the player's own colour, linking to /profile) +
+ * Sign out + avatar (in the player's own color, linking to /profile) +
  * Play once signed in. Until the session check resolves the signed-out
  * pair is rendered invisibly so the header never shifts.
  */

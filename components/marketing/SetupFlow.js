@@ -9,7 +9,7 @@ const STEPS = [
 ];
 
 /**
- * Phone-to-TV setup steps with a travelling highlight. Runs only while on
+ * Phone-to-TV setup steps with a traveling highlight. Runs only while on
  * screen, not paused, not hidden, and not under reduced motion.
  */
 export default function SetupFlow() {

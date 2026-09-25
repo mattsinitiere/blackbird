@@ -668,10 +668,10 @@ function AddPlayerForm({ busy, onCancel, onCreate }) {
           </div>
         </label>
         <div>
-          <span className="admin-form-label">Colour (optional)</span>
+          <span className="admin-form-label">Color (optional)</span>
           <div className="admin-swatches">
             {PICKER_COLORS.map((c) => (
-              <button key={c} type="button" className={`admin-swatch${f.color === c ? " is-on" : ""}`} style={{ background: c }} aria-label={`Colour ${c}`} aria-pressed={f.color === c} onClick={() => set({ color: f.color === c ? "" : c })} />
+              <button key={c} type="button" className={`admin-swatch${f.color === c ? " is-on" : ""}`} style={{ background: c }} aria-label={`Color ${c}`} aria-pressed={f.color === c} onClick={() => set({ color: f.color === c ? "" : c })} />
             ))}
           </div>
         </div>

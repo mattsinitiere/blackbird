@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react";
-import { PlayerBadge, pressProps, UndoIcon, PlayIcon } from "./ui";
+import { PlayerBadge, pressProps, UndoIcon, PlayIcon, CastIcon } from "./ui";
 
 /** A solid play triangle for the main Start a Game button. */
 function StartIcon() {
@@ -373,6 +373,11 @@ export default function Home({ setView, openSetup, stats, elo, players, results,
           </div>
         </>
       )}
+
+      <a href="/tv" className="btn home-tv">
+        <CastIcon size={20} /> Launch TV
+      </a>
+      <p className="home-tv-note">Open this on a TV or big screen, then type in the code your phone shows when you cast a game.</p>
     </div>
   );
 }

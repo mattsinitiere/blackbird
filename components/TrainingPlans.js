@@ -367,7 +367,7 @@ export function MerlinCreate({ onClose, onSaved, initial = null, autoDraft = fal
           </>
         ) : (
           <>
-            {draft.starter && <p className="plan-starter">Starter assessment: not enough recorded games yet for a personalised plan.</p>}
+            {draft.starter && <p className="plan-starter">Starter assessment: not enough recorded games yet for a personalized plan.</p>}
             <div className="plan-sub">{goalLabel(draft.draft.goal)} · {draft.draft.weeks} week{draft.draft.weeks > 1 ? "s" : ""} · {draft.draft.sessions.length} session{draft.draft.sessions.length === 1 ? "" : "s"}</div>
             {draft.draft.why && <p className="plan-why">{draft.draft.why}</p>}
             <BaselineLine b={draft.baseline} />

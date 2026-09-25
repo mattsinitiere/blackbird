@@ -3,15 +3,15 @@ import { botFor } from "@/lib/bots";
 
 /**
  * Bot portraits in the same language as the achievement medals: a disc in
- * the bot's colour with a soft sheen and inner ring, and the bird drawn as
+ * the bot's color with a soft sheen and inner ring, and the bird drawn as
  * white line art (round caps, one stroke weight) facing right. Each bird
- * keeps one or two signature details, and a few carry a colour accent:
+ * keeps one or two signature details, and a few carry a color accent:
  * Rook's learner plate, Falcon's and Kestrel's eye-rings, Magpie's glint,
  * Blackbird's gold beak and crown. Pure SVG, sharp at any size.
  */
 
 const W = "#ffffff";
-// shared bust outline: shoulders open at the bottom, head top-centre
+// shared bust outline: shoulders open at the bottom, head top-center
 const BUST = "M15 54C15 43 18 35 23.5 30.5C26.5 23.5 32 19.5 38 19.5C44.5 19.5 48.5 24 48.5 29.5C48.5 34 46.5 37.5 45 40C47.5 43.5 49 48 49 54";
 const BEAK = "M48 26.8L55.5 29.8L48 32.8";
 const eye = (x = 40.5, y = 27.5, r = 2.1) => <circle cx={x} cy={y} r={r} fill={W} stroke="none" />;
@@ -117,7 +117,7 @@ function luminance(hex) {
   return (((n >> 16) & 255) * 299 + ((n >> 8) & 255) * 587 + (n & 255) * 114) / 1000;
 }
 
-// the top bot wears gold; very dark bot colours get a lighter rim so the
+// the top bot wears gold; very dark bot colors get a lighter rim so the
 // disc edge still shows on the dark theme
 function ringFor(b, color) {
   if (b?.id === "bot:blackbird") return "#e0a414";

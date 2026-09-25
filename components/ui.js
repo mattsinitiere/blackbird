@@ -33,7 +33,7 @@ const LOGO_ASPECT = {
 
 /**
  * Official Blackbird logo from /public/brand. `variant` is "lockup" (icon +
- * wordmark + tagline), "word" (wordmark only) or "icon". Both the colour and
+ * wordmark + tagline), "word" (wordmark only) or "icon". Both the color and
  * the white file are in the DOM; globals.css shows the one that matches the
  * active theme, so there is no flash and no JS theme lookup.
  */

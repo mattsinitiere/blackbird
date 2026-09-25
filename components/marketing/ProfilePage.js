@@ -30,7 +30,7 @@ function memberSince(iso) {
 /**
  * The signed-in player's profile on the public site: the same fields the
  * app's Account screen edits (display name, handle, bio, location, player
- * colour), shown in the website frame. Signed-out visitors go to /login.
+ * color), shown in the website frame. Signed-out visitors go to /login.
  */
 export default function ProfilePage() {
   const router = useRouter();
@@ -156,7 +156,7 @@ function ProfileForm({ user, player, color, onSaved, session }) {
       onSaved && onSaved();
     } catch (e) {
       setGood(false);
-      setMsg(e.message || "Couldn't save the colour.");
+      setMsg(e.message || "Couldn't save the color.");
     } finally {
       setColorBusy(false);
     }
@@ -268,8 +268,8 @@ function ProfileForm({ user, player, color, onSaved, session }) {
           }}
         />
 
-        <div className="tag" style={{ margin: "16px 0 8px" }}>Player colour</div>
-        <div className="mk-profile-colors" role="group" aria-label="Player colour">
+        <div className="tag" style={{ margin: "16px 0 8px" }}>Player color</div>
+        <div className="mk-profile-colors" role="group" aria-label="Player color">
           {PICKER_COLORS.map((hex) => (
             <button
               key={hex}
@@ -278,12 +278,12 @@ function ProfileForm({ user, player, color, onSaved, session }) {
               style={{ background: hex }}
               onClick={() => pickColor(hex)}
               disabled={colorBusy}
-              aria-label={`Colour ${hex}`}
+              aria-label={`Color ${hex}`}
               aria-pressed={current === hex}
             />
           ))}
-          <label className={`mk-profile-swatch mk-profile-swatch-custom${custom ? " is-on" : ""}`} style={{ background: custom || "transparent" }} title="Custom colour">
-            <input type="color" value={current} onChange={(e) => pickColor(e.target.value)} disabled={colorBusy} aria-label="Custom colour" />
+          <label className={`mk-profile-swatch mk-profile-swatch-custom${custom ? " is-on" : ""}`} style={{ background: custom || "transparent" }} title="Custom color">
+            <input type="color" value={current} onChange={(e) => pickColor(e.target.value)} disabled={colorBusy} aria-label="Custom color" />
             {!custom && <span aria-hidden="true">+</span>}
           </label>
         </div>

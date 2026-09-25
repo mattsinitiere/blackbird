@@ -65,7 +65,7 @@ function useScrub(count, W, indexAt) {
 }
 
 /**
- * The floating readout above a selected point, centred on it and nudged
+ * The floating readout above a selected point, centered on it and nudged
  * inward only as far as it takes to stay inside the chart.
  */
 function Readout({ pct, value, sub }) {
@@ -552,7 +552,7 @@ export function StatCards({ items = [] }) {
   );
 }
 
-// stylised ring radii (real proportions make the treble and double rings
+// stylised ring radii (real proportions make the triple and double rings
 // too thin to read on a phone)
 const HR = { bullIn: 8, bullOut: 17, tIn: 58, tOut: 72, dIn: 86, dOut: 100 };
 

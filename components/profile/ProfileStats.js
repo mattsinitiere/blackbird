@@ -195,7 +195,7 @@ const fmtDay = (v) => {
 };
 
 /**
- * A date field whose text we draw ourselves, centred: iOS Safari pins a
+ * A date field whose text we draw ourselves, centered: iOS Safari pins a
  * native date input's text to the top of its box whatever the CSS says.
  * The real input sits invisibly on top, so a tap still opens the phone's
  * own date picker.

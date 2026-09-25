@@ -34,7 +34,7 @@ const SECTIONS = [
  * Text edits (display name, @handle, bio, location, name tag) are held as
  * one set of unsaved changes: a bar docks just above the bottom nav with
  * Discard and Save Changes whenever anything differs from what is saved.
- * One-tap choices (colour, cover, theme, text size, leaderboard) save
+ * One-tap choices (color, cover, theme, text size, leaderboard) save
  * straight away, as before.
  */
 export default function Account({ user, players, results, addPlayer, setPlayerHidden, setPlayerColor, updatePlayerProfile, myPlayer: myPlayerProp, playerColors, isAdmin, onOpenAdmin, social, onOpenFriends, signOut, back, focus = null }) {

@@ -1,7 +1,7 @@
 import { useId } from "react";
 import { iconParts } from "@/lib/icons";
 
-/** One colour per achievement category; white line icons sit on top. */
+/** One color per achievement category; white line icons sit on top. */
 export const CATEGORY_COLORS = {
   Milestones: "#3d45b8",
   Scoring: "#d4582a",
@@ -25,7 +25,7 @@ function shade(hex, amt) {
 }
 
 /**
- * An achievement's medallion: a category-coloured disc with a soft sheen,
+ * An achievement's medallion: a category-colored disc with a soft sheen,
  * an inner ring, the badge's line icon in white and, for tiered badges, a
  * metal rim. Locked badges are drawn flat in the theme's neutral tones.
  */

@@ -4,7 +4,7 @@ import { validateNewAccount, createAccount, validateTagEdit } from "../lib/admin
 
 const good = { displayName: " Sam  Lee ", email: "Sam@Example.com", handle: "@SamLee", password: "darts1234", color: "#2563eb", tag: "ab1", tagIcon: "crown" };
 
-test("new account input is validated and normalised", () => {
+test("new account input is validated and normalized", () => {
   const r = validateNewAccount(good);
   assert.equal(r.ok, true);
   assert.deepEqual(r.value, { displayName: "Sam Lee", email: "sam@example.com", handle: "samlee", password: "darts1234", color: "#2563eb", tag: "AB1", tagIcon: "crown" });

@@ -98,12 +98,12 @@ function CricketCard({ c }) {
       <div className="grid-4" style={{ marginTop: 8 }}>
         <Mini label="Miss %" value={pc(c.missPct)} />
         <Mini label="Dead darts" value={pc(c.deadDartPct)} />
-        <Mini label="Treble rate" value={pc(c.trebleRate)} />
+        <Mini label="Triple rate" value={pc(c.trebleRate)} />
         <Mini label="Opens on" value={c.favouriteOpener ? (c.favouriteOpener.number === "B" ? "Bull" : c.favouriteOpener.number) : "—"} />
       </div>
       {c.perNumber && (
         <div style={{ marginTop: 10 }}>
-          <div className="tag" style={{ marginBottom: 4 }}>Where your darts land (share of all darts · trebles)</div>
+          <div className="tag" style={{ marginBottom: 4 }}>Where your darts land (share of all darts · triples)</div>
           <Bars items={X01_TARGETS.map((k) => ({ label: k === "B" ? "Bull" : k, value: c.perNumber[k].share ?? 0, display: `${Math.round(c.perNumber[k].share ?? 0)}% · ${c.perNumber[k].trebles}T` }))} />
         </div>
       )}
@@ -126,7 +126,7 @@ function BaseballCard({ c }) {
         <div className="grid-4" style={{ marginTop: 8 }}>
           <Mini label="Singles" value={c.hitsBy.S} />
           <Mini label="Doubles" value={c.hitsBy.D} />
-          <Mini label="Trebles" value={c.hitsBy.T} />
+          <Mini label="Triples" value={c.hitsBy.T} />
           <Mini label="Misses" value={c.hitsBy.miss} />
         </div>
       )}
@@ -204,7 +204,7 @@ export default function CareerCards({ career }) {
         <SimpleCard title="Gotcha" c={c.gotcha} items={[["Bust rate", pc(c.gotcha.bustRate)], ["Resets dealt", c.gotcha.resetsDealt], ["Reset", `${c.gotcha.resetsReceived}×`], ["Avg darts", n1(c.gotcha.avgDartsToTarget)], ["Best", c.gotcha.bestDartsToTarget ? `${c.gotcha.bestDartsToTarget}d` : "—"]]} />
       )}
       {c.tictactoe && (
-        <SimpleCard title="Tic-Tac-Toe" c={c.tictactoe} items={[["Claimed", c.tictactoe.claimed], ["Cancelled", c.tictactoe.cancelled], ["Darts / claim", n2(c.tictactoe.dartsPerClaim)], ["On the grid", pc(c.tictactoe.gridHitRate)]]} />
+        <SimpleCard title="Tic-Tac-Toe" c={c.tictactoe} items={[["Claimed", c.tictactoe.claimed], ["Canceled", c.tictactoe.cancelled], ["Darts / claim", n2(c.tictactoe.dartsPerClaim)], ["On the grid", pc(c.tictactoe.gridHitRate)]]} />
       )}
       {c.bobs27 && (
         <SimpleCard title="Bob's 27" c={c.bobs27} items={[["Best", c.bobs27.bestScore ?? "—"], ["Avg", n1(c.bobs27.avgScore)], ["Double rate", pc(c.bobs27.doubleHitRate)], ["Clean runs", c.bobs27.cleanRuns], ["Bust rate", pc(c.bobs27.bustRate)]]} />
@@ -218,7 +218,7 @@ export default function CareerCards({ career }) {
         </SimpleCard>
       )}
       {c.scoringDrill && (
-        <SimpleCard title="Scoring Drill" c={c.scoringDrill} items={[["Best / visit", n1(c.scoringDrill.bestAvgPerVisit)], ["Hit rate", pc(c.scoringDrill.hitRate)], ["Treble rate", pc(c.scoringDrill.trebleRate)]]} />
+        <SimpleCard title="Scoring Drill" c={c.scoringDrill} items={[["Best / visit", n1(c.scoringDrill.bestAvgPerVisit)], ["Hit rate", pc(c.scoringDrill.hitRate)], ["Triple rate", pc(c.scoringDrill.trebleRate)]]} />
       )}
     </>
   );

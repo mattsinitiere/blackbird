@@ -120,7 +120,7 @@ export default function Page() {
   const liveGameRef = useRef(null);
   const castTimer = useRef(null);
   const lastCastAt = useRef(0);
-  // avatar colours ride along with every state so the TV matches the phone
+  // avatar colors ride along with every state so the TV matches the phone
   const playerColorsRef = useRef({});
 
   const sendCastState = useCallback(() => {
@@ -435,7 +435,7 @@ export default function Page() {
   // who I follow (null = follows not installed: everyone) and who follows me
   const following = useMemo(() => (follows === null ? null : followingUsernames(follows, players, myAuthId)), [follows, players, myAuthId]);
   const followers = useMemo(() => followerUsernames(follows, players, myPlayerRow?.id), [follows, players, myPlayerRow]);
-  // my own activity (days the app was opened, first profile customisations)
+  // my own activity (days the app was opened, first profile customizations)
   // for the Dedication and Profile badges; rides along with `social`, which
   // is only ever passed for yourself
   const [events, setEvents] = useState([]);
@@ -456,7 +456,7 @@ export default function Page() {
       active = false;
     };
   }, [myAuthId]);
-  // profile parts set but not logged yet (first customisation, or set
+  // profile parts set but not logged yet (first customization, or set
   // before this was tracked): log them today
   const profileSig = myPlayerRow ? [myPlayerRow.color, myPlayerRow.cover, myPlayerRow.bio, myPlayerRow.location, myPlayerRow.tag, myPlayerRow.tagIcon, myPlayerRow.handle].join("|") : "";
   useEffect(() => {
@@ -488,7 +488,7 @@ export default function Page() {
   useEffect(() => {
     playerColorsRef.current = playerColors;
   }, [playerColors]);
-  // how each player looks (colour + name tag), for PlayerBadge everywhere
+  // how each player looks (color + name tag), for PlayerBadge everywhere
   const playerMeta = useMemo(
     () => Object.fromEntries(players.map((p) => [p.username, { color: playerColors[p.username], tag: p.tag || null, tagIcon: p.tagIcon || null }])),
     [players, playerColors]

@@ -122,7 +122,7 @@ test("head to head and recent games carry no raw dart logs", () => {
     assert.equal(g.darts, undefined);
     assert.equal(g._rp, undefined);
   }
-  // budget guard; the compact badge catalogue (achievements.all) adds ~1.3 KB
+  // budget guard; the compact badge catalog (achievements.all) adds ~1.3 KB
   assert.ok(JSON.stringify(s).length < 14000);
 });
 

@@ -219,7 +219,7 @@ test("badges and versus blocks resolve only against known data", () => {
   assert.equal(resolveOne({ type: "badges", ids: ["nope"] }, {}, {}, ctx), null);
 });
 
-test("the assistant has one name: Merlin (old 'Blackbird AI' mentions are normalised too)", () => {
+test("the assistant has one name: Merlin (old 'Blackbird AI' mentions are normalized too)", () => {
   assert.match(IDENTITY_REPLY, /I'm \*\*Merlin\*\*/);
   assert.doesNotMatch(IDENTITY_REPLY, /Blackbird AI/);
   assert.equal(scrubIdentity("I'm Blackbird AI, running on GPT-4o."), "I'm Merlin, running on Merlin.");

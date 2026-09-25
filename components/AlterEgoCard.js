@@ -5,7 +5,7 @@ import { newGameId } from "@/lib/games";
 const INTRO = {
   x01: "Play 501 against an approximation of your own recorded form. It's a statistical stand-in built from your scoring and checkout numbers, not a copy of how you throw.",
   cricket: "Play Cricket against an approximation of your own marks per round. It aims like the Blackbird bots, so the way it chooses numbers is standard strategy, not yours.",
-  baseball: "Play Baseball against an approximation of your own runs per inning, always aiming at the treble of the inning's number.",
+  baseball: "Play Baseball against an approximation of your own runs per inning, always aiming at the triple of the inning's number.",
 };
 
 const START_CONFIG = {

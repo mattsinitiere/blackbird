@@ -1,6 +1,6 @@
 import { MERLIN } from "@/lib/merlin";
 
-/** Merlin's wizard-hat mark, line art in the card's accent colour. */
+/** Merlin's wizard-hat mark, line art in the card's accent color. */
 function HatIcon() {
   return (
     <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">

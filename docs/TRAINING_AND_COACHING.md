@@ -76,7 +76,7 @@ Until the migrations are applied, the app still works:
 - **Baseline.** Stored with the plan and recomputed on the server from the
   player's own rows. Every number carries its sample size, and numbers
   below `BASELINE_MIN` are null.
-- **Starter assessment.** A fixed, clearly labelled plan offered when a
+- **Starter assessment.** A fixed, clearly labeled plan offered when a
   player has fewer than 5 recorded games (`STARTER_MIN_GAMES`). It uses no
   AI call.
 - **Progress.**
@@ -155,13 +155,13 @@ the card:
   - A double is preferred over the standard one only with ≥ 30 attempts on
     both and when the Wilson 90% lower bound beats the standard double's
     upper bound (`lib/strategy/config.js`). Otherwise the preferred double
-    (a setting) or the standard route is used, and labelled as such.
+    (a setting) or the standard route is used, and labeled as such.
 - **Cricket** (`lib/strategy/cricket.js`):
   - close what an opponent can score on;
   - score where you're closed and behind;
   - close the highest open number;
   - bull last.
-  - Labelled "Standard strategy", with no probabilities.
+  - Labeled "Standard strategy", with no probabilities.
 - **Settings.** Settings → Gameplay: Hints Off / Standard / Personalized,
   and Preferred Double.
   - Hints never touch scores, turns or rules.
@@ -191,7 +191,7 @@ See ARCHITECTURE.md "/api/insights". In short:
 
 - **Identity** comes from the session, never the body.
 - **Summary and tools** use targeted, paginated queries run as the user.
-- **Coverage** is reported, and partial reads are labelled.
+- **Coverage** is reported, and partial reads are labeled.
 - **Model:**
   - Fixed Luna, with `reasoning_effort` always sent.
   - No silent parameter stripping and no fallback model.

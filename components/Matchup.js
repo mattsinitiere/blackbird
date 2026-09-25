@@ -110,7 +110,7 @@ export default function Matchup({ usernames, me, elo, results, stats, playerColo
       {(openSetup || onAskAI) && (
         <div className="mu-play-row">
           {onAskAI && (
-            <button type="button" className="btn mu-scout" onClick={() => onAskAI(a === me ? `Scout my matchup against ${b}: who's favoured, what decides it, and what should I focus on?` : `Preview ${a} vs ${b}: who's favoured and what decides it?`)}>
+            <button type="button" className="btn mu-scout" onClick={() => onAskAI(a === me ? `Scout my matchup against ${b}: who's favored, what decides it, and what should I focus on?` : `Preview ${a} vs ${b}: who's favored and what decides it?`)}>
               Scout With Merlin
             </button>
           )}

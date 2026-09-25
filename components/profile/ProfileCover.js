@@ -2,11 +2,11 @@ import { coverId } from "@/lib/covers";
 
 /**
  * Profile cover designs (lib/covers.js). Each is flat vector art in the
- * brand's colours behind the Blackbird mark. `mini` renders the small
+ * brand's colors behind the Blackbird mark. `mini` renders the small
  * preview used by the picker in Settings. Decorative only.
  */
 
-// dartboard geometry, centred at (0, 0)
+// dartboard geometry, centered at (0, 0)
 function wedge(r0, r1, a0, a1) {
   const p = (r, a) => `${(r * Math.cos(a)).toFixed(1)} ${(r * Math.sin(a)).toFixed(1)}`;
   return `M${p(r1, a0)}A${r1} ${r1} 0 0 1 ${p(r1, a1)}L${p(r0, a1)}A${r0} ${r0} 0 0 0 ${p(r0, a0)}Z`;

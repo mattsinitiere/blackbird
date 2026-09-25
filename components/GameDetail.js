@@ -38,7 +38,7 @@ function keyMetrics(gameType, a) {
     case "cricket":
       return [["MPR", m.mpr == null ? "—" : m.mpr.toFixed(2)], ["Marks", m.marks], ["Rounds", m.rounds], ["Points", m.points], ["Miss %", pc(m.missPct)], ["Dead darts", m.deadDarts ?? "—"], ["Best round", m.bestRound ?? "—"]];
     case "baseball":
-      return [["Runs", m.runs], ["Biggest inning", m.biggestInning ?? "—"], ["Hit rate", pc(m.hitRate)], ["Trebles", m.hitsBy?.T ?? "—"], ["Scoreless", m.scorelessInnings ?? "—"]];
+      return [["Runs", m.runs], ["Biggest inning", m.biggestInning ?? "—"], ["Hit rate", pc(m.hitRate)], ["Triples", m.hitsBy?.T ?? "—"], ["Scoreless", m.scorelessInnings ?? "—"]];
     case "aroundTheClock":
       return [["Targets", `${m.targetsHit}/21`], ["Darts", a.totals.dartsThrown], ["Hit rate", pc(m.hitRate)], ["Hardest", m.hardestTarget ? `${m.hardestTarget.target} (${m.hardestTarget.darts}d)` : "—"]];
     case "killer":
@@ -50,13 +50,13 @@ function keyMetrics(gameType, a) {
     case "gotcha":
       return [["Final", m.finalScore ?? "—"], ["Busts", m.busts ?? "—"], ["Resets dealt", m.resetsDealt ?? "—"], ["Reset", `${m.resetsReceived ?? "—"}×`], ["Darts", a.totals.dartsThrown]];
     case "tictactoe":
-      return [["Squares", m.squaresClaimed ?? "—"], ["Claimed", m.claimed ?? "—"], ["Cancelled", m.cancelled ?? "—"], ["Darts/claim", m.dartsPerClaim ?? "—"]];
+      return [["Squares", m.squaresClaimed ?? "—"], ["Claimed", m.claimed ?? "—"], ["Canceled", m.cancelled ?? "—"], ["Darts/claim", m.dartsPerClaim ?? "—"]];
     case "bobs27":
       return [["Score", m.finalScore ?? "—"], ["Doubles", m.doublesHit ?? "—"], ["Rounds", m.roundsCompleted ?? "—"], ["Hit rate", pc(m.doubleHitRate)], ...(m.busted ? [["Busted", `round ${m.bustRound}`]] : [])];
     case "checkoutDrill":
       return [["Hit", `${m.hit}/${m.finishes}`], ["Darts / hit", n1(m.dartsPerHit)], ["Highest", m.highestCheckout || "—"], ["Busts", m.busts ?? "—"]];
     case "scoringDrill":
-      return [["Total", m.total], ["Per visit", n1(m.avgPerVisit)], ["Best visit", m.bestVisit ?? "—"], ["Hit rate", pc(m.hitRate)], ["Trebles", m.trebles ?? "—"]];
+      return [["Total", m.total], ["Per visit", n1(m.avgPerVisit)], ["Best visit", m.bestVisit ?? "—"], ["Hit rate", pc(m.hitRate)], ["Triples", m.trebles ?? "—"]];
     default:
       return [["Darts", a.totals.dartsThrown]];
   }
@@ -101,7 +101,7 @@ function outcomeText(gameType, v) {
     case "shanghai": return `+${o.s ?? 0}${o.sh ? " · Shanghai!" : ""}`;
     case "halveit": return o.halved ? `Halved → ${o.sc}` : `+${o.s} → ${o.sc}`;
     case "gotcha": return o.k === "bust" ? "Bust" : o.k === "win" ? "Gotcha!" : `+${o.s} → ${o.sc}${o.reset && o.reset.length ? ` · reset ${o.reset.join(", ")}` : ""}`;
-    case "tictactoe": return [o.c && o.c.length ? `claimed ${o.c.map((i) => TTT_GRID[i]).join(", ")}` : "", o.x && o.x.length ? `cancelled ${o.x.map((i) => TTT_GRID[i]).join(", ")}` : ""].filter(Boolean).join(" · ") || "no change";
+    case "tictactoe": return [o.c && o.c.length ? `claimed ${o.c.map((i) => TTT_GRID[i]).join(", ")}` : "", o.x && o.x.length ? `canceled ${o.x.map((i) => TTT_GRID[i]).join(", ")}` : ""].filter(Boolean).join(" · ") || "no change";
     case "bobs27": return `${o.delta > 0 ? "+" : ""}${o.delta} → ${o.sc}`;
     case "checkoutDrill": return o.k === "hit" ? "Out!" : o.k === "bust" ? "Bust" : o.k === "miss" ? "Missed" : `→ ${o.rem}`;
     case "scoringDrill": return `+${o.s ?? 0}`;
@@ -154,7 +154,7 @@ export default function GameDetail({ rows, playerColors, back, me = null, onAskA
           type="button"
           className="btn mb-12"
           style={{ width: "100%" }}
-          onClick={() => onAskAI(`Talk me through my ${gameTitle(gameType, config)} game on ${fmtDate(match.completedAt)} (game id ${match.gameId}): what decided it, and what should I practise?`)}
+          onClick={() => onAskAI(`Talk me through my ${gameTitle(gameType, config)} game on ${fmtDate(match.completedAt)} (game id ${match.gameId}): what decided it, and what should I practice?`)}
         >
           Ask Merlin About This Game
         </button>

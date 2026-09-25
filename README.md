@@ -103,7 +103,7 @@ single source of truth for game data.
   number) and **bots** for X01, Cricket and Baseball. Eight bots, Rook
   (32 average) to Blackbird (100), throw one dart every 0.75 s through a
   real-geometry simulator, so the weak ones spray into 1 and 5 and the
-  strong ones find trebles and doubles. Beat a bot to unlock the next. A
+  strong ones find triples and doubles. Beat a bot to unlock the next. A
   **Practice hub** (Home → Practice & Bots) has the ladder, drill
   launchers, sessions per week, personal bests and trend charts. Practice
   never touches stats, Elo or the standings.
@@ -334,7 +334,7 @@ legacy keys only and the stats engine replays what it can):
 | shanghai | `totalScore`, `roundScores[]`, `shanghai` | `out = {s, sh}` |
 | halveit | `finalScore`, `halves` | `roundScores[]` (0 when halved), `out = {s, halved, sc}` |
 | gotcha | `finalScore`, `resetsDealt`, `resetsReceived` | `events[]` (`reset`), `out = {k, s, sc, reset[]}` |
-| tictactoe | `squaresClaimed` | `line[]`, board strings in `s0` / `out.b`, `out.c` / `out.x` (claimed / cancelled squares) |
+| tictactoe | `squaresClaimed` | `line[]`, board strings in `s0` / `out.b`, `out.c` / `out.x` (claimed / canceled squares) |
 | bobs27 | `finalScore`, `doublesHit`, `roundsCompleted`, `busted` | `out = {hits, delta, sc}` |
 | checkoutDrill | `finishes`, `hit`, `dartsPerHit`, `highestCheckout`, `results[]` | `out = {k: open\|hit\|bust\|miss, rem}` |
 | scoringDrill | `total`, `turns`, `avgPerTurn`, `trebles`, `onTarget`, `hitRate`, `bestVisit` | `visitScores[]` (was `visits[]`), `out = {s}` |
