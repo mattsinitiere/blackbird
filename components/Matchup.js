@@ -1,134 +1,286 @@
-import { useState } from "react";
-import { BackBar, PlayerBadge } from "./ui";
-import { headToHead } from "@/lib/stats";
-import { BASE_ELO } from "@/lib/constants";
+import { useMemo, useState, useEffect, useRef } from "react";
+import { BackBar, PlayerBadge, Overlay, isLight } from "./ui";
+import { rivalry } from "@/lib/stats";
+import { gameName } from "@/lib/summary";
+import { BASE_ELO, defaultPlayerColor } from "@/lib/constants";
+import { winChance, defaultRival, tapeRows } from "@/lib/matchup";
 
-export default function Matchup({ usernames, elo, results, stats, back, playerColors }) {
-  const [a, setA] = useState(usernames[0] || "");
-  const [b, setB] = useState(usernames[1] || "");
+const shortDate = (d) => new Date(d).toLocaleDateString(undefined, { month: "short", day: "numeric" });
 
-  if (usernames.length < 2) {
+/**
+ * Compare two players: an avatar VS picker (you vs your most-played rival
+ * by default), the Elo prediction, then either the tale of the tape or the
+ * full head-to-head record. Sized to fit one phone screen per tab.
+ */
+export default function Matchup({ usernames, me, elo, results, stats, playerColors, openGame, openSetup }) {
+  const pool = usernames || [];
+  const [pickA, setA] = useState(null);
+  const [pickB, setB] = useState(null);
+  const [tab, setTab] = useState("tape");
+  const [picking, setPicking] = useState(null); // "a" | "b" | null
+
+  // defaults are derived, so they settle once data loads
+  const a = pickA && pool.includes(pickA) ? pickA : pool.includes(me) ? me : pool[0];
+  const fallbackB = useMemo(() => defaultRival(results, a, pool), [results, a, pool]);
+  const b = pickB && pool.includes(pickB) && pickB !== a ? pickB : fallbackB;
+
+  const colorOf = (u) => playerColors?.[u] || defaultPlayerColor(u);
+  const eloOf = (u) => Math.round(elo?.[u] || BASE_ELO);
+
+  const rv = useMemo(() => (a && b ? rivalry(results, a, b) : null), [results, a, b]);
+  const tape = useMemo(() => (a && b ? tapeRows(stats?.[a], stats?.[b], eloOf(a), eloOf(b)) : []), [stats, elo, a, b]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  if (pool.length < 2 || !a || !b) {
     return (
       <div className="fade">
-        <BackBar back={back} title="Matchup" />
-        <p className="subtle">Need at least two players with games logged.</p>
+        <BackBar title="Matchup" />
+        <div className="card mu-empty">
+          <p style={{ margin: 0, fontWeight: 700 }}>Follow someone to compare</p>
+          <p className="subtle" style={{ margin: "4px 0 0" }}>Matchup needs at least two players in your circle.</p>
+        </div>
       </div>
     );
   }
 
-  const Ra = elo[a] || BASE_ELO;
-  const Rb = elo[b] || BASE_ELO;
-  const valid = a && b && a !== b;
-  const pA = valid ? 1 / (1 + Math.pow(10, (Rb - Ra) / 400)) : 0.5;
-  const h2h = valid ? headToHead(results, a, b) : { aw: 0, bw: 0, n: 0 };
-
-  const Picker = ({ val, set, label }) => (
-    <div style={{ flex: 1 }}>
-      <div className="tag" style={{ marginBottom: 6 }}>
-        {label}
-      </div>
-      <select className="select" value={val} onChange={(e) => set(e.target.value)}>
-        {usernames.map((u) => (
-          <option key={u} value={u}>
-            {u}
-          </option>
-        ))}
-      </select>
-    </div>
-  );
+  const pA = winChance(eloOf(a), eloOf(b));
+  const swap = () => {
+    setA(b);
+    setB(a);
+  };
+  const choose = (u) => {
+    if (picking === "a") setA(u);
+    else setB(u);
+    setPicking(null);
+  };
 
   return (
-    <div className="fade">
-      <BackBar back={back} title="Matchup Predictor" />
+    <div className="fade mu">
+      <h1 className="sr-only">Matchup</h1>
 
-      <div className="card mb-12">
-        <div className="row">
-          <Picker val={a} set={setA} label="Player A" />
-          <Picker val={b} set={setB} label="Player B" />
+      <section className="card mu-head" aria-label="Players">
+        <Slot u={a} color={colorOf(a)} elo={eloOf(a)} onPick={() => setPicking("a")} />
+        <div className="mu-vs">
+          <span className="mu-vs-text">VS</span>
+          <button type="button" className="mu-swap" onClick={swap} aria-label="Swap sides">
+            <SwapIcon />
+          </button>
         </div>
+        <Slot u={b} color={colorOf(b)} elo={eloOf(b)} onPick={() => setPicking("b")} />
+
+        <div className="mu-odds" aria-label={`Predicted: ${a} ${Math.round(pA * 100)} percent, ${b} ${Math.round((1 - pA) * 100)} percent`}>
+          <span className="mu-odds-val num">{Math.round(pA * 100)}%</span>
+          <div className="mu-odds-bar">
+            <i style={{ width: `${pA * 100}%`, background: colorOf(a) }} />
+            <i style={{ width: `${(1 - pA) * 100}%`, background: colorOf(b) }} />
+          </div>
+          <span className="mu-odds-val num">{Math.round((1 - pA) * 100)}%</span>
+        </div>
+        <div className="mu-odds-note">Win chance from Elo</div>
+      </section>
+
+      <div className="seg mu-tabs" role="tablist" aria-label="Matchup views">
+        <button type="button" role="tab" aria-selected={tab === "tape"} className="seg-btn" onClick={() => setTab("tape")}>
+          Tale of the Tape
+        </button>
+        <button type="button" role="tab" aria-selected={tab === "rivalry"} className="seg-btn" onClick={() => setTab("rivalry")}>
+          Rivalry{rv?.games ? ` · ${rv.games}` : ""}
+        </button>
       </div>
 
-      {!valid ? (
-        <p className="subtle">Pick two different players.</p>
+      {tab === "tape" ? (
+        <section className="card mu-card" aria-label="Tale of the tape">
+          {tape.map((r) => (
+            <TapeRow key={r.key} row={r} colA={colorOf(a)} colB={colorOf(b)} />
+          ))}
+          {(stats?.[a]?.lastFive?.length > 0 || stats?.[b]?.lastFive?.length > 0) && (
+            <div className="mu-row">
+              <Pips list={stats?.[a]?.lastFive} align="start" />
+              <div className="mu-mid">
+                <span className="mu-label">Last 5</span>
+              </div>
+              <Pips list={stats?.[b]?.lastFive} align="end" />
+            </div>
+          )}
+        </section>
       ) : (
-        <>
-          <div className="card mb-12">
-            <div className="tag" style={{ marginBottom: 12 }}>
-              Predicted Win Likelihood (Elo)
-            </div>
-            <div className="row" style={{ alignItems: "center" }}>
-              <span className="num" style={{ fontSize: "calc(30px * var(--fs))", color: "var(--accent)" }}>
-                {(pA * 100).toFixed(0)}%
-              </span>
-              <div className="bar">
-                <div style={{ width: `${pA * 100}%`, background: "var(--accent)" }} />
-                <div style={{ width: `${(1 - pA) * 100}%`, background: "var(--red)" }} />
-              </div>
-              <span className="num" style={{ fontSize: "calc(30px * var(--fs))", color: "var(--red)" }}>
-                {((1 - pA) * 100).toFixed(0)}%
-              </span>
-            </div>
-            <div className="between" style={{ marginTop: 8 }}>
-              <span style={{ fontWeight: 700, display: "inline-flex", alignItems: "center", gap: 4 }}>
-                <PlayerBadge username={a} color={playerColors?.[a]} size={18} showName={false} />
-                {a} <span className="tag">{Math.round(Ra)}</span>
-              </span>
-              <span style={{ fontWeight: 700, display: "inline-flex", alignItems: "center", gap: 4 }}>
-                <span className="tag">{Math.round(Rb)}</span> {b}
-                <PlayerBadge username={b} color={playerColors?.[b]} size={18} showName={false} />
-              </span>
-            </div>
-          </div>
+        <Rivalry rv={rv} a={a} b={b} colorOf={colorOf} openGame={openGame} />
+      )}
 
-          <div className="card mb-12">
-            <div className="tag" style={{ marginBottom: 6 }}>
-              Head to Head
-            </div>
-            {h2h.n === 0 ? (
-              <p className="subtle" style={{ margin: 0 }}>
-                Never played each other — prediction is Elo-only and rough.
-              </p>
-            ) : (
-              <div className="num" style={{ fontSize: "calc(22px * var(--fs))", display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
-                <PlayerBadge username={a} color={playerColors?.[a]} size={20} showName={false} />
-                {a} {h2h.aw} — {h2h.bw} {b}
-                <PlayerBadge username={b} color={playerColors?.[b]} size={20} showName={false} />{" "}
-                <span className="tag" style={{ fontSize: "calc(12px * var(--fs-chrome))" }}>
-                  ({h2h.n} games)
-                </span>
-              </div>
-            )}
-          </div>
+      {openSetup && (
+        <button type="button" className="btn btn-primary mu-play" onClick={() => openSetup({ players: [a, b] })}>
+          Play This Matchup
+        </button>
+      )}
 
-          <div className="card">
-            <div className="tag" style={{ marginBottom: 10 }}>
-              Form (3-Dart Avg)
-            </div>
-            <div className="row">
-              <div style={{ flex: 1, textAlign: "center" }}>
-                <div className="num" style={{ fontSize: "calc(24px * var(--fs))" }}>
-                  {stats[a]?.x01.threeDartAvg.toFixed(1) || "—"}
-                </div>
-                <div className="tag" style={{ marginTop: 2 }}>
-                  {a}
-                </div>
-              </div>
-              <div style={{ flex: 1, textAlign: "center" }}>
-                <div className="num" style={{ fontSize: "calc(24px * var(--fs))" }}>
-                  {stats[b]?.x01.threeDartAvg.toFixed(1) || "—"}
-                </div>
-                <div className="tag" style={{ marginTop: 2 }}>
-                  {b}
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <p className="tag" style={{ marginTop: 14, lineHeight: 1.5, textTransform: "none", letterSpacing: 0 }}>
-            Elo updates after every game (start 1000, K=24). With few games it&apos;s a rough estimate; it sharpens as more games are logged.
-          </p>
-        </>
+      {picking && (
+        <PickerSheet
+          pool={pool}
+          current={picking === "a" ? a : b}
+          disabled={picking === "a" ? b : a}
+          colorOf={colorOf}
+          eloOf={eloOf}
+          onChoose={choose}
+          onClose={() => setPicking(null)}
+        />
       )}
     </div>
+  );
+}
+
+function Slot({ u, color, elo, onPick }) {
+  return (
+    <button type="button" className="mu-slot" onClick={onPick} aria-label={`${u}, Elo ${elo}. Change player`}>
+      <span className="mu-slot-av" style={{ boxShadow: `0 0 0 3px var(--surface), 0 0 0 5px ${color}` }}>
+        <PlayerBadge username={u} color={color} sizeCss="calc(52px * var(--fs-chrome))" showName={false} />
+      </span>
+      <span className="mu-slot-name">{u}</span>
+      <span className="mu-slot-meta num">
+        {elo} <span className="mu-slot-change">Change</span>
+      </span>
+    </button>
+  );
+}
+
+function fg(color) {
+  return /^#[0-9a-f]{6}$/i.test(color) && isLight(color) ? "#222" : "#fff";
+}
+
+function TapeRow({ row, colA, colB }) {
+  const total = row.av + row.bv;
+  const share = total > 0 ? (row.av / total) * 100 : 50;
+  const pill = (side, col) => (row.better === side ? { background: col, color: fg(col) } : undefined);
+  return (
+    <div className="mu-row">
+      <span className={`mu-val num ${row.better === "a" ? "is-better" : ""}`} style={pill("a", colA)}>{row.a}</span>
+      <div className="mu-mid">
+        <span className="mu-label">{row.label}</span>
+        <div className="mu-gap" aria-hidden="true">
+          <i style={{ width: `${share}%`, background: colA, opacity: row.better === "b" ? 0.35 : 1 }} />
+          <i style={{ width: `${100 - share}%`, background: colB, opacity: row.better === "a" ? 0.35 : 1 }} />
+        </div>
+      </div>
+      <span className={`mu-val num is-b ${row.better === "b" ? "is-better" : ""}`} style={pill("b", colB)}>{row.b}</span>
+    </div>
+  );
+}
+
+function Pips({ list, align }) {
+  const l = list || [];
+  return (
+    <span className={`mu-pips is-${align}`}>
+      {l.length ? l.map((r, i) => <span key={i} className={`mu-pip ${r === "W" ? "is-w" : "is-l"}`}>{r}</span>) : <span className="mu-val">–</span>}
+    </span>
+  );
+}
+
+function Rivalry({ rv, a, b, colorOf, openGame }) {
+  if (!rv || !rv.games) {
+    return (
+      <section className="card mu-card mu-empty">
+        <p style={{ margin: 0, fontWeight: 700 }}>No games between you yet</p>
+        <p className="subtle" style={{ margin: "4px 0 0" }}>The prediction above is Elo only. Play one to start the record.</p>
+      </section>
+    );
+  }
+  const modes = Object.entries(rv.byGameType).sort((x, y) => y[1].games - x[1].games);
+  const leader = rv.wins > rv.losses ? a : rv.losses > rv.wins ? b : null;
+  const streakName = rv.streak ? (rv.streak.result === "W" ? a : b) : null;
+  return (
+    <section className="card mu-card" aria-label="Rivalry">
+      <div className="mu-score">
+        <span className="mu-score-n num" style={{ color: leader === a ? colorOf(a) : undefined }}>{rv.wins}</span>
+        <span className="mu-score-dash">–</span>
+        <span className="mu-score-n num" style={{ color: leader === b ? colorOf(b) : undefined }}>{rv.losses}</span>
+      </div>
+      <div className="mu-score-note">
+        {rv.games} {rv.games === 1 ? "game" : "games"} since {shortDate(rv.firstPlayed)}
+        {rv.otherWinner ? ` · ${rv.otherWinner} won by someone else` : ""}
+        {rv.streak && rv.streak.count >= 2 ? ` · ${streakName} has won ${rv.streak.count} straight` : ""}
+      </div>
+
+      {modes.length > 0 && (
+        <div className="mu-modes">
+          {modes.map(([t, m]) => (
+            <span key={t} className="mu-mode">
+              {gameName(t)} <b className="num">{m.wins}–{m.losses}</b>
+            </span>
+          ))}
+        </div>
+      )}
+
+      <div className="mu-sub">Last {rv.last5.length === 1 ? "Meeting" : `${rv.last5.length} Meetings`}</div>
+      <ul className="mu-meets">
+        {rv.last5.map((m, i) => {
+          const winner = m.result === "W" ? a : m.result === "L" ? b : m.winner;
+          return (
+            <li key={m.gameId || i} className="mu-meet">
+              <PlayerBadge username={winner} color={colorOf(winner)} size={22} showName={false} />
+              <span className="mu-meet-text">
+                <b>{winner}</b> won {gameName(m.gameType)}
+                <span className="mu-meet-date"> · {shortDate(m.date)}</span>
+              </span>
+              {openGame && m.gameId && (
+                <button type="button" className="btn btn-sm" onClick={() => openGame({ gameId: m.gameId })} aria-label={`Match details, ${gameName(m.gameType)} on ${shortDate(m.date)}`}>
+                  Details
+                </button>
+              )}
+            </li>
+          );
+        })}
+      </ul>
+    </section>
+  );
+}
+
+function PickerSheet({ pool, current, disabled, colorOf, eloOf, onChoose, onClose }) {
+  const [q, setQ] = useState("");
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
+  useEffect(() => {
+    const onKey = (e) => e.key === "Escape" && onCloseRef.current();
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, []);
+  const list = pool.filter((u) => u.toLowerCase().includes(q.trim().toLowerCase()));
+  return (
+    <Overlay onBackdrop={onClose}>
+      <div className="modal fade mu-sheet" role="dialog" aria-modal="true" aria-label="Choose a player" onClick={(e) => e.stopPropagation()}>
+        <div className="between" style={{ marginBottom: 10 }}>
+          <h2 className="mu-sheet-title">Choose a Player</h2>
+          <button type="button" className="btn btn-sm" onClick={onClose}>Close</button>
+        </div>
+        {pool.length > 8 && (
+          <input className="input mb-12" type="search" placeholder="Search players" value={q} onChange={(e) => setQ(e.target.value)} aria-label="Search players" />
+        )}
+        <div className="mu-grid">
+          {list.map((u) => (
+            <button
+              key={u}
+              type="button"
+              className={`mu-grid-btn ${u === current ? "is-on" : ""}`}
+              disabled={u === disabled}
+              onClick={() => onChoose(u)}
+              aria-pressed={u === current}
+            >
+              <PlayerBadge username={u} color={colorOf(u)} size={44} showName={false} />
+              <span className="mu-grid-name">{u}</span>
+              <span className="mu-grid-elo num">{u === disabled ? "Other side" : eloOf(u)}</span>
+            </button>
+          ))}
+          {!list.length && <p className="subtle" style={{ gridColumn: "1 / -1", margin: 0 }}>No one matches.</p>}
+        </div>
+      </div>
+    </Overlay>
+  );
+}
+
+function SwapIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M7 4 3 8l4 4" />
+      <path d="M3 8h14" />
+      <path d="m17 20 4-4-4-4" />
+      <path d="M21 16H7" />
+    </svg>
   );
 }

@@ -1,5 +1,6 @@
 import { useEffect, useRef } from "react";
 import BadgeMedal from "./BadgeMedal";
+import { Overlay } from "./ui";
 
 function fmtDate(iso) {
   if (!iso) return "";
@@ -21,10 +22,12 @@ export default function BadgeDetail({ badge, onClose }) {
   onCloseRef.current = onClose;
   useEffect(() => {
     const opener = typeof document !== "undefined" ? document.activeElement : null;
-    closeRef.current?.focus();
+    // the overlay mounts through a portal a moment later
+    const raf = requestAnimationFrame(() => closeRef.current?.focus());
     const onKey = (e) => e.key === "Escape" && onCloseRef.current();
     window.addEventListener("keydown", onKey);
     return () => {
+      cancelAnimationFrame(raf);
       window.removeEventListener("keydown", onKey);
       opener?.focus?.();
     };
@@ -34,7 +37,7 @@ export default function BadgeDetail({ badge, onClose }) {
   const pct = p && p.target ? Math.min(100, Math.round((p.value / p.target) * 100)) : 0;
   const left = p && p.target ? Math.max(0, p.target - p.value) : null;
   return (
-    <div className="modal-backdrop" onClick={onClose}>
+    <Overlay onBackdrop={onClose}>
       <div className="modal fade badge-detail" role="dialog" aria-modal="true" aria-labelledby="badge-detail-title" onClick={(e) => e.stopPropagation()}>
         <BadgeMedal badge={badge} locked={!badge.unlocked} size={96} className="badge-detail-medal" />
         <div className="badge-detail-cat">{badge.category}</div>
@@ -60,6 +63,6 @@ export default function BadgeDetail({ badge, onClose }) {
           Close
         </button>
       </div>
-    </div>
+    </Overlay>
   );
 }

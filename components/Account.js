@@ -7,11 +7,22 @@ import { COVERS, coverId } from "@/lib/covers";
 import TagEditor from "./TagEditor";
 import ProfileCover from "./profile/ProfileCover";
 import { applyFontScale } from "@/lib/prefs";
+import { setFeedbackPrefs, feedback } from "@/lib/feedback";
 import { normalizeHandle, validateHandle, suggestHandle, validateTag, BIO_MAX, LOCATION_MAX } from "@/lib/profile";
+
+/** An on/off switch (role="switch"), used for the accessibility options. */
+function Switch({ on, onChange, label }) {
+  return (
+    <button type="button" role="switch" aria-checked={on} aria-label={label} className={`switch${on ? " is-on" : ""}`} onClick={() => onChange(!on)}>
+      <span className="switch-knob" />
+    </button>
+  );
+}
 
 const SECTIONS = [
   { id: "profile", label: "Profile" },
   { id: "appearance", label: "Appearance" },
+  { id: "accessibility", label: "Accessibility" },
   { id: "account", label: "Account" },
 ];
 
@@ -31,6 +42,16 @@ export default function Account({ user, players, results, addPlayer, setPlayerHi
   const [section, setSection] = useState("profile");
   const [theme, setTheme] = useState(meta.theme === "dark" ? "dark" : "light");
   const [fontScale, setFontScale] = useState(FONT_SCALES.some((f) => f.id === meta.fontScale) ? meta.fontScale : "normal");
+  const [haptics, setHaptics] = useState(meta.haptics !== false);
+  const [sounds, setSounds] = useState(meta.sounds === true);
+  const setFeedback = (patch) => {
+    if (patch.haptics !== undefined) setHaptics(patch.haptics);
+    if (patch.sounds !== undefined) setSounds(patch.sounds);
+    setFeedbackPrefs(patch);
+    persist(patch);
+    // a sample so you feel / hear what you just switched on
+    if (patch.haptics || patch.sounds) feedback("dart");
+  };
 
   const myPlayer = myPlayerProp || players.find((p) => p.username.toLowerCase() === savedName.trim().toLowerCase()) || null;
   const saved = {
@@ -285,7 +306,22 @@ export default function Account({ user, players, results, addPlayer, setPlayerHi
             )}
           </div>
 
-          {myPlayer ? (
+          {!myPlayer && savedName.trim() && (
+              <div className="card mb-12">
+                <p className="subtle" style={{ marginTop: 0 }}>
+                  Add yourself to the shared player list so you can be picked in games and tracked in the standings.
+                </p>
+                <button className="btn" style={{ width: "100%" }} onClick={addMe}>
+                  Add &quot;{savedName.trim()}&quot; as a player
+                </button>
+              </div>
+          )}
+        </>
+      )}
+
+      {section === "appearance" && (
+        <>
+          {myPlayer && (
             <>
               <div className="card mb-12">
                 <div className="set-title">Player Color</div>
@@ -331,32 +367,8 @@ export default function Account({ user, players, results, addPlayer, setPlayerHi
                 </div>
               </div>
 
-              <div className="card mb-12 between" style={{ gap: 12 }}>
-                <div>
-                  <div className="set-title">Show on Leaderboard</div>
-                  <div className="set-hint" style={{ marginTop: 2 }}>{myPlayer.hidden ? "You're hidden from the standings." : "You're visible in the standings."}</div>
-                </div>
-                <button className={`btn ${myPlayer.hidden ? "" : "btn-toggle-on"}`} style={{ minWidth: 92 }} onClick={toggleLeaderboard} disabled={hideBusy}>
-                  {hideBusy ? "…" : myPlayer.hidden ? "Show me" : "Hide me"}
-                </button>
-              </div>
             </>
-          ) : (
-            savedName.trim() && (
-              <div className="card mb-12">
-                <p className="subtle" style={{ marginTop: 0 }}>
-                  Add yourself to the shared player list so you can be picked in games and tracked in the standings.
-                </p>
-                <button className="btn" style={{ width: "100%" }} onClick={addMe}>
-                  Add &quot;{savedName.trim()}&quot; as a player
-                </button>
-              </div>
-            )
           )}
-        </>
-      )}
-
-      {section === "appearance" && (
         <div className="card mb-12">
           <div className="set-title">Theme</div>
           <div className="row" style={{ marginTop: 8 }}>
@@ -368,7 +380,14 @@ export default function Account({ user, players, results, addPlayer, setPlayerHi
             </button>
           </div>
 
-          <div className="set-title" style={{ marginTop: 18 }}>Text Size</div>
+        </div>
+        </>
+      )}
+
+      {section === "accessibility" && (
+        <>
+          <div className="card mb-12">
+          <div className="set-title">Text Size</div>
           <div className="grid-4" style={{ marginTop: 8 }}>
             {FONT_SCALES.map((f) => (
               <button key={f.id} className={`btn ${fontScale === f.id ? "btn-toggle-on" : ""}`} onClick={() => applyTextSize(f.id)}>
@@ -380,7 +399,25 @@ export default function Account({ user, players, results, addPlayer, setPlayerHi
             <span className="num" style={{ fontSize: "calc(34px * var(--fs))", color: "var(--accent)" }}>180</span>
             <span className="subtle">preview — how scores will look</span>
           </div>
-        </div>
+          </div>
+
+          <div className="card mb-12">
+            <div className="set-toggle">
+              <div>
+                <div className="set-title">Haptics</div>
+                <div className="set-hint" style={{ marginTop: 2 }}>A tap on each dart, a double pulse on a bust, a longer one on a checkout or win. Android only: iPhone browsers can't vibrate yet.</div>
+              </div>
+              <Switch on={haptics} label="Haptics" onChange={(v) => setFeedback({ haptics: v })} />
+            </div>
+            <div className="set-toggle" style={{ marginTop: 16, paddingTop: 16, borderTop: "1px solid var(--line)" }}>
+              <div>
+                <div className="set-title">Sounds</div>
+                <div className="set-hint" style={{ marginTop: 2 }}>A soft tick per dart, a low note on a bust, a chime on a checkout or win.</div>
+              </div>
+              <Switch on={sounds} label="Sounds" onChange={(v) => setFeedback({ sounds: v })} />
+            </div>
+          </div>
+        </>
       )}
 
       {section === "account" && (
@@ -389,6 +426,18 @@ export default function Account({ user, players, results, addPlayer, setPlayerHi
             <div className="set-title">Signed In As</div>
             <div style={{ fontWeight: 600, marginTop: 4, overflowWrap: "anywhere" }}>{user?.email}</div>
           </div>
+
+          {myPlayer && (
+              <div className="card mb-12 between" style={{ gap: 12 }}>
+                <div>
+                  <div className="set-title">Show on Leaderboard</div>
+                  <div className="set-hint" style={{ marginTop: 2 }}>{myPlayer.hidden ? "You're hidden from the standings." : "You're visible in the standings."}</div>
+                </div>
+                <button className={`btn ${myPlayer.hidden ? "" : "btn-toggle-on"}`} style={{ minWidth: 92 }} onClick={toggleLeaderboard} disabled={hideBusy}>
+                  {hideBusy ? "…" : myPlayer.hidden ? "Show me" : "Hide me"}
+                </button>
+              </div>
+          )}
 
           {onOpenFriends && (
             <div className="card mb-12 between" style={{ gap: 12 }}>
@@ -431,14 +480,18 @@ export default function Account({ user, players, results, addPlayer, setPlayerHi
 
       {dirty && (
         <div className="save-bar" role="region" aria-label="Unsaved changes">
-          <div className="save-bar-text">
-            <strong>Unsaved changes</strong>
-            {(problem || (note && !note.ok)) && <span className="save-bar-error">{problem || note.text}</span>}
+          <div className="save-bar-inner">
+            <div className="save-bar-text">
+              <strong>Unsaved changes</strong>
+              {(problem || (note && !note.ok)) && <span className="save-bar-error">{problem || note.text}</span>}
+            </div>
+            <div className="save-bar-actions">
+              <button type="button" className="btn btn-sm" onClick={discard} disabled={busy}>Discard</button>
+              <button type="button" className="btn btn-sm btn-primary" onClick={save} disabled={busy || !!problem}>
+                {busy ? "Saving…" : "Save Changes"}
+              </button>
+            </div>
           </div>
-          <button type="button" className="btn btn-sm" onClick={discard} disabled={busy}>Discard</button>
-          <button type="button" className="btn btn-sm btn-primary" onClick={save} disabled={busy || !!problem}>
-            {busy ? "Saving…" : "Save Changes"}
-          </button>
         </div>
       )}
 

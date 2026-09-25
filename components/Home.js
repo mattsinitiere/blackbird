@@ -1,9 +1,10 @@
 import { useState, useMemo } from "react";
-import { PlayerBadge, pressProps } from "./ui";
+import { PlayerBadge, pressProps, UndoIcon } from "./ui";
 import { BarChart } from "./Charts";
 import WelcomeCard from "./WelcomeCard";
 import { BASE_ELO } from "@/lib/constants";
 import { gamesPerWeek } from "@/lib/stats";
+import { lastGameFor, playAgainLabel } from "@/lib/playAgain";
 
 const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
 const WEEKS = 13; // ~3 months
@@ -87,7 +88,7 @@ function HighlightIcon({ type }) {
   return <svg {...props}><circle cx="9" cy="9" r="7" /><path d="M6 6l6 6M12 6l-6 6" /></svg>;
 }
 
-export default function Home({ setView, openSetup, stats, elo, players, results, me, openProfile, playerColors, practice = [], social = null, following = [], userId = null }) {
+export default function Home({ setView, openSetup, stats, elo, players, results, me, openProfile, playerColors, practice = [], social = null, following = [], userId = null, onPlayAgain = null, pendingCount = 0, onSyncNow = null }) {
   const visible = players.filter((p) => !p.hidden);
   // the signed-in player's own ranked games, one bar per week
   const weekly = useMemo(() => gamesPerWeek((results || []).filter((r) => r.username === me)), [results, me]);
@@ -97,6 +98,7 @@ export default function Home({ setView, openSetup, stats, elo, players, results,
     .sort((a, b) => b.elo - a.elo);
 
   const highlights = useMemo(() => computeHighlights(results), [results]);
+  const lastGame = useMemo(() => lastGameFor([...(results || []), ...(practice || [])], me), [results, practice, me]);
 
   const podiumOrder = ranked.length >= 3 ? [ranked[1], ranked[0], ranked[2]] : ranked.slice(0, 3);
   const podiumHeights = [100, 140, 80];
@@ -107,6 +109,7 @@ export default function Home({ setView, openSetup, stats, elo, players, results,
       <WelcomeCard
         me={me}
         userId={userId}
+        elo={elo}
         stats={stats}
         results={results}
         practice={practice}
@@ -122,6 +125,23 @@ export default function Home({ setView, openSetup, stats, elo, players, results,
       >
         Start a Game
       </button>
+      {lastGame && onPlayAgain && (
+        <button className="btn play-again" onClick={() => onPlayAgain(lastGame)}>
+          <UndoIcon /> <span className="play-again-text">Play Again: {playAgainLabel(lastGame)}</span>
+        </button>
+      )}
+      {pendingCount > 0 && (
+        <div className="sync-note" role="status">
+          <span>
+            {pendingCount} {pendingCount === 1 ? "game" : "games"} waiting to sync
+          </span>
+          {onSyncNow && (
+            <button type="button" className="btn btn-sm" onClick={onSyncNow}>
+              Sync Now
+            </button>
+          )}
+        </div>
+      )}
       <button
         className="btn mb-12"
         style={{ width: "100%", marginTop: 8, fontSize: "calc(15px * var(--fs))", padding: 13 }}

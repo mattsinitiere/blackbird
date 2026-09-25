@@ -1,3 +1,4 @@
+import { feedback } from "@/lib/feedback";
 import { useState, useEffect } from "react";
 import DartBoard from "./DartBoard";
 import { dartLabel } from "@/lib/darts";
@@ -95,6 +96,7 @@ export default function PlayCheckoutDrill({ game, resume, onProgress, onFinish, 
       advanceFinish(p, true, p.dartsThis);
     } else {
       if (outcome === "bust") {
+        feedback("bust");
         p.rem = p.visitStart;
         note = "Bust — back to " + p.visitStart;
       } else {

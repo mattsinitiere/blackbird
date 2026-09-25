@@ -1,3 +1,4 @@
+import { feedback } from "@/lib/feedback";
 import { useState, useEffect, useCallback, useRef } from "react";
 import { Modal, PlayerBadge, UndoIcon } from "./ui";
 import DartBoard from "./DartBoard";
@@ -155,6 +156,7 @@ export default function PlayX01({ game, resume, onProgress, onFinish, onQuit, ca
     }
     setS(ns);
     setMsg(kind === "bust" ? "Bust — no score" : "");
+    if (kind === "bust") feedback("bust");
     setTurn((t) => t + 1);
   };
 

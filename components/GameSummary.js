@@ -209,16 +209,21 @@ function SaveLine({ ranked, saveState, saveError, onRetry }) {
   else if (saveState === "saved") {
     text = ranked ? "Saved to stats." : "Saved to your practice log — not counted in stats.";
     color = "var(--accent)";
+  } else if (saveState === "queued") {
+    text = saveError
+      ? `Couldn't reach the server (${saveError}). Saved on this phone; it will sync automatically.`
+      : "Saved on this phone. It will sync when you're back online.";
+    color = "var(--amber)";
   } else if (saveState === "error") {
     text = `Couldn't save: ${saveError || "network error"}`;
     color = "var(--red)";
   } else if (!ranked) text = "Practice game — not counted in stats.";
   else return null;
   return (
-    <div className="between mb-12" style={{ padding: "0 4px" }}>
-      <span className="tag" style={{ textTransform: "none", letterSpacing: 0, color }}>{text}</span>
-      {saveState === "error" && (
-        <button className="btn" style={{ padding: "6px 12px" }} onClick={onRetry}>Retry</button>
+    <div className="mb-12" style={{ padding: "0 4px", display: "flex", alignItems: "center", gap: 10 }}>
+      <span className="tag" style={{ textTransform: "none", letterSpacing: 0, color, flex: 1, minWidth: 0 }}>{text}</span>
+      {(saveState === "error" || saveState === "queued") && (
+        <button className="btn" style={{ padding: "6px 12px", flex: "none" }} onClick={onRetry}>{saveState === "queued" ? "Sync Now" : "Retry"}</button>
       )}
     </div>
   );

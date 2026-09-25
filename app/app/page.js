@@ -3,19 +3,21 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { supabase, isConfigured } from "@/lib/supabase";
-import { getPlayers, addPlayer as dbAddPlayer, linkPlayerAuth as dbLinkPlayerAuth, setPlayerHidden as dbSetPlayerHidden, setPlayerColor as dbSetPlayerColor, updatePlayerProfile as dbUpdatePlayerProfile, getGameResults, recordGame, getFollows, followPlayer as dbFollowPlayer, unfollowPlayer as dbUnfollowPlayer } from "@/lib/db";
+import { getPlayers, addPlayer as dbAddPlayer, linkPlayerAuth as dbLinkPlayerAuth, setPlayerHidden as dbSetPlayerHidden, setPlayerColor as dbSetPlayerColor, updatePlayerProfile as dbUpdatePlayerProfile, getGameResults, recordGame, getFollows, getGameRowsForSync, getEloFor, followPlayer as dbFollowPlayer, unfollowPlayer as dbUnfollowPlayer } from "@/lib/db";
 import { followingUsernames, followerUsernames, circlePlayers as circleOf, followsForSocial } from "@/lib/follows";
 import { normalizeHandle, validateHandle } from "@/lib/profile";
 import { PROFILE_PARAM, resolveProfileParam } from "@/lib/profileLink";
 import { computeStats, eloMapFromPlayers, applyEloUpdate } from "@/lib/stats";
 import { ADMIN_EMAIL, defaultPlayerColor } from "@/lib/constants";
 import { applyFontScale } from "@/lib/prefs";
+import { feedback, setFeedbackPrefs } from "@/lib/feedback";
 import { makeCastCode, openCastChannel, castAvailable, stripHistory } from "@/lib/cast";
 import { buildSummary } from "@/lib/summary";
 import { isRankedMatch, splitResults, botLadder, buildResultRows, humanPlayers, resultFromRow, newlyUnlockedBot } from "@/lib/practice";
 import { computeAchievements, diffUnlocked, seenKey, readSeen, writeSeen } from "@/lib/achievements";
 import { botColors, isBot } from "@/lib/bots";
 import { rematchGame } from "@/lib/games";
+import { readPending, enqueuePending, flushPending } from "@/lib/pendingGames";
 import { Logo, CastIcon, PlayerBadge, Modal, pressProps, PlayerLookContext, HomeIcon, PlayIcon, StatsIcon, MatchupIcon, SparkleIcon } from "@/components/ui";
 import Home from "@/components/Home";
 import Setup from "@/components/Setup";
@@ -173,7 +175,8 @@ export default function Page() {
   // result saves in the background. lastFinishedRef answers a TV that
   // joins after the final dart.
   const [finished, setFinished] = useState(null); // { summary, match, game, eloAfter }
-  const [saveState, setSaveState] = useState("idle"); // idle | saving | saved | error
+  const [saveState, setSaveState] = useState("idle"); // idle | saving | saved | queued | error
+  const [pendingCount, setPendingCount] = useState(0);
   const [saveError, setSaveError] = useState("");
   const lastFinishedRef = useRef(null);
   const [profileUser, setProfileUser] = useState(null);
@@ -244,7 +247,22 @@ export default function Page() {
     document.documentElement.dataset.theme = meta.theme === "dark" ? "dark" : "light";
     document.documentElement.style.removeProperty("--accent");
     applyFontScale(meta.fontScale);
+    setFeedbackPrefs({ haptics: meta.haptics !== false, sounds: meta.sounds === true });
   }, [session]);
+
+  // a tap on any dart key (every game mode uses .chip keys) gets a light
+  // haptic / tick; undo does not. Busts and big moments are triggered by
+  // the game screens and the celebration overlay.
+  const onPlayScreenRef = useRef(false);
+  useEffect(() => {
+    const onDown = (e) => {
+      if (!onPlayScreenRef.current) return;
+      const key = e.target instanceof Element ? e.target.closest(".chip") : null;
+      if (key && !key.classList.contains("chip-undo") && !key.disabled) feedback("dart");
+    };
+    document.addEventListener("pointerdown", onDown, { passive: true });
+    return () => document.removeEventListener("pointerdown", onDown);
+  }, []);
 
   // Signed-out visitors belong on /login (or on / right after signing out).
   // The redirect fires as soon as auth state is known, without waiting for
@@ -286,6 +304,26 @@ export default function Page() {
     };
     document.addEventListener("visibilitychange", onFocus);
     return () => document.removeEventListener("visibilitychange", onFocus);
+  }, [session, refresh]);
+
+  // live updates: a friend's finished game, a follow or a profile change
+  // refreshes the data, debounced so a burst of rows causes one refresh
+  useEffect(() => {
+    if (!session || !supabase?.channel) return;
+    let timer = null;
+    const bump = () => {
+      clearTimeout(timer);
+      timer = setTimeout(() => {
+        if (document.visibilityState === "visible") refresh();
+      }, 1500);
+    };
+    const ch = supabase.channel("bb-live");
+    for (const table of ["game_results", "follows", "players"]) ch.on("postgres_changes", { event: "*", schema: "public", table }, bump);
+    ch.subscribe();
+    return () => {
+      clearTimeout(timer);
+      supabase.removeChannel(ch);
+    };
   }, [session, refresh]);
 
   const backfillRan = useRef(false);
@@ -414,6 +452,7 @@ export default function Page() {
     return players.find((p) => p.authId === uid) || players.find((p) => p.username.toLowerCase() === name) || null;
   }, [players, session]);
 
+  const userId = session?.user?.id || null;
   const saveMatch = useCallback(async (match, eloAfter, ranked) => {
     setSaveState("saving");
     setSaveError("");
@@ -433,10 +472,41 @@ export default function Page() {
       await refresh();
       setSaveState("saved");
     } catch (e) {
-      setSaveState("error");
-      setSaveError(e?.message || "");
+      // keep it on this phone and send it later, instead of losing the game
+      setPendingCount(enqueuePending(userId, { match, ranked }));
+      setSaveState("queued");
+      setSaveError(typeof navigator !== "undefined" && navigator.onLine === false ? "" : e?.message || "");
     }
-  }, [refresh, elo]);
+  }, [refresh, elo, userId]);
+
+  // send games that couldn't be saved: on open, when the connection
+  // returns, and when the app comes back to the foreground
+  const finishedIdRef = useRef(null);
+  const flushQueue = useCallback(async () => {
+    if (!userId || !readPending(userId).length) return;
+    if (typeof navigator !== "undefined" && navigator.onLine === false) return;
+    const { saved, left } = await flushPending(userId, { existingRows: getGameRowsForSync, currentElo: getEloFor, record: recordGame });
+    setPendingCount(left);
+    if (saved.length) {
+      if (saved.includes(finishedIdRef.current)) {
+        setSaveState("saved");
+        setSaveError("");
+      }
+      await refresh();
+    }
+  }, [userId, refresh]);
+  useEffect(() => {
+    if (!userId) return;
+    setPendingCount(readPending(userId).length);
+    flushQueue();
+    const onVisible = () => document.visibilityState === "visible" && flushQueue();
+    window.addEventListener("online", flushQueue);
+    document.addEventListener("visibilitychange", onVisible);
+    return () => {
+      window.removeEventListener("online", flushQueue);
+      document.removeEventListener("visibilitychange", onVisible);
+    };
+  }, [userId, flushQueue]);
 
   const finishMatch = useCallback(async (match) => {
     // block the play component's trailing onProgress (it re-renders while
@@ -497,6 +567,7 @@ export default function Page() {
     match.gameId =
       (typeof crypto !== "undefined" && crypto.randomUUID && crypto.randomUUID()) ||
       `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+    finishedIdRef.current = match.gameId;
     await saveMatch(match, eloAfter, ranked);
   }, [elo, playerColors, playerMeta, persistLive, saveMatch, results, practice, circlePlayers, social, myName, session]);
 
@@ -600,6 +671,7 @@ export default function Page() {
   };
 
   const ALL_PLAY_VIEWS = Object.values(PLAY_VIEWS);
+  onPlayScreenRef.current = ALL_PLAY_VIEWS.includes(view);
   const playViewFor = (gt) => PLAY_VIEWS[gt] || "playX01";
   const goPlay = () => (live ? setView(playViewFor(live.gameType)) : openSetup(null));
   const askQuit = () => setQuitAsk(true);
@@ -663,7 +735,7 @@ export default function Page() {
         )}
 
         {view === "home" && (
-          <Home setView={setView} openSetup={openSetup} stats={stats} elo={elo} players={circlePlayers} results={results} me={myName} openProfile={openProfile} playerColors={playerColors} practice={practice} social={social} following={following ? [...following] : []} userId={session.user?.id} />
+          <Home setView={setView} openSetup={openSetup} stats={stats} elo={elo} players={circlePlayers} results={results} me={myName} openProfile={openProfile} playerColors={playerColors} practice={practice} social={social} following={following ? [...following] : []} userId={session.user?.id} onPlayAgain={(g) => startGame(rematchGame(g))} pendingCount={pendingCount} onSyncNow={flushQueue} />
         )}
         {view === "setup" && (
           <Setup
@@ -729,7 +801,12 @@ export default function Page() {
             summary={finished.summary}
             saveState={saveState}
             saveError={saveError}
-            onRetrySave={() => saveMatch(finished.match, finished.eloAfter, finished.ranked)}
+            onRetrySave={async () => {
+              if (saveState !== "queued") return saveMatch(finished.match, finished.eloAfter, finished.ranked);
+              setSaveState("saving");
+              await flushQueue();
+              setSaveState((st) => (st === "saving" ? "queued" : st));
+            }}
             onRematch={() => startGame(rematchGame(finished.game || { ...finished.match, id: "" }))}
             onNewGame={() => setView("setup")}
             bot={finished.botId ? { id: finished.botId, unlocked: finished.unlockedBot } : null}
@@ -789,7 +866,7 @@ export default function Page() {
           <GameDetail rows={gameRows} playerColors={playerColors} back={() => setView(gameFrom)} />
         )}
         {view === "matchup" && (
-          <Matchup usernames={visibleUsernames} elo={elo} results={results} stats={stats} back={null} playerColors={playerColors} />
+          <Matchup usernames={visibleUsernames} me={myName} elo={elo} results={results} stats={stats} playerColors={playerColors} openGame={openGame} openSetup={openSetup} />
         )}
         {view === "ai" && (
           <BlackbirdAI me={myName} userId={session.user?.id} stats={stats} elo={elo} results={results} practice={practice} players={circlePlayers} social={social} playerColors={playerColors} />

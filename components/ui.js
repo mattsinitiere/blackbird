@@ -1,4 +1,5 @@
-import { createContext, useContext } from "react";
+import { createContext, useContext, useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import { defaultPlayerColor } from "@/lib/constants";
 import { playerLabel, isBot } from "@/lib/bots";
 import { isTagIcon, tagLabel } from "@/lib/profile";
@@ -177,7 +178,7 @@ export function PersonIcon({ size = "1.2em" }) {
   );
 }
 
-function isLight(hex) {
+export function isLight(hex) {
   const c = hex.replace("#", "");
   const r = parseInt(c.substring(0, 2), 16);
   const g = parseInt(c.substring(2, 4), 16);
@@ -257,11 +258,38 @@ export function BackBar({ back, title }) {
   );
 }
 
+/**
+ * A dimmed layer over the whole screen. Rendered into document.body (a
+ * portal) because every screen lives inside the app's scroll area and an
+ * animated .fade wrapper; on iPhone a fixed element in there is pinned to
+ * the scrolling content, not the screen. While open, the app's scroll
+ * area is locked so the page can't move behind it.
+ */
+export function Overlay({ children, onBackdrop, label }) {
+  const [host, setHost] = useState(null);
+  useEffect(() => {
+    setHost(document.body);
+    const scrollers = [...document.querySelectorAll(".scroll")];
+    const prev = scrollers.map((el) => el.style.overflowY);
+    scrollers.forEach((el) => (el.style.overflowY = "hidden"));
+    return () => scrollers.forEach((el, i) => (el.style.overflowY = prev[i]));
+  }, []);
+  if (!host) return null;
+  return createPortal(
+    <div className="modal-backdrop" onClick={onBackdrop} role="presentation" aria-label={label}>
+      {children}
+    </div>,
+    host
+  );
+}
+
 export function Modal({ children }) {
   return (
-    <div className="modal-backdrop">
-      <div className="modal fade">{children}</div>
-    </div>
+    <Overlay>
+      <div className="modal fade" role="dialog" aria-modal="true" onClick={(e) => e.stopPropagation()}>
+        {children}
+      </div>
+    </Overlay>
   );
 }
 

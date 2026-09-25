@@ -1,3 +1,4 @@
+import { feedback as haptic } from "@/lib/feedback";
 import { useState, useEffect } from "react";
 import DartBoard from "./DartBoard";
 import { dartValue, dartLabel } from "@/lib/darts";
@@ -46,6 +47,7 @@ export default function PlayGotcha({ game, resume, onProgress, onFinish, onQuit,
       ns.scores[cur] = target;
     } else if (kind === "bust") {
       feedback = "BUST!";
+      haptic("bust");
     } else {
       ns.scores[cur] += sum;
       // Check if our new score matches any other player -> reset them

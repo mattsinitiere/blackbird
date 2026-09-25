@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { feedback, kindForCelebration } from "@/lib/feedback";
 
 const PARTICLES = Array.from({ length: 36 }, (_, i) => ({
   left: ((i * 37 + 11) % 100),
@@ -11,6 +12,12 @@ const PARTICLES = Array.from({ length: 36 }, (_, i) => ({
 
 export default function Celebration({ type, label, onDone }) {
   const [visible, setVisible] = useState(true);
+
+  // haptics / sound for the moment (Settings → Accessibility)
+  useEffect(() => {
+    const k = kindForCelebration(type);
+    if (k) feedback(k);
+  }, [type]);
 
   useEffect(() => {
     const t = setTimeout(() => {

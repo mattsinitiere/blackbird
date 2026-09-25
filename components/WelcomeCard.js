@@ -4,6 +4,8 @@ import BadgeMedal from "./BadgeMedal";
 import BadgeDetail from "./BadgeDetail";
 import { computeAchievements } from "@/lib/achievements";
 import { greeting, welcomeInsights, pickInsight } from "@/lib/welcome";
+import { currentStreak } from "@/lib/playAgain";
+import { BASE_ELO } from "@/lib/constants";
 
 /**
  * Home's welcome card: a greeting and one insight from the player's own
@@ -11,7 +13,7 @@ import { greeting, welcomeInsights, pickInsight } from "@/lib/welcome";
  * remembered on this device) but stays put while you move around the app.
  * The last-visit time is also per device, per account.
  */
-export default function WelcomeCard({ me, userId, stats, results, practice, social, following, playerColors, onRematch }) {
+export default function WelcomeCard({ me, userId, elo, stats, results, practice, social, following, playerColors, onRematch }) {
   const [state, setState] = useState(null); // { prevVisit, lastKind, pickedKind }
   const [openBadge, setOpenBadge] = useState(null);
 
@@ -61,11 +63,34 @@ export default function WelcomeCard({ me, userId, stats, results, practice, soci
   }, [state, insight]);
 
   if (!me) return null;
+  const mine = stats?.[me];
+  const myElo = Math.round(elo?.[me] || BASE_ELO);
+  const streak = currentStreak(mine?.lastFive);
+  const today = new Date().toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric" });
   return (
-    <section className="card mb-12 welcome" aria-label="Welcome">
+    <section className="mb-12 welcome" aria-label="Welcome">
       <div className="welcome-top">
-        <PlayerBadge username={me} color={playerColors?.[me]} size={40} showName={false} />
-        <h2 className="welcome-hello">{greeting(me, new Date(), state?.prevVisit)}</h2>
+        <div style={{ minWidth: 0, flex: 1 }}>
+          <div className="welcome-date">{today}</div>
+          <h2 className="welcome-hello">{greeting(me, new Date(), state?.prevVisit)}</h2>
+        </div>
+        <span className="welcome-avatar">
+          <PlayerBadge username={me} color={playerColors?.[me]} size={52} showName={false} />
+        </span>
+      </div>
+      <div className="welcome-stats">
+        <div className="welcome-stat">
+          <span className="welcome-stat-val num">{myElo}</span>
+          <span className="welcome-stat-label">Elo</span>
+        </div>
+        <div className="welcome-stat">
+          <span className="welcome-stat-val num">{mine?.games ? `${mine.wins}–${mine.games - mine.wins}` : "0–0"}</span>
+          <span className="welcome-stat-label">Record</span>
+        </div>
+        <div className="welcome-stat">
+          <span className="welcome-stat-val num">{streak || "–"}</span>
+          <span className="welcome-stat-label">Streak</span>
+        </div>
       </div>
       {insight && (
         <div className={`welcome-insight is-${insight.kind}`}>
@@ -86,7 +111,7 @@ export default function WelcomeCard({ me, userId, stats, results, practice, soci
             <p className="welcome-text">{insight.text}</p>
           )}
           {insight.kind === "rival" && onRematch && (
-            <button type="button" className="btn btn-sm" onClick={() => onRematch(insight.opponent)}>
+            <button type="button" className="btn btn-sm welcome-action" onClick={() => onRematch(insight.opponent)}>
               Rematch
             </button>
           )}
