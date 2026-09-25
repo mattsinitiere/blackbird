@@ -4025,7 +4025,8 @@ html:not([data-theme="dark"]) .app.is-profile {
   border-radius: 12px;
 }
 
-/* Tale of the Tape: hover or tap a bar for the split */
+/* Tale of the Tape: hover or tap a bar and it thickens to show the split.
+   The bar's slot is always as tall as the open bar, so nothing moves. */
 .mu-mid-btn {
   padding: 4px 2px;
   border: 0;
@@ -4036,33 +4037,53 @@ html:not([data-theme="dark"]) .app.is-profile {
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
 }
-.mu-mid-btn.is-open {
-  background: var(--surface-2);
-}
 .mu-mid-btn:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 1px;
 }
 .mu-mid-btn .mu-gap {
   display: flex;
+  align-items: center;
+  height: 16px;
 }
-.mu-split {
+.mu-mid-btn .mu-gap i {
+  position: relative;
+  height: 4px;
+  overflow: hidden;
+  transition: height 0.18s ease;
+}
+.mu-mid-btn .mu-gap i:first-child {
+  border-radius: 999px 0 0 999px;
+}
+.mu-mid-btn .mu-gap i:last-child {
+  border-radius: 0 999px 999px 0;
+}
+.mu-mid-btn .mu-gap em {
+  position: absolute;
+  inset: 0;
   display: flex;
-  flex-wrap: wrap;
+  align-items: center;
   justify-content: center;
-  align-items: baseline;
-  gap: 2px 6px;
-  font-size: calc(12px * var(--fs));
-  color: var(--muted);
+  font-style: normal;
+  font-size: calc(11px * var(--fs));
+  font-weight: 700;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  opacity: 0;
+  transition: opacity 0.12s ease;
 }
-.mu-split-gap {
-  flex-basis: 100%;
-  text-align: center;
-  font-weight: 600;
-  color: var(--ink-soft);
+.mu-mid-btn.is-open .mu-gap i {
+  height: 16px;
 }
-.container-fill .mu-tape.has-open {
-  max-height: none;
+.mu-mid-btn.is-open .mu-gap em {
+  opacity: 1;
+  transition-delay: 0.08s;
+}
+@media (prefers-reduced-motion: reduce) {
+  .mu-mid-btn .mu-gap i,
+  .mu-mid-btn .mu-gap em {
+    transition: none;
+  }
 }
 @media (min-width: 900px) {
   .charts-2col > .card.is-wide {

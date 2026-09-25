@@ -89,7 +89,7 @@ export default function Matchup({ usernames, me, elo, results, stats, playerColo
       </div>
 
       {tab === "tape" ? (
-        <section className={`card mu-card mu-tape${openRow ? " has-open" : ""}`} aria-label="Tale of the tape" style={{ "--rows": tape.length + ((stats?.[a]?.lastFive?.length > 0 || stats?.[b]?.lastFive?.length > 0) ? 1 : 0) }}>
+        <section className="card mu-card mu-tape" aria-label="Tale of the tape" style={{ "--rows": tape.length + ((stats?.[a]?.lastFive?.length > 0 || stats?.[b]?.lastFive?.length > 0) ? 1 : 0) }}>
           {tape.map((r) => (
             <TapeRow key={r.key} row={r} nameA={a} nameB={b} colA={colorOf(a)} colB={colorOf(b)} open={openRow === r.key} onOpen={(on) => setOpenRow(on ? r.key : null)} />
           ))}
@@ -157,7 +157,23 @@ function fg(color) {
 
 const GAP_DIGITS = { avg: 1, runs: 1, mpr: 2 };
 
-/** One tale-of-the-tape row; hover or tap the bar to read the split. */
+/**
+ * A bar segment. The weaker side is a tint rather than a lower opacity, so
+ * its percentage stays readable when the bar opens.
+ */
+function seg(col, width, weaker) {
+  return {
+    width: `${width}%`,
+    background: weaker ? `color-mix(in srgb, ${col} 35%, transparent)` : col,
+    color: weaker ? "var(--ink)" : fg(col),
+  };
+}
+
+/**
+ * One tale-of-the-tape row; hover or tap the bar and it thickens to show
+ * each side's share inside it. Opening never changes the row's height, so
+ * the rows can't shift under the pointer.
+ */
 function TapeRow({ row, nameA, nameB, colA, colB, open, onOpen }) {
   const total = row.av + row.bv;
   const share = total > 0 ? (row.av / total) * 100 : 50;
@@ -174,24 +190,17 @@ function TapeRow({ row, nameA, nameB, colA, colB, open, onOpen }) {
         type="button"
         className={`mu-mid mu-mid-btn${open ? " is-open" : ""}`}
         aria-expanded={open}
-        aria-label={`${row.label}: ${nameA} ${row.a}, ${nameB} ${row.b}. Show split`}
+        aria-label={`${row.label}: ${nameA} ${row.a} (${pa}%), ${nameB} ${row.b} (${100 - pa}%). ${gapText}`}
+        title={gapText}
         onClick={() => onOpen(!open)}
         onMouseEnter={hover ? () => onOpen(true) : undefined}
         onMouseLeave={hover ? () => onOpen(false) : undefined}
       >
         <span className="mu-label">{row.label}</span>
         <span className="mu-gap" aria-hidden="true">
-          <i style={{ width: `${share}%`, background: colA, opacity: row.better === "b" ? 0.35 : 1 }} />
-          <i style={{ width: `${100 - share}%`, background: colB, opacity: row.better === "a" ? 0.35 : 1 }} />
+          <i style={seg(colA, share, row.better === "b")}>{share >= 16 && <em>{pa}%</em>}</i>
+          <i style={seg(colB, 100 - share, row.better === "a")}>{100 - share >= 16 && <em>{100 - pa}%</em>}</i>
         </span>
-        {open && (
-          <span className="mu-split" role="status">
-            <b style={{ color: "var(--ink)" }}>{pa}%</b>
-            <span>·</span>
-            <b style={{ color: "var(--ink)" }}>{100 - pa}%</b>
-            <span className="mu-split-gap">{gapText}</span>
-          </span>
-        )}
       </button>
       <span className={`mu-val num is-b ${row.better === "b" ? "is-better" : ""}`} style={pill("b", colB)}>{row.b}</span>
     </div>
