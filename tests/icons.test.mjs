@@ -29,3 +29,9 @@ test("icon paths are well formed", () => {
     }
   }
 });
+
+test("every bot has its own portrait", async () => {
+  const src = (await import("node:fs")).readFileSync(new URL("../components/BotAvatar.js", import.meta.url), "utf8");
+  const { BOTS } = await import("../lib/bots.js");
+  for (const b of BOTS) assert.ok(src.includes(`"${b.id}": () =>`), `${b.id} has no portrait`);
+});

@@ -125,3 +125,15 @@ test("computePractice: counts, personal bests, trends and ladder", async () => {
   assert.equal(p.recent[0].completedAt, day(17));
   assert.equal(p.recent.length, 7);
 });
+
+test("newlyUnlockedBot: the bot a win opens, and nothing otherwise", async () => {
+  const { botLadder, newlyUnlockedBot } = await import("../lib/practice.js");
+  const { BOTS } = await import("../lib/bots.js");
+  const row = (winner) => ({ username: "Ann", opponents: [BOTS[0].id], winner, result: "practice", completedAt: "2026-09-01T00:00:00Z" });
+  const before = botLadder([row(BOTS[0].id)], "Ann");
+  const afterWin = botLadder([row(BOTS[0].id), row("Ann")], "Ann");
+  assert.equal(newlyUnlockedBot(before, afterWin)?.id, BOTS[1].id);
+  const afterLoss = botLadder([row(BOTS[0].id), row(BOTS[0].id)], "Ann");
+  assert.equal(newlyUnlockedBot(before, afterLoss), null);
+  assert.equal(newlyUnlockedBot(afterWin, botLadder([row("Ann"), row("Ann")], "Ann")), null, "beating it again unlocks nothing new");
+});

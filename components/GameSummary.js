@@ -2,6 +2,8 @@ import { useState, useCallback } from "react";
 import { PlayerBadge, UndoIcon } from "./ui";
 import Celebration from "./Celebration";
 import BadgeMedal from "./BadgeMedal";
+import BotAvatar from "./BotAvatar";
+import { botFor } from "@/lib/bots";
 
 function EloDelta({ elo, size = 12 }) {
   if (!elo) return null;
@@ -21,7 +23,7 @@ function EloDelta({ elo, size = 12 }) {
  * End-of-game screen. Pure presentation of a summary from lib/summary.js;
  * the shell owns saving, rematch and navigation.
  */
-export default function GameSummary({ summary, saveState, saveError, onRetrySave, onRematch, onNewGame, onDone, onOpenReport, playerColors, newBadges = [] }) {
+export default function GameSummary({ summary, saveState, saveError, onRetrySave, onRematch, onNewGame, onDone, onOpenReport, playerColors, newBadges = [], bot = null, onChooseBot, onPlayBot, onPracticeHub }) {
   // the winner moment, then one moment per badge unlocked by this game.
   // `next` is stable so the overlay's timer never restarts on re-render.
   const [queue, setQueue] = useState(() => [
@@ -141,14 +143,61 @@ export default function GameSummary({ summary, saveState, saveError, onRetrySave
         </button>
       )}
 
-      <button className="btn btn-primary" style={{ width: "100%", fontSize: "calc(16px * var(--fs))", padding: 16, display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 8 }} onClick={onRematch}>
-        <UndoIcon /> Rematch
+      {bot ? (
+        <BotActions bot={bot} onRematch={onRematch} onChooseBot={onChooseBot} onPlayBot={onPlayBot} onPracticeHub={onPracticeHub} />
+      ) : (
+        <>
+          <button className="btn btn-primary" style={{ width: "100%", fontSize: "calc(16px * var(--fs))", padding: 16, display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 8 }} onClick={onRematch}>
+            <UndoIcon /> Rematch
+          </button>
+          <div className="row" style={{ marginTop: 10 }}>
+            <button className="btn" style={{ flex: 1 }} onClick={onNewGame}>New Game</button>
+            <button className="btn" style={{ flex: 1 }} onClick={onDone}>{ranked ? "View Standings" : "Done"}</button>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+/**
+ * After a bot game: a newly unlocked opponent first (the natural next
+ * step), then rematch, pick another bot, or back to the practice hub.
+ */
+function BotActions({ bot, onRematch, onChooseBot, onPlayBot, onPracticeHub }) {
+  const b = botFor(bot.id);
+  const next = bot.unlocked;
+  return (
+    <>
+      {next && (
+        <div className="card mb-12 bot-unlock">
+          <BotAvatar bot={next} size={64} />
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div className="tag" style={{ color: "var(--live)" }}>New Opponent Unlocked</div>
+            <div className="bot-unlock-name">{next.name}</div>
+            <div className="tag" style={{ textTransform: "none", letterSpacing: 0 }}>
+              Level {next.level} · {next.avg} average. {next.blurb}
+            </div>
+          </div>
+        </div>
+      )}
+      {next && onPlayBot && (
+        <button className="btn btn-primary mb-12" style={{ width: "100%", fontSize: "calc(16px * var(--fs))", padding: 16 }} onClick={() => onPlayBot(next.id)}>
+          Play {next.name}
+        </button>
+      )}
+      <button
+        className={`btn ${next ? "" : "btn-primary"}`}
+        style={{ width: "100%", fontSize: "calc(16px * var(--fs))", padding: 16, display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 8 }}
+        onClick={onRematch}
+      >
+        <UndoIcon /> Rematch {b ? b.name : "Bot"}
       </button>
       <div className="row" style={{ marginTop: 10 }}>
-        <button className="btn" style={{ flex: 1 }} onClick={onNewGame}>New Game</button>
-        <button className="btn" style={{ flex: 1 }} onClick={onDone}>{ranked ? "View Standings" : "Done"}</button>
+        {onChooseBot && <button className="btn" style={{ flex: 1 }} onClick={onChooseBot}>Choose Opponent</button>}
+        {onPracticeHub && <button className="btn" style={{ flex: 1 }} onClick={onPracticeHub}>Practice Hub</button>}
       </div>
-    </div>
+    </>
   );
 }
 

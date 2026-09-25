@@ -1,10 +1,12 @@
 import { useState, useRef, useCallback } from "react";
 import { BackBar, PlayerBadge, ShuffleIcon, DragIcon, pressProps } from "./ui";
-import { CRICKET_VARIANTS } from "@/lib/constants";
 import { assignKillerNumbers, newGameId } from "@/lib/games";
 import { PRACTICE_ONLY } from "@/lib/practice";
 import { SCORING_TARGETS, SCORING_TURNS, scoringTargetLabel } from "@/lib/drills";
-import { BOT_GAMES, botFor } from "@/lib/bots";
+import { BOT_GAMES } from "@/lib/bots";
+import BotAvatar from "./BotAvatar";
+import { ChevronIcon } from "./profile/icons";
+import { X01Options, CricketOptions, BaseballNote } from "./GameOptions";
 
 function useDragReorder(selected, setSelected) {
   const dragIdx = useRef(null);
@@ -85,27 +87,7 @@ function useDragReorder(selected, setSelected) {
   return { onDragStart, onDragOver, onDragEnd, onTouchStart, onTouchMove, onTouchEnd, pillRefs };
 }
 
-function LockIcon({ size = "1em" }) {
-  return (
-    <svg viewBox="0 0 24 24" width={size} height={size} fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" style={{ display: "block", flex: "none" }}>
-      <rect x="5" y="11" width="14" height="10" rx="2" />
-      <path d="M8 11V7a4 4 0 0 1 8 0v4" />
-    </svg>
-  );
-}
-
-function BotIcon({ size = "1em" }) {
-  return (
-    <svg viewBox="0 0 24 24" width={size} height={size} fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" style={{ display: "block", flex: "none" }}>
-      <rect x="4" y="8" width="16" height="12" rx="3" />
-      <path d="M12 8V4M8 4h8" />
-      <circle cx="9" cy="14" r="1.2" fill="currentColor" stroke="none" />
-      <circle cx="15" cy="14" r="1.2" fill="currentColor" stroke="none" />
-    </svg>
-  );
-}
-
-export default function Setup({ players, onStart, back, me, playerColors, ladder = [], initial = null, onOpenFriends = null }) {
+export default function Setup({ players, onStart, back, me, playerColors, initial = null, onOpenFriends = null, onOpenBots = null }) {
   const meName = (me || "").trim();
   const [selected, setSelected] = useState(meName ? [meName] : []);
   const [gameType, setGameType] = useState(initial?.gameType || "x01");
@@ -119,21 +101,8 @@ export default function Setup({ players, onStart, back, me, playerColors, ladder
   const [checkoutCount, setCheckoutCount] = useState(10);
   const [scoringTarget, setScoringTarget] = useState(20);
   const [scoringTurns, setScoringTurns] = useState(10);
-  // a bot opponent: exactly one human vs one bot, saved as practice
-  const [botId, setBotId] = useState(initial?.bot || null);
-
-  const add = (u) => {
-    setBotId(null); // a second person means friends, not the bot
-    setSelected((s) => (s.length < 4 && !s.includes(u) ? [...s, u] : s));
-  };
-  const pickBot = (id) => {
-    setBotId(id);
-    setSelected((s) => (s.length ? [s[0]] : meName ? [meName] : s));
-  };
-  const chooseGame = (k) => {
-    setGameType(k);
-    if (!BOT_GAMES.has(k)) setBotId(null);
-  };
+  const add = (u) => setSelected((s) => (s.length < 4 && !s.includes(u) ? [...s, u] : s));
+  const chooseGame = (k) => setGameType(k);
   const remove = (u) => setSelected((s) => s.filter((x) => x !== u));
   const shuffle = () => setSelected((s) => {
     const a = [...s];
@@ -154,11 +123,11 @@ export default function Setup({ players, onStart, back, me, playerColors, ladder
 
   const solo = selected.length === 1;
   const drill = PRACTICE_ONLY.has(gameType);
-  const bot = botId ? botFor(botId) : null;
-  const botAllowed = BOT_GAMES.has(gameType);
+  // bot games have their own screen (components/BotSetup.js)
+  const botAllowed = BOT_GAMES.has(gameType) && !!onOpenBots;
   const needsTwo = gameType === "tictactoe" || gameType === "killer" || gameType === "gotcha";
   const exactTwo = gameType === "tictactoe";
-  const canStart = bot ? selected.length === 1 : exactTwo ? selected.length === 2 : needsTwo ? selected.length >= 2 : selected.length >= 1;
+  const canStart = exactTwo ? selected.length === 2 : needsTwo ? selected.length >= 2 : selected.length >= 1;
 
   const start = () => {
     let config = {};
@@ -169,11 +138,10 @@ export default function Setup({ players, onStart, back, me, playerColors, ladder
     else if (gameType === "killer") config = { numbers: assignKillerNumbers(selected), lives: killerLives };
     else if (gameType === "checkoutDrill") config = { count: checkoutCount };
     else if (gameType === "scoringDrill") config = { target: scoringTarget, turns: scoringTurns };
-    if (bot) config.bot = { id: bot.id, level: bot.level };
     onStart({
       id: newGameId(),
       gameType,
-      players: bot ? [...selected, bot.id] : selected, // the person throws first
+      players: selected,
       config,
       startedAt: new Date().toISOString(),
     });
@@ -290,77 +258,12 @@ export default function Setup({ players, onStart, back, me, playerColors, ladder
         )}
 
         {gameType === "x01" && (
-          <div className="mt-12">
-            <div className="tag" style={{ marginBottom: 6 }}>
-              Starting Score
-            </div>
-            <div className="row">
-              {[301, 501, 701].map((v) => (
-                <button
-                  key={v}
-                  className={`btn ${startScore === v ? "btn-toggle-on" : ""}`}
-                  style={{ flex: 1 }}
-                  onClick={() => setStartScore(v)}
-                >
-                  {v}
-                </button>
-              ))}
-            </div>
-            <label className="check">
-              <input
-                type="checkbox"
-                checked={doubleOut}
-                onChange={(e) => setDoubleOut(e.target.checked)}
-              />
-              <span>Double out (finish on exactly 0; can&apos;t leave 1)</span>
-            </label>
-            <div className="tag" style={{ marginTop: 12, marginBottom: 6 }}>Legs</div>
-            <div className="row">
-              {[1, 3, 5, 7].map((v) => (
-                <button
-                  key={v}
-                  className={`btn ${legs === v ? "btn-toggle-on" : ""}`}
-                  style={{ flex: 1 }}
-                  onClick={() => setLegs(v)}
-                >
-                  {v === 1 ? "Single" : `Best of ${v}`}
-                </button>
-              ))}
-            </div>
-          </div>
+          <X01Options startScore={startScore} setStartScore={setStartScore} doubleOut={doubleOut} setDoubleOut={setDoubleOut} legs={legs} setLegs={setLegs} />
         )}
 
-        {gameType === "cricket" && (
-          <div className="mt-12">
-            <div className="tag" style={{ marginBottom: 6 }}>
-              Variant
-            </div>
-            <div className="row">
-              {CRICKET_VARIANTS.map((v) => (
-                <button
-                  key={v.id}
-                  className={`btn ${variant === v.id ? "btn-toggle-on" : ""}`}
-                  style={{ flex: 1 }}
-                  onClick={() => setVariant(v.id)}
-                >
-                  {v.label}
-                </button>
-              ))}
-            </div>
-            <p className="tag" style={{ marginTop: 8, textTransform: "none", letterSpacing: 0 }}>
-              {variant === "standard" && "Close all numbers and lead on points to win."}
-              {variant === "cutthroat" && "Points go to opponents — lowest score wins."}
-              {variant === "noscore" && "First to close all numbers wins. Points ignored."}
-            </p>
-          </div>
-        )}
+        {gameType === "cricket" && <CricketOptions variant={variant} setVariant={setVariant} />}
 
-        {gameType === "baseball" && (
-          <p className="tag mt-12" style={{ textTransform: "none", letterSpacing: 0 }}>
-            9 innings. In inning N you aim at number N; single/double/triple = 1/2/3 runs.
-            Most runs after 9 innings wins.
-          </p>
-        )}
+        {gameType === "baseball" && <BaseballNote />}
 
         {gameType === "aroundTheClock" && (
           <p className="tag mt-12" style={{ textTransform: "none", letterSpacing: 0 }}>
@@ -454,63 +357,21 @@ export default function Setup({ players, onStart, back, me, playerColors, ladder
       </div>
 
       {botAllowed && (
-        <div className="card mb-12">
-          <div className="tag mb-12">Opponent</div>
-          <div className="row">
-            <button className={`btn ${!bot ? "btn-toggle-on" : ""}`} style={{ flex: 1 }} onClick={() => setBotId(null)}>
-              Friends
-            </button>
-            <button
-              className={`btn ${bot ? "btn-toggle-on" : ""}`}
-              style={{ flex: 1, display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 6 }}
-              onClick={() => pickBot(botId || (ladder.find((l) => l.unlocked) || ladder[0])?.bot.id)}
-              disabled={!ladder.length}
-            >
-              <BotIcon /> Play a bot
-            </button>
-          </div>
-          {bot && (
-            <div className="stack-8 mt-12">
-              {ladder.map(({ bot: b, wins, losses, unlocked }, i) => {
-                const on = b.id === botId;
-                const prev = i > 0 ? ladder[i - 1].bot.name : null;
-                return (
-                  <div
-                    key={b.id}
-                    className={`card pad-sm ${unlocked ? "clickable" : ""}`}
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 10,
-                      borderColor: on ? "var(--accent)" : "var(--line)",
-                      background: on ? "var(--accent-soft)" : "var(--surface)",
-                      opacity: unlocked ? 1 : 0.55,
-                    }}
-                    {...(unlocked ? pressProps(() => pickBot(b.id)) : {})}
-                    aria-disabled={!unlocked}
-                  >
-                    <PlayerBadge username={b.id} color={b.color} size={30} showName={false} />
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ fontWeight: 700, display: "flex", alignItems: "center", gap: 6 }}>
-                        <span>{b.name}</span>
-                        <span className="tag" style={{ letterSpacing: 0 }}>L{b.level} · avg {b.avg}</span>
-                      </div>
-                      <div className="tag" style={{ textTransform: "none", letterSpacing: 0, marginTop: 2 }}>
-                        {unlocked ? b.blurb : `Beat ${prev} to unlock.`}
-                      </div>
-                    </div>
-                    {unlocked ? (
-                      <span className="num" style={{ fontSize: "calc(14px * var(--fs))", color: wins > 0 ? "var(--accent)" : "var(--muted)" }}>
-                        {wins}-{losses}
-                      </span>
-                    ) : (
-                      <span style={{ color: "var(--muted)" }}><LockIcon size="1.1em" /></span>
-                    )}
-                  </div>
-                );
-              })}
+        <div className="card mb-12 clickable setup-bot-card" {...pressProps(() => onOpenBots(gameType))}>
+          <span className="setup-bot-stack" aria-hidden="true">
+            {["bot:rook", "bot:jay", "bot:blackbird"].map((id) => (
+              <BotAvatar key={id} bot={id} size={34} />
+            ))}
+          </span>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontWeight: 700 }}>Play a Bot</div>
+            <div className="tag" style={{ textTransform: "none", letterSpacing: 0, marginTop: 2 }}>
+              Practice against eight opponents, from Rook to Blackbird. Never counts toward stats.
             </div>
-          )}
+          </div>
+          <span className="setup-bot-go" aria-hidden="true">
+            <ChevronIcon />
+          </span>
         </div>
       )}
 
@@ -614,13 +475,11 @@ export default function Setup({ players, onStart, back, me, playerColors, ladder
           </p>
         )}
 
-        {(drill || bot || (solo && !needsTwo)) && (
+        {(drill || (solo && !needsTwo)) && (
           <p className="tag" style={{ marginTop: 10, color: "var(--amber)", textTransform: "none", letterSpacing: 0 }}>
             {drill
               ? "Drill — saved to your practice log, never to stats or the leaderboard."
-              : bot
-                ? `You vs ${bot.name} — saved to your practice log, not to stats or the leaderboard.`
-                : "Solo practice — saved to your practice log, not to stats or the leaderboard."}
+              : "Solo practice — saved to your practice log, not to stats or the leaderboard."}
           </p>
         )}
       </div>
@@ -631,7 +490,7 @@ export default function Setup({ players, onStart, back, me, playerColors, ladder
         style={{ width: "100%", fontSize: "calc(15px * var(--fs))", padding: 15 }}
         onClick={start}
       >
-        {canStart ? (bot ? `Play ${bot.name}` : drill ? "Start Drill" : solo && !needsTwo ? "Start Practice" : "Start Game") : bot ? "Just you vs the bot" : exactTwo ? "Pick exactly 2 players" : needsTwo ? "Pick at least 2 players" : "Pick at least 1 player"}
+        {canStart ? (drill ? "Start Drill" : solo && !needsTwo ? "Start Practice" : "Start Game") : exactTwo ? "Pick exactly 2 players" : needsTwo ? "Pick at least 2 players" : "Pick at least 1 player"}
       </button>
     </div>
   );

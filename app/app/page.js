@@ -12,13 +12,14 @@ import { ADMIN_EMAIL, defaultPlayerColor } from "@/lib/constants";
 import { applyFontScale } from "@/lib/prefs";
 import { makeCastCode, openCastChannel, castAvailable, stripHistory } from "@/lib/cast";
 import { buildSummary } from "@/lib/summary";
-import { isRankedMatch, splitResults, botLadder, buildResultRows, humanPlayers, resultFromRow } from "@/lib/practice";
+import { isRankedMatch, splitResults, botLadder, buildResultRows, humanPlayers, resultFromRow, newlyUnlockedBot } from "@/lib/practice";
 import { computeAchievements, diffUnlocked, seenKey, readSeen, writeSeen } from "@/lib/achievements";
-import { botColors } from "@/lib/bots";
+import { botColors, isBot } from "@/lib/bots";
 import { rematchGame } from "@/lib/games";
 import { Logo, CastIcon, PlayerBadge, Modal, pressProps, PlayerLookContext, HomeIcon, PlayIcon, StatsIcon, MatchupIcon, SparkleIcon } from "@/components/ui";
 import Home from "@/components/Home";
 import Setup from "@/components/Setup";
+import BotSetup from "@/components/BotSetup";
 import PlayX01 from "@/components/PlayX01";
 import PlayCricket from "@/components/PlayCricket";
 import PlayBaseball from "@/components/PlayBaseball";
@@ -184,6 +185,14 @@ export default function Page() {
   const openSetup = (initial = null) => {
     setSetupInitial(initial ? { ...initial, key: Date.now() } : null);
     setView("setup");
+  };
+  // Play a Bot: its own screen; Back returns to wherever it was opened from
+  const [botInitial, setBotInitial] = useState(null);
+  const [botFrom, setBotFrom] = useState("setup");
+  const openBots = (initial = null, from = null) => {
+    setBotInitial({ ...(initial || {}), key: Date.now() });
+    setBotFrom(from || view);
+    setView("bots");
   };
   const [notice, setNotice] = useState("");
   // Quit asks first: a single mis-tap at the board must not wipe a leg
@@ -467,10 +476,22 @@ export default function Page() {
       newBadges = [];
     }
 
+    // a bot win can open the next rung of the ladder
+    let unlockedBot = null;
+    const botId = (match.players || []).find(isBot);
+    if (botId) {
+      try {
+        const pending = buildResultRows({ gameId: "pending", gameType: match.gameType, config: match.config, players: match.players, winner: match.winner, perPlayer: match.perPlayer, ranked: false, currentElo: elo, completedAt: match.completedAt }).map((r) => resultFromRow(r));
+        unlockedBot = newlyUnlockedBot(botLadder(practice, myName), botLadder([...practice, ...pending], myName));
+      } catch {
+        unlockedBot = null;
+      }
+    }
+
     // show the summary now; the save runs behind it
     setLive(null);
     setNotice("");
-    setFinished({ summary, match, game, eloAfter, ranked, newBadges });
+    setFinished({ summary, match, game, eloAfter, ranked, newBadges, botId: botId || null, unlockedBot });
     setView("summary");
     // ranked games save win/loss + Elo; solo, bot and drill games save as practice
     match.gameId =
@@ -652,13 +673,16 @@ export default function Page() {
             playerColors={playerColors}
             onOpenFriends={openFriends}
             me={session.user?.user_metadata?.display_name || ""}
-            ladder={ladder}
+            onOpenBots={(gameType) => openBots({ gameType }, "setup")}
             onStart={startGame}
             back={setupInitial ? () => setView("practice") : null}
           />
         )}
+        {view === "bots" && (
+          <BotSetup key={botInitial?.key || "bots"} me={myName} ladder={ladder} initial={botInitial} onStart={startGame} back={() => setView(botFrom)} />
+        )}
         {view === "practice" && (
-          <Practice practice={practice} me={myName} onStart={openSetup} openGame={openGame} back={() => setView("home")} playerColors={playerColors} />
+          <Practice practice={practice} me={myName} onStart={(initial) => (initial?.bot ? openBots(initial, "practice") : openSetup(initial))} openGame={openGame} back={() => setView("home")} playerColors={playerColors} />
         )}
         {((ALL_PLAY_VIEWS.includes(view) && live) || view === "summary") && castAvailable() && (
           <div className="card pad-sm mb-12" style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
@@ -708,6 +732,10 @@ export default function Page() {
             onRetrySave={() => saveMatch(finished.match, finished.eloAfter, finished.ranked)}
             onRematch={() => startGame(rematchGame(finished.game || { ...finished.match, id: "" }))}
             onNewGame={() => setView("setup")}
+            bot={finished.botId ? { id: finished.botId, unlocked: finished.unlockedBot } : null}
+            onChooseBot={() => openBots({ bot: finished.botId, gameType: finished.match?.gameType }, "practice")}
+            onPlayBot={(id) => openBots({ bot: id, gameType: finished.match?.gameType }, "practice")}
+            onPracticeHub={() => setView("practice")}
             onDone={() => setView(finished.summary.ranked ? "leaderboard" : "home")}
             playerColors={playerColors}
           />
@@ -832,7 +860,7 @@ export default function Page() {
       <nav className="nav" aria-label="Main">
         {[
           { key: "home", label: "Home", icon: <HomeIcon />, active: ["home", "practice"].includes(view), go: () => setView("home") },
-          { key: "play", label: live ? "Play (game in progress)" : "Play", icon: <PlayIcon />, active: view === "setup" || view === "summary" || ALL_PLAY_VIEWS.includes(view), go: goPlay, dot: !!live },
+          { key: "play", label: live ? "Play (game in progress)" : "Play", icon: <PlayIcon />, active: view === "setup" || view === "bots" || view === "summary" || ALL_PLAY_VIEWS.includes(view), go: goPlay, dot: !!live },
           { key: "stats", label: "Stats", icon: <StatsIcon />, active: ["leaderboard", "records", "game"].includes(view) || (view === "profile" && !onMyProfile), go: () => setView("leaderboard") },
           { key: "matchup", label: "Matchup", icon: <MatchupIcon />, active: view === "matchup", go: () => setView("matchup") },
           { key: "ai", label: "Blackbird AI", icon: <SparkleIcon />, active: view === "ai", go: () => setView("ai") },

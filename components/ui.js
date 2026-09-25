@@ -1,8 +1,9 @@
 import { createContext, useContext } from "react";
 import { defaultPlayerColor } from "@/lib/constants";
-import { playerLabel } from "@/lib/bots";
+import { playerLabel, isBot } from "@/lib/bots";
 import { isTagIcon, tagLabel } from "@/lib/profile";
 import Icon from "./Icon";
+import BotAvatar, { hasPortrait } from "./BotAvatar";
 
 /**
  * How each player looks: { [username]: { color, tag, tagIcon } }. Provided
@@ -193,8 +194,13 @@ export function PlayerBadge({ username, color, size = 24, showName = true, tag, 
   const effTag = tag !== undefined ? tag : look?.tag;
   const effIcon = tagIcon !== undefined ? tagIcon : look?.tagIcon;
   const pill = (showTag ?? showName) ? <TagPill tag={effTag} tagIcon={effIcon} /> : null;
+  // bots show their character portrait instead of an initial
+  const portrait = isBot(username) && hasPortrait(username);
   return (
     <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+      {portrait ? (
+        <BotAvatar bot={username} size={size} sizeCss={sizeCss} />
+      ) : (
       <span
         style={{
           width: sizeCss || size,
@@ -214,6 +220,7 @@ export function PlayerBadge({ username, color, size = 24, showName = true, tag, 
       >
         {label.charAt(0).toUpperCase()}
       </span>
+      )}
       {showName && <span style={{ fontWeight: 700 }}>{label}</span>}
       {pill}
     </span>

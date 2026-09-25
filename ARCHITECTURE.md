@@ -110,6 +110,11 @@ components/
   RegisterSW.js           registers /sw.js in production
   Home.js                 dashboard: stat tiles, games/week chart, top 5
   Setup.js                game type + options + player picker
+  BotSetup.js             Play a Bot: opponent gallery, bot games only,
+                          throw order; always practice (opened from Setup,
+                          the practice hub and a bot game's summary)
+  BotAvatar.js            bot portraits: one vector bird per bot, used by
+                          PlayerBadge wherever a bot appears
   PlayX01.js              X01 engine + UI (per-dart entry)
   PlayCricket.js          cricket engine + UI (marks, MPR, variants)
   PlayBaseball.js         baseball engine + UI (9 innings + extras)
