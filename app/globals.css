@@ -3983,3 +3983,49 @@ html:not([data-theme="dark"]) .app.is-profile {
   line-height: 1.5;
   color: var(--ink-soft);
 }
+
+/* AI chat: the page never scrolls; only the message list does, so the
+   chat header and the input stay put (app/app/page.js adds scroll-lock) */
+.scroll.scroll-lock {
+  overflow: hidden;
+  overscroll-behavior: none;
+}
+.scroll-lock > .container.container-fill {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+.scroll-lock .container-fill > .ai-chat {
+  min-height: 0;
+}
+.ai-messages {
+  overscroll-behavior: contain;
+}
+
+/* formatted AI replies (components/AIText.js) */
+.ai-md {
+  white-space: normal;
+}
+.ai-md p {
+  margin: 0 0 0.6em;
+}
+.ai-md p:last-child,
+.ai-md ul:last-child,
+.ai-md ol:last-child {
+  margin-bottom: 0;
+}
+.ai-md ul,
+.ai-md ol {
+  margin: 0 0 0.6em;
+  padding-left: 1.3em;
+}
+.ai-md li + li {
+  margin-top: 0.2em;
+}
+.ai-md strong {
+  font-weight: 700;
+  color: var(--ink);
+}
+.ai-md .ai-md-h {
+  font-weight: 700;
+  color: var(--ink);
+}

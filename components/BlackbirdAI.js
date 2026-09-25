@@ -2,11 +2,12 @@ import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { supabase } from "@/lib/supabase";
 import { buildMySummary } from "@/lib/aiSummary";
 import AIChart, { chartsOf } from "./AIChart";
+import AIText from "./AIText";
 import { PlayerBadge } from "./ui";
 
 const SUGGESTIONS = [
   "Analyze my last game",
-  "Show my record against each opponent",
+  "Show a heatmap of my darts in X01",
   "Compare my 3-dart average with my top rival by month",
   "Break down my wins by game mode",
   "How is my checkout percentage trending?",
@@ -187,7 +188,7 @@ export default function BlackbirdAI({ me, userId, stats, elo, results, practice,
             </div>
             {weeklyOpen && (
               <>
-                <div className="ai-text">{weekly.text}</div>
+                <AIText text={weekly.text} />
                 {(weekly.charts || []).map((c, i) => (
                   <AIChart key={i} chart={c} />
                 ))}
@@ -220,7 +221,7 @@ export default function BlackbirdAI({ me, userId, stats, elo, results, practice,
           <div key={m.id} className={`ai-row ${m.role === "user" ? "is-user" : "is-bot"}${m.error ? " is-error" : ""}`}>
             {m.role === "assistant" ? <BirdAvatar /> : <PlayerBadge username={me || "?"} color={playerColors?.[me]} size={26} showName={false} />}
             <div className={`ai-bubble${chartsOf(m).length ? " has-chart" : ""}`}>
-              <div className="ai-text">{m.content}</div>
+              {m.role === "assistant" && !m.error ? <AIText text={m.content} /> : <div className="ai-text">{m.content}</div>}
               {chartsOf(m).map((c, i) => (
                 <AIChart key={i} chart={c} />
               ))}
@@ -259,6 +260,11 @@ export default function BlackbirdAI({ me, userId, stats, elo, results, practice,
           rows={1}
           disabled={busy || !hasData}
           aria-label="Ask Blackbird AI"
+          onBlur={() => {
+            // iOS scrolls the page up for the keyboard; put it back so the
+            // header and input stay where they belong
+            if (typeof window !== "undefined" && window.scrollY) window.scrollTo(0, 0);
+          }}
         />
         <button className="btn btn-primary ai-send" type="submit" disabled={busy || !hasData || !input.trim()} aria-label="Send">
           <SendIcon />

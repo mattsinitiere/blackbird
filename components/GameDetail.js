@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import AIChart from "./AIChart";
+import AIText from "./AIText";
 import { BackBar, PlayerBadge } from "./ui";
 import { LineChart, BarChart } from "./Charts";
 import { analyzeMatch } from "@/lib/gamestats";
@@ -261,7 +262,7 @@ function AIReport({ gameId, me }) {
         <div className="ai-weekly-head">
           <span className="ai-weekly-title">Blackbird AI Analysis</span>
         </div>
-        <div className="ai-text">{report.text}</div>
+        <AIText text={report.text} />
         {report.charts.map((c, i) => (
           <AIChart key={i} chart={c} />
         ))}

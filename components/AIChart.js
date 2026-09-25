@@ -8,7 +8,7 @@ export default function AIChart({ chart }) {
   if (!chart) return null;
   let body = null;
   if (chart.type === "stats" && chart.items?.length) body = <StatCards items={chart.items} />;
-  else if (chart.type === "heatmap" && chart.cells) body = <DartHeatmap cells={chart.cells} darts={chart.darts} misses={chart.misses} />;
+  else if (chart.type === "heatmap" && chart.cells) body = <DartHeatmap cells={chart.cells} darts={chart.darts} misses={chart.misses} missLabel={chart.missLabel} />;
   else if (chart.type === "donut" && chart.slices?.length) body = <DonutChart slices={chart.slices} unit={chart.unit} decimals={chart.decimals} />;
   else if (chart.datasets?.length) {
     body =

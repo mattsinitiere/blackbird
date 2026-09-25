@@ -549,7 +549,7 @@ function sector(cx, cy, r0, r1, a0, a1) {
  * it (singles share a count, as the log doesn't say inner or outer). Tap a
  * bed to read it. `cells` is { "20": { S, D, T }, "25": { S, D } }.
  */
-export function DartHeatmap({ cells = {}, darts = 0, misses = 0 }) {
+export function DartHeatmap({ cells = {}, darts = 0, misses = 0, missLabel = "missed" }) {
   const [sel, setSel] = useState(null);
   const C = 120;
   const get = (n, ring) => cells[String(n)]?.[ring] || 0;
@@ -571,10 +571,14 @@ export function DartHeatmap({ cells = {}, darts = 0, misses = 0 }) {
       <svg viewBox="0 0 240 240" className="heatmap-svg" role="img" aria-label="Dartboard heatmap of where darts landed">
         <circle cx={C} cy={C} r={HR.dOut + 18} fill="var(--surface-2)" />
         {beds.map((b) => (
-          <path key={b.key} d={b.d} fill={shade(b.v)} stroke={sel === b.key ? "var(--ink)" : "var(--surface)"} strokeWidth={sel === b.key ? 1.6 : 0.8} onClick={() => setSel(sel === b.key ? null : b.key)} style={{ cursor: "pointer" }} />
+          <path key={b.key} d={b.d} fill={shade(b.v)} stroke="var(--surface)" strokeWidth={0.8} onClick={() => setSel(sel === b.key ? null : b.key)} style={{ cursor: "pointer" }} />
         ))}
-        <circle cx={C} cy={C} r={HR.bullOut} fill={shade(get(25, "S"))} stroke={sel === "25" ? "var(--ink)" : "var(--surface)"} strokeWidth="0.8" onClick={() => setSel(sel === "25" ? null : "25")} style={{ cursor: "pointer" }} />
-        <circle cx={C} cy={C} r={HR.bullIn} fill={shade(get(25, "D"))} stroke={sel === "BULL" ? "var(--ink)" : "var(--surface)"} strokeWidth="0.8" onClick={() => setSel(sel === "BULL" ? null : "BULL")} style={{ cursor: "pointer" }} />
+        <circle cx={C} cy={C} r={HR.bullOut} fill={shade(get(25, "S"))} stroke="var(--surface)" strokeWidth="0.8" onClick={() => setSel(sel === "25" ? null : "25")} style={{ cursor: "pointer" }} />
+        <circle cx={C} cy={C} r={HR.bullIn} fill={shade(get(25, "D"))} stroke="var(--surface)" strokeWidth="0.8" onClick={() => setSel(sel === "BULL" ? null : "BULL")} style={{ cursor: "pointer" }} />
+        {/* the selected bed's outline, drawn on top of every bed */}
+        {sel && beds.find((b) => b.key === sel) && <path d={beds.find((b) => b.key === sel).d} fill="none" stroke="var(--ink)" strokeWidth="2" strokeLinejoin="round" pointerEvents="none" />}
+        {sel === "25" && <circle cx={C} cy={C} r={HR.bullOut} fill="none" stroke="var(--ink)" strokeWidth="2" pointerEvents="none" />}
+        {sel === "BULL" && <circle cx={C} cy={C} r={HR.bullIn} fill="none" stroke="var(--ink)" strokeWidth="2" pointerEvents="none" />}
         {ORDER.map((n, i) => {
           const a = (i * 18 * Math.PI) / 180;
           return (
@@ -592,7 +596,7 @@ export function DartHeatmap({ cells = {}, darts = 0, misses = 0 }) {
           </>
         ) : (
           <>
-            {darts} darts · {misses} missed the board{darts ? ` (${Math.round((misses / darts) * 100)}%)` : ""}. Tap a bed.
+            {darts} darts · {misses} {missLabel}{darts ? ` (${Math.round((misses / darts) * 100)}%)` : ""}. Tap a bed.
           </>
         )}
       </div>

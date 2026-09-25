@@ -708,7 +708,7 @@ export default function Page() {
   return (
     <PlayerLookContext.Provider value={playerMeta}>
     <main className={`app shell${view === "profile" ? " is-profile" : ""}`}>
-      <div ref={scrollRef} className={`scroll${FILL_VIEWS.includes(view) ? " scroll-fill" : ""}`}>
+      <div ref={scrollRef} className={`scroll${FILL_VIEWS.includes(view) ? " scroll-fill" : ""}${view === "ai" ? " scroll-lock" : ""}`}>
         <div className={`container${view === "profile" ? " container-profile" : ""}${FILL_VIEWS.includes(view) ? " container-fill" : ""}`}>
         <header className="header">
           <button type="button" className="brand-home" aria-label="Blackbird home" onClick={() => setView("home")}>

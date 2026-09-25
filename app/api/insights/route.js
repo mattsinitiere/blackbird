@@ -25,24 +25,26 @@ const CHART_RULES =
   "CHARTS: when a chart helps (a trend, a comparison, a breakdown, or the player asks for a chart), append up to THREE fenced blocks after your prose, each on its own lines:\n" +
   "```chart\n{\"type\": \"line\", \"title\": \"Checkout % by month\", \"unit\": \"%\", \"decimals\": 1, \"series\": \"checkoutPctByMonth\"}\n```\n" +
   "Types: \"line\" (trends), \"bar\" (counts per period or category), \"stackedBar\" (several series stacked per period), " +
+  "\"heatmap\" (which beds darts hit: {\"type\": \"heatmap\", \"heatmap\": \"h1\"} with an id from dart_heatmap), " +
   "\"donut\" (a split, e.g. wins by game mode, with points [{\"label\": \"X01\", \"y\": 4}]), " +
   "\"stats\" (2 to 4 headline numbers: {\"type\": \"stats\", \"items\": [{\"label\": \"3-dart avg\", \"value\": \"52.4\"}]}). " +
   "`series` is one id or an array of up to four ids to compare (e.g. [\"s1\", \"s2\"] for you vs an opponent); add \"names\" for the legend. " +
-  "Ids are the summary's series keys or ids returned by tools (s1, s2). Add \"last\": N to keep the most recent N points. " +
+  "Ids are the summary's series keys or ids returned by tools (s1, s2, h1). Add \"last\": N to keep the most recent N points. " +
   "For a small comparison you computed yourself, use \"points\" with numbers taken straight from the data. " +
   "Never put a chart block mid-sentence, never chart data that isn't there, and never say you can't draw: the app renders the charts.\n\n";
 
 const STYLE_RULES =
   "STYLE: be specific and cite the real numbers with sample sizes. Be encouraging but honest: say what is going well " +
   "and what to work on, with concrete practice suggestions when asked. " +
-  "Write plain prose, no markdown headers, bold or bullet symbols. A few sentences for simple questions, " +
+  "Write clear prose. You may use **bold** for a few key numbers and a short '- ' list when listing several items; no headings or tables. A few sentences for simple questions, " +
   "up to about 350 words for a detailed one. Finish your thought. " +
   "Format dates naturally like 'Tuesday, October 9th' and never as raw ISO timestamps. " +
   "If the data cannot answer the question, say so plainly and suggest what to log next.";
 
 const TOOL_RULES =
   "TOOLS: you can call tools to dig deeper than the summary: query_games (filter games), get_stats (totals for any mode or date range), " +
-  "head_to_head (record vs one opponent), analyze_game (dart by dart for one game), get_series (a metric over time, returns a chartable id). Use them whenever the question needs filtering, a date range, another player, " +
+  "head_to_head (record vs one opponent), analyze_game (dart by dart for one game), get_series (a metric over time, returns a chartable id), " +
+  "dart_heatmap (which beds the darts hit, returns a heatmap id; quote its missMeaning exactly, never call a target-game miss 'missing the board'). Use them whenever the question needs filtering, a date range, another player, " +
   "a specific game, or a chart the summary doesn't already have. Call several in one turn when they are independent. " +
   "Other players' data is only what the signed-in player can see (people they follow). Resolve 'today', 'this month' and similar from `today`.\n\n";
 
