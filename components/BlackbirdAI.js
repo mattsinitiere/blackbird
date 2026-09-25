@@ -6,7 +6,7 @@ import { PlayerBadge } from "./ui";
 
 const SUGGESTIONS = [
   "Analyze my last game",
-  "Where do my darts land in X01?",
+  "Show my record against each opponent",
   "Compare my 3-dart average with my top rival by month",
   "Break down my wins by game mode",
   "How is my checkout percentage trending?",

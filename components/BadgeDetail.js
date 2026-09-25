@@ -1,4 +1,5 @@
 import { useEffect, useRef } from "react";
+import { progressText } from "@/lib/achievements";
 import BadgeMedal from "./BadgeMedal";
 import { Overlay } from "./ui";
 
@@ -35,7 +36,6 @@ export default function BadgeDetail({ badge, onClose }) {
   if (!badge) return null;
   const p = badge.progress;
   const pct = p && p.target ? Math.min(100, Math.round((p.value / p.target) * 100)) : 0;
-  const left = p && p.target ? Math.max(0, p.target - p.value) : null;
   return (
     <Overlay onBackdrop={onClose}>
       <div className="modal fade badge-detail" role="dialog" aria-modal="true" aria-labelledby="badge-detail-title" onClick={(e) => e.stopPropagation()}>
@@ -52,9 +52,7 @@ export default function BadgeDetail({ badge, onClose }) {
             <div className="badge-progress" aria-hidden="true">
               <span style={{ width: `${pct}%` }} />
             </div>
-            <div>
-              {p.value} / {p.target} · {left} to go
-            </div>
+            <div>{progressText(p)}</div>
           </div>
         ) : (
           <div className="badge-detail-status">Not unlocked yet</div>

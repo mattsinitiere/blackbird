@@ -26,10 +26,9 @@ const CHART_RULES =
   "```chart\n{\"type\": \"line\", \"title\": \"Checkout % by month\", \"unit\": \"%\", \"decimals\": 1, \"series\": \"checkoutPctByMonth\"}\n```\n" +
   "Types: \"line\" (trends), \"bar\" (counts per period or category), \"stackedBar\" (several series stacked per period), " +
   "\"donut\" (a split, e.g. wins by game mode, with points [{\"label\": \"X01\", \"y\": 4}]), " +
-  "\"heatmap\" (where darts land: {\"type\": \"heatmap\", \"heatmap\": \"h1\"} with an id from dart_heatmap), " +
   "\"stats\" (2 to 4 headline numbers: {\"type\": \"stats\", \"items\": [{\"label\": \"3-dart avg\", \"value\": \"52.4\"}]}). " +
   "`series` is one id or an array of up to four ids to compare (e.g. [\"s1\", \"s2\"] for you vs an opponent); add \"names\" for the legend. " +
-  "Ids are the summary's series keys or ids returned by tools (s1, s2, h1). Add \"last\": N to keep the most recent N points. " +
+  "Ids are the summary's series keys or ids returned by tools (s1, s2). Add \"last\": N to keep the most recent N points. " +
   "For a small comparison you computed yourself, use \"points\" with numbers taken straight from the data. " +
   "Never put a chart block mid-sentence, never chart data that isn't there, and never say you can't draw: the app renders the charts.\n\n";
 
@@ -43,8 +42,7 @@ const STYLE_RULES =
 
 const TOOL_RULES =
   "TOOLS: you can call tools to dig deeper than the summary: query_games (filter games), get_stats (totals for any mode or date range), " +
-  "head_to_head (record vs one opponent), analyze_game (dart by dart for one game), get_series (a metric over time, returns a chartable id), " +
-  "dart_heatmap (where darts land, returns a heatmap id). Use them whenever the question needs filtering, a date range, another player, " +
+  "head_to_head (record vs one opponent), analyze_game (dart by dart for one game), get_series (a metric over time, returns a chartable id). Use them whenever the question needs filtering, a date range, another player, " +
   "a specific game, or a chart the summary doesn't already have. Call several in one turn when they are independent. " +
   "Other players' data is only what the signed-in player can see (people they follow). Resolve 'today', 'this month' and similar from `today`.\n\n";
 

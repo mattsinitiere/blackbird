@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { CATEGORIES } from "@/lib/achievements";
+import { CATEGORIES, progressText } from "@/lib/achievements";
 import BadgeDetail from "./BadgeDetail";
 import BadgeMedal from "./BadgeMedal";
 
@@ -49,9 +49,7 @@ export default function AchievementsCard({ badges, isMe, seen }) {
                         <div className="badge-progress" aria-hidden="true">
                           <span style={{ width: `${pct}%` }} />
                         </div>
-                        <div className="badge-meta">
-                          {b.progress.value} / {b.progress.target}
-                        </div>
+                        <div className="badge-meta">{progressText(b.progress, { short: true })}</div>
                       </>
                     ) : (
                       <div className="badge-meta">{b.description}</div>

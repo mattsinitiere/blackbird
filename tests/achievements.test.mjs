@@ -1,6 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { ACHIEVEMENTS, computeAchievements, diffUnlocked, nextUp, readSeen, writeSeen, seenKey } from "../lib/achievements.js";
+import { ACHIEVEMENTS, computeAchievements, diffUnlocked, nextUp, readSeen, writeSeen, seenKey, progressText } from "../lib/achievements.js";
+import { replayX01Visits } from "../lib/x01log.js";
 
 const T = (n) => ({ n, mult: 3 });
 const D = (n) => ({ n, mult: 2 });
@@ -51,8 +52,8 @@ test("earned dates come from the game that earned the badge", () => {
   assert.equal(b.bot_slayer.earnedAt, at(8));
   assert.equal(b.first_follow.earnedAt, at(9));
   assert.equal(b.games_10.unlocked, false);
-  assert.deepEqual(b.games_10.progress, { value: 6, target: 10 });
-  assert.deepEqual(b.streak_7.progress, { value: 3, target: 7 });
+  assert.deepEqual(b.games_10.progress, { value: 6, target: 10, kind: "count" });
+  assert.deepEqual(b.streak_7.progress, { value: 3, target: 7, kind: "streak", best: 3 });
   assert.equal(b.ton_up.earnedAt, at(4));
   assert.equal(b.checkout_170.unlocked, false);
   assert.equal(b.explorer.progress.value, 4); // x01, cricket, baseball, bobs27
@@ -89,4 +90,41 @@ test("seen bookkeeping is safe without storage", () => {
   const mem = {}; const storage = { getItem: (k) => mem[k] ?? null, setItem: (k, v) => { mem[k] = v; } };
   writeSeen(storage, seenKey("u1"), ["a", "b", "a"]);
   assert.deepEqual([...readSeen(storage, seenKey("u1"))], ["a", "b"]);
+});
+
+test("streak badges count the CURRENT run, not the best one", () => {
+  // W W L L L: best run 2, current run 0
+  const rows = [
+    game(1, "x01", "Ann", "Bob", { dartsThrown: 30, pointsScored: 280 }),
+    game(2, "x01", "Ann", "Bob", { dartsThrown: 30, pointsScored: 280 }),
+    game(3, "x01", "Bob", "Bob", { dartsThrown: 30, pointsScored: 280 }),
+    game(4, "x01", "Bob", "Bob", { dartsThrown: 30, pointsScored: 280 }),
+    game(5, "x01", "Bob", "Bob", { dartsThrown: 30, pointsScored: 280 }),
+  ];
+  const b = Object.fromEntries(computeAchievements({ me: "Ann", results: rows, practice: [] }).map((x) => [x.id, x]));
+  assert.equal(b.streak_3.unlocked, false);
+  assert.deepEqual(b.streak_3.progress, { value: 0, target: 3, kind: "streak", best: 2 });
+  assert.equal(progressText(b.streak_3.progress), "Current run 0 of 3 · best ever 2");
+  // a broken streak is not "almost there"
+  assert.ok(!nextUp(computeAchievements({ me: "Ann", results: rows, practice: [] })).some((x) => x.id === "streak_3"));
+});
+
+test("record badges read as best-so-far, counting badges as N to go", () => {
+  assert.equal(progressText({ value: 45, target: 60, kind: "best" }), "Your best so far is 45. The target is 60.");
+  assert.equal(progressText({ value: 6, target: 10, kind: "count" }), "6 / 10 · 4 to go");
+  assert.equal(progressText({ value: 45, target: 60, kind: "best" }, { short: true }), "Best 45 / 60");
+});
+
+test("finishing badges count legs won in a lost best-of match", () => {
+  // leg 1 won with a 170 finished on the bull, leg 2 lost, match lost
+  // 180 (321 left), T20 T17 D20 = 151 (170 left), T20 T20 D-bull = 170 out in 9 darts
+  const leg1 = [T(20), T(20), T(20), T(20), T(17), D(20), T(20), T(20), D(25)];
+  const visits = replayX01Visits(leg1, 501, true, 0).map((v, i) => ({ ...v, i }));
+  const row = game(10, "x01", "Bob", "Bob", { v: 2, dartsThrown: leg1.length, pointsScored: 501, darts: leg1, visits, legs: [{ w: "Ann", d: leg1.length, co: 170, s0: 501 }, { w: "Bob", d: 12, co: 0, s0: 501 }] }, { startScore: 501, doubleOut: true, legs: 3 });
+  const b = Object.fromEntries(computeAchievements({ me: "Ann", results: [row], practice: [] }).map((x) => [x.id, x]));
+  assert.equal(b.first_checkout.unlocked, true);
+  assert.equal(b.checkout_170.unlocked, true);
+  assert.equal(b.bull_finish.unlocked, true);
+  assert.equal(b.short_leg.unlocked, true);
+  assert.equal(b.first_win.unlocked, false);
 });
