@@ -1,12 +1,16 @@
 "use client";
 
+import Link from "next/link";
 import { usePreview } from "./PreviewProvider";
 
 const FEATURES = [
   { icon: "↗", title: "Keep the Match Moving.", copy: "Enter each dart, follow the score, and undo a mis-tap. Blackbird handles the math so you can focus on the next throw.", panel: "scoring", cta: "Explore Scoring" },
   { icon: "⌁", title: "Get to Know Your Game.", copy: "Go beyond wins and losses with averages, checkout records, Cricket MPR, and player trends over time.", panel: "stats", cta: "Explore Player Stats" },
   { icon: "＋", title: "Put in the Practice.", copy: "Take on eight bot opponents or focus on doubles, checkouts, and scoring. Your practice log stays separate from competitive stats.", panel: "practice", cta: "Explore Practice" },
+  { icon: "✦", title: "Train Smarter.", copy: "Ask Blackbird AI about your game, follow a training plan from Merlin, and get checkout routes while you play.", panel: "coaching", cta: "Explore Coaching" },
 ];
+
+const PAGES = { scoring: "/features/scoring", stats: "/features/stats", practice: "/features/practice", coaching: "/features/coaching" };
 
 export default function Features() {
   const { setPanel } = usePreview();
@@ -26,7 +30,7 @@ export default function Features() {
           <br className="mk-desktop" /> or one more round of practice.
         </p>
       </div>
-      <div className="mk-feature-grid">
+      <div className="mk-feature-grid mk-feature-grid-4">
         {FEATURES.map((f) => (
           <article key={f.panel}>
             <span aria-hidden="true" className="mk-feature-icon">
@@ -37,6 +41,9 @@ export default function Features() {
             <a className="mk-button mk-secondary mk-feature-button" href="#preview" onClick={() => setPanel(f.panel)}>
               {f.cta}
             </a>
+            <Link className="mk-text-link mk-learn-more" href={PAGES[f.panel]}>
+              Learn more <span aria-hidden="true">→</span>
+            </Link>
           </article>
         ))}
       </div>

@@ -2,11 +2,13 @@
 
 import { useRef, useState } from "react";
 import { usePreview } from "./PreviewProvider";
+import { MOCKS } from "./Mocks";
 
 const TABS = [
   { id: "scoring", num: "01", label: "Match Scoring" },
   { id: "practice", num: "02", label: "Practice & Bots" },
   { id: "stats", num: "03", label: "Player Stats" },
+  { id: "coaching", num: "04", label: "AI Coaching" },
 ];
 
 /** The framed product preview under the hero: three tabs and a tap-to-score demo. */
@@ -182,6 +184,10 @@ export default function ProductPreview() {
           <span>Player profiles · Trend charts · Elo ratings</span>
           <span>KNOW YOUR GAME</span>
         </div>
+      </div>
+
+      <div aria-labelledby="tab-coaching" className="mk-demo-panel mk-demo-coaching" hidden={panel !== "coaching"} id="panel-coaching" role="tabpanel">
+        <MOCKS.ai />
       </div>
     </div>
   );

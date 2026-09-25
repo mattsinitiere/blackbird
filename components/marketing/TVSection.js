@@ -1,3 +1,4 @@
+import Link from "next/link";
 import TVPreview from "./TVPreview";
 import SetupFlow from "./SetupFlow";
 
@@ -20,6 +21,11 @@ export default function TVSection() {
       </div>
       <TVPreview />
       <SetupFlow />
+      <p className="mk-section-more">
+        <Link className="mk-text-link" href="/tv-mode">
+          More about TV Mode <span aria-hidden="true">→</span>
+        </Link>
+      </p>
     </section>
   );
 }

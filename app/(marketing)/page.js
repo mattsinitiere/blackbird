@@ -9,7 +9,7 @@ import Closing from "@/components/marketing/Closing";
 export const metadata = {
   title: { absolute: "Blackbird — Every Dart Counts." },
   description:
-    "Blackbird brings dart scoring, practice, player stats and live TV scoreboards together. Nine games. One place to play.",
+    "Blackbird brings dart scoring, AI coaching, training plans, practice, player stats and live TV scoreboards together. Nine games. One place to play.",
   alternates: { canonical: "/" },
 };
 

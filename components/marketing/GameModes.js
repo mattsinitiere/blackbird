@@ -20,6 +20,9 @@ export default function GameModes() {
             Your New Favorites.
           </h2>
           <p>Choose from nine game modes, with options for competitive matches and casual play.</p>
+          <Link className="mk-text-link" href="/games">
+            How each game plays <span aria-hidden="true">→</span>
+          </Link>
         </div>
         <div className="mk-game-browser">
           <div aria-label="Choose a game to learn about" className="mk-game-options" role="group">
