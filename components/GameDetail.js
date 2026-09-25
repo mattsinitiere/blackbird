@@ -1,4 +1,6 @@
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { supabase } from "@/lib/supabase";
+import AIChart from "./AIChart";
 import { BackBar, PlayerBadge } from "./ui";
 import { LineChart, BarChart } from "./Charts";
 import { analyzeMatch } from "@/lib/gamestats";
@@ -111,7 +113,7 @@ function outcomeText(gameType, v) {
  * each, and the visit-by-visit timeline with each dart. Works for saved
  * games (rows from the database) and for the game just finished.
  */
-export default function GameDetail({ rows, playerColors, back }) {
+export default function GameDetail({ rows, playerColors, back, me = null }) {
   const match = useMemo(() => analyzeMatch(rows), [rows]);
   if (!match) return null;
   const { gameType, config, winner, players } = match;
@@ -144,6 +146,8 @@ export default function GameDetail({ rows, playerColors, back }) {
           </div>
         )}
       </div>
+
+      {me && match.gameId && names.includes(me) && <AIReport gameId={match.gameId} me={me} />}
 
       <div className="report-grid mb-12">
         {names.map((u) => {
@@ -205,6 +209,73 @@ export default function GameDetail({ rows, playerColors, back }) {
       {notes.length > 0 && (
         <p className="tag" style={{ textTransform: "none", letterSpacing: 0, margin: "0 4px 12px" }}>
           Limited data: {notes.join("; ")}.
+        </p>
+      )}
+    </div>
+  );
+}
+
+/**
+ * Blackbird AI's report on this one game (app/api/insights kind "game").
+ * Asked for on tap, then kept on this phone per game so reopening it is
+ * instant and costs nothing.
+ */
+function AIReport({ gameId, me }) {
+  const key = `bb-ai-game-${gameId}`;
+  const [report, setReport] = useState(null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  useEffect(() => {
+    try {
+      setReport(JSON.parse(window.localStorage.getItem(key) || "null"));
+    } catch {}
+  }, [key]);
+
+  const run = async () => {
+    setBusy(true);
+    setError("");
+    try {
+      const { data } = await supabase.auth.getSession();
+      const res = await fetch("/api/insights", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${data?.session?.access_token || ""}` },
+        body: JSON.stringify({ kind: "game", gameId, me }),
+      });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(body.error || "Request failed");
+      const r = { text: body.text, charts: body.charts || [] };
+      try {
+        window.localStorage.setItem(key, JSON.stringify(r));
+      } catch {}
+      setReport(r);
+    } catch (e) {
+      setError(e.message || "Something went wrong.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  if (report) {
+    return (
+      <section className="card mb-12 ai-game-report" aria-label="Blackbird AI match analysis">
+        <div className="ai-weekly-head">
+          <span className="ai-weekly-title">Blackbird AI Analysis</span>
+        </div>
+        <div className="ai-text">{report.text}</div>
+        {report.charts.map((c, i) => (
+          <AIChart key={i} chart={c} />
+        ))}
+      </section>
+    );
+  }
+  return (
+    <div className="mb-12">
+      <button type="button" className="btn btn-primary ai-analyze" onClick={run} disabled={busy}>
+        {busy ? "Analyzing…" : "Analyze This Game"}
+      </button>
+      {error && (
+        <p className="tag" style={{ margin: "6px 2px 0", textTransform: "none", letterSpacing: 0, color: "var(--red)" }}>
+          {error}
         </p>
       )}
     </div>

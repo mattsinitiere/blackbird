@@ -1,31 +1,24 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { supabase } from "@/lib/supabase";
 import { buildMySummary } from "@/lib/aiSummary";
-import { LineChart, BarChart } from "./Charts";
+import AIChart, { chartsOf } from "./AIChart";
 import { PlayerBadge } from "./ui";
 
 const SUGGESTIONS = [
-  "How's my form lately?",
+  "Analyze my last game",
+  "Where do my darts land in X01?",
+  "Compare my 3-dart average with my top rival by month",
+  "Break down my wins by game mode",
   "How is my checkout percentage trending?",
-  "Chart my 3-dart average by month",
   "What should I practice this week?",
-  "Who is my toughest rival?",
-  "What was my best game this month?",
 ];
 
-/** A chart the coach attached to a reply, drawn with the app's own charts. */
-function AIChart({ chart }) {
-  if (!chart || !Array.isArray(chart.points) || !chart.points.length) return null;
-  return (
-    <figure className="ai-chart">
-      {chart.title && <figcaption className="ai-chart-title">{chart.title}</figcaption>}
-      {chart.type === "bar" ? (
-        <BarChart data={chart.points} color={chart.color} textScale={1.3} />
-      ) : (
-        <LineChart data={chart.points} color={chart.color} unit={chart.unit} decimals={chart.decimals} textScale={1.3} />
-      )}
-    </figure>
-  );
+const DAY_MS = 86400000;
+/** The Monday that starts this week, as YYYY-MM-DD (the weekly report's cache key). */
+function weekKey(now = new Date()) {
+  const d = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  d.setDate(d.getDate() - ((d.getDay() + 6) % 7));
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
 function SendIcon() {
@@ -86,6 +79,47 @@ export default function BlackbirdAI({ me, userId, stats, elo, results, practice,
   const summary = useMemo(() => buildMySummary({ me, stats, elo, results, practice, players, social }), [me, stats, elo, results, practice, players, social]);
   const hasData = (summary.me.games || 0) + summary.practice.sessions > 0;
 
+  // this week's report card: generated once a week (per phone), only when
+  // there are ranked games in the last 7 days
+  const [weekly, setWeekly] = useState(null);
+  const [weeklyOpen, setWeeklyOpen] = useState(true);
+  const playedThisWeek = useMemo(
+    () => (results || []).some((r) => r.username === me && r.result !== "practice" && Date.now() - new Date(r.completedAt).getTime() <= 7 * DAY_MS),
+    [results, me]
+  );
+  useEffect(() => {
+    if (!loaded || !me || !playedThisWeek) return;
+    const key = `bb-ai-weekly-${userId || "anon"}-${weekKey()}`;
+    try {
+      const cached = JSON.parse(window.localStorage.getItem(key) || "null");
+      if (cached) {
+        setWeekly(cached);
+        return;
+      }
+    } catch {}
+    let cancelled = false;
+    (async () => {
+      try {
+        const { data } = await supabase.auth.getSession();
+        const res = await fetch("/api/insights", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${data?.session?.access_token || ""}` },
+          body: JSON.stringify({ kind: "weekly", me }),
+        });
+        const body = await res.json().catch(() => ({}));
+        if (!res.ok || cancelled) return; // quietly try again next visit
+        const report = body.empty ? { empty: true } : { text: body.text, charts: body.charts || [], from: body.from, to: body.to };
+        try {
+          window.localStorage.setItem(key, JSON.stringify(report));
+        } catch {}
+        setWeekly(report);
+      } catch {}
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [loaded, me, userId, playedThisWeek]);
+
   const send = async (text) => {
     const q = text.trim();
     if (!q || busy) return;
@@ -100,12 +134,12 @@ export default function BlackbirdAI({ me, userId, stats, elo, results, practice,
       const res = await fetch("/api/insights", {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${data?.session?.access_token || ""}` },
-        body: JSON.stringify({ kind: "me", question: q, history, summary }),
+        body: JSON.stringify({ kind: "me", question: q, history, summary, me }),
       });
       const body = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(body.error || "Request failed");
-      const chart = body.chart && Array.isArray(body.chart.points) && body.chart.points.length ? body.chart : null;
-      setMessages((prev) => [...prev, { id: id + 1, role: "assistant", content: body.text, chart }]);
+      const charts = Array.isArray(body.charts) ? body.charts.slice(0, 3) : body.chart ? [body.chart] : [];
+      setMessages((prev) => [...prev, { id: id + 1, role: "assistant", content: body.text, charts }]);
     } catch (e) {
       setMessages((prev) => [...prev, { id: id + 1, role: "assistant", content: e.message || "Something went wrong.", error: true }]);
     } finally {
@@ -143,6 +177,24 @@ export default function BlackbirdAI({ me, userId, stats, elo, results, practice,
       </div>
 
       <div className="ai-messages" ref={listRef} aria-live="polite">
+        {weekly && !weekly.empty && weekly.text && (
+          <section className="ai-weekly" aria-label="Your week in darts">
+            <div className="ai-weekly-head">
+              <span className="ai-weekly-title">Your Week in Darts</span>
+              <button type="button" className="btn btn-sm" onClick={() => setWeeklyOpen((o) => !o)} aria-expanded={weeklyOpen}>
+                {weeklyOpen ? "Hide" : "Show"}
+              </button>
+            </div>
+            {weeklyOpen && (
+              <>
+                <div className="ai-text">{weekly.text}</div>
+                {(weekly.charts || []).map((c, i) => (
+                  <AIChart key={i} chart={c} />
+                ))}
+              </>
+            )}
+          </section>
+        )}
         {empty && (
           <div className="ai-empty">
             {hasData ? (
@@ -167,9 +219,11 @@ export default function BlackbirdAI({ me, userId, stats, elo, results, practice,
         {messages.map((m) => (
           <div key={m.id} className={`ai-row ${m.role === "user" ? "is-user" : "is-bot"}${m.error ? " is-error" : ""}`}>
             {m.role === "assistant" ? <BirdAvatar /> : <PlayerBadge username={me || "?"} color={playerColors?.[me]} size={26} showName={false} />}
-            <div className={`ai-bubble${m.chart ? " has-chart" : ""}`}>
+            <div className={`ai-bubble${chartsOf(m).length ? " has-chart" : ""}`}>
               <div className="ai-text">{m.content}</div>
-              {m.chart && <AIChart chart={m.chart} />}
+              {chartsOf(m).map((c, i) => (
+                <AIChart key={i} chart={c} />
+              ))}
             </div>
           </div>
         ))}

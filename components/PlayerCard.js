@@ -2,6 +2,7 @@ import { useState, useContext } from "react";
 import { PlayerBadge, PlayerLookContext } from "./ui";
 import { defaultPlayerColor } from "@/lib/constants";
 import { isTagIcon, isDevTagIcon } from "@/lib/profile";
+import { qrMatrix, inFinder } from "@/lib/qr";
 import { iconParts } from "@/lib/icons";
 import { cardStats } from "@/lib/playerCard";
 
@@ -83,6 +84,73 @@ function roundRect(ctx, x, y, w, h, r) {
   ctx.closePath();
 }
 
+/** Rounded rect with its own radius per corner: [tl, tr, br, bl]. */
+function roundRect4(ctx, x, y, w, h, [tl, tr, br, bl]) {
+  ctx.beginPath();
+  ctx.moveTo(x + tl, y);
+  ctx.lineTo(x + w - tr, y);
+  ctx.quadraticCurveTo(x + w, y, x + w, y + tr);
+  ctx.lineTo(x + w, y + h - br);
+  ctx.quadraticCurveTo(x + w, y + h, x + w - br, y + h);
+  ctx.lineTo(x + bl, y + h);
+  ctx.quadraticCurveTo(x, y + h, x, y + h - bl);
+  ctx.lineTo(x, y + tl);
+  ctx.quadraticCurveTo(x, y, x + tl, y);
+  ctx.closePath();
+}
+
+/**
+ * The card's QR code in the "Flight" style: dots joined into strokes,
+ * leaf-shaped corner squares pointing at the centre, and the Blackbird mark
+ * in the middle (error correction H covers it). Always navy on white, so it
+ * scans on either theme.
+ */
+function drawQR(ctx, text, x, y, size, logo, ink) {
+  const { n, dark } = qrMatrix(text);
+  const m = size / n;
+  const hole = Math.round(n * 0.22) | 1; // odd, so it centres on a module
+  const h0 = (n - hole) / 2;
+  const inHole = (r, c) => r >= h0 - 0.5 && r < h0 + hole && c >= h0 - 0.5 && c < h0 + hole;
+  const on = (r, c) => dark(r, c) && !inFinder(n, r, c) && !inHole(r, c);
+  ctx.fillStyle = ink;
+  for (let r = 0; r < n; r++) {
+    for (let c = 0; c < n; c++) {
+      if (!on(r, c)) continue;
+      const px = x + c * m;
+      const py = y + r * m;
+      ctx.beginPath();
+      ctx.arc(px + m / 2, py + m / 2, m * 0.42, 0, Math.PI * 2);
+      ctx.fill();
+      if (on(r, c + 1)) ctx.fillRect(px + m / 2, py + m * 0.08, m, m * 0.84);
+      if (on(r + 1, c)) ctx.fillRect(px + m * 0.08, py + m / 2, m * 0.84, m);
+    }
+  }
+  // leaf eyes: the corner nearest the code's centre stays square
+  for (const [er, ec, sharp] of [[0, 0, 2], [0, n - 7, 3], [n - 7, 0, 1]]) {
+    const ex = x + ec * m;
+    const ey = y + er * m;
+    const s = 7 * m;
+    const radii = (v) => [0, 1, 2, 3].map((i) => (i === sharp ? 0 : v));
+    ctx.fillStyle = ink;
+    roundRect4(ctx, ex, ey, s, s, radii(m * 3));
+    ctx.fill();
+    ctx.fillStyle = "#ffffff";
+    roundRect4(ctx, ex + m, ey + m, s - 2 * m, s - 2 * m, radii(m * 1.8));
+    ctx.fill();
+    ctx.fillStyle = ink;
+    roundRect4(ctx, ex + 2 * m, ey + 2 * m, 3 * m, 3 * m, radii(m * 1.2));
+    ctx.fill();
+  }
+  // the mark on a white plate
+  const ls = hole * m;
+  const lx = x + h0 * m;
+  const ly = y + h0 * m;
+  ctx.fillStyle = "#ffffff";
+  roundRect(ctx, lx - m * 0.3, ly - m * 0.3, ls + m * 0.6, ls + m * 0.6, m * 1.2);
+  ctx.fill();
+  if (logo) ctx.drawImage(logo, lx + m * 0.2, ly + m * 0.2, ls - m * 0.4, ls - m * 0.4);
+}
+
 function setFont(ctx, weight, size, spacing = 0) {
   ctx.font = `${weight} ${size}px ${FONT}`;
   if ("letterSpacing" in ctx) ctx.letterSpacing = `${spacing}px`;
@@ -121,7 +189,7 @@ function drawIcon(ctx, id, x, y, size, color) {
  * cover with the Blackbird mark, the avatar overlapping it, name and tag,
  * Elo / record / win % across, then only the stats the player actually has.
  */
-function drawCard({ user, stats, elo, playerColor, handle, look = {}, images = {} }) {
+export function drawCard({ user, stats, elo, playerColor, handle, look = {}, images = {}, qrUrl = null }) {
   const W = 1080;
   const H = 1350;
   const pal = themePalette();
@@ -194,11 +262,25 @@ function drawCard({ user, stats, elo, playerColor, handle, look = {}, images = {
   ctx.fillText(user.charAt(0).toUpperCase(), avX, avY + 6);
   ctx.textBaseline = "alphabetic";
 
-  // name, fitted to the width
+  // QR code to the website, right of the name (navy on white; on the dark
+  // theme it sits on its own white plate so it still scans)
+  const qrSize = 200;
+  const qrX = R - qrSize;
+  const qrY = Y + coverH + 16;
+  if (qrUrl) {
+    if (pal.theme === "dark") {
+      ctx.fillStyle = "#ffffff";
+      roundRect(ctx, qrX - 14, qrY - 14, qrSize + 28, qrSize + 28, 22);
+      ctx.fill();
+    }
+    drawQR(ctx, qrUrl, qrX, qrY, qrSize, images.qrLogo, "#26214d");
+  }
+
+  // name, fitted to the width left of the QR code
   let y = avY + avR + 96;
   ctx.textAlign = "left";
   ctx.fillStyle = pal.ink;
-  const nameSize = fitFont(ctx, user, R - L, 88, 800);
+  const nameSize = fitFont(ctx, user, (qrUrl ? qrX - 32 : R) - L, 88, 800);
   setFont(ctx, 800, nameSize, -1);
   ctx.fillText(user, L, y);
 
@@ -328,8 +410,9 @@ export default function PlayerCard({ user, handle, stats, elo, onOpenAccount, pl
       await ensureFont();
       const color = playerColors?.[user] || defaultPlayerColor(user);
       const dark = document.documentElement.dataset.theme === "dark";
-      const [icon, word] = await Promise.all([loadImage("/brand/icon-white.svg"), loadImage(`/brand/word-${dark ? "white" : "color"}.svg`)]);
-      const canvas = drawCard({ user, stats, elo, playerColor: color, handle, look: look || {}, images: { icon, word } });
+      const [icon, word, qrLogo] = await Promise.all([loadImage("/brand/icon-white.svg"), loadImage(`/brand/word-${dark ? "white" : "color"}.svg`), loadImage("/brand/icon-color.svg")]);
+      const qrUrl = `${window.location.origin}/`;
+      const canvas = drawCard({ user, stats, elo, playerColor: color, handle, look: look || {}, images: { icon, word, qrLogo }, qrUrl });
       const blob = await new Promise((res) => canvas.toBlob(res, "image/png"));
       if (!blob) throw new Error("Could not create image.");
       const file = new File([blob], `${user}-blackbird.png`, { type: "image/png" });

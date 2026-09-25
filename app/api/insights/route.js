@@ -1,17 +1,15 @@
 import { createClient } from "@supabase/supabase-js";
-import { extractChart, resolveChart } from "@/lib/aiChart";
+import { extractCharts, resolveCharts } from "@/lib/aiChart";
+import { TOOL_DEFS, createToolRunner, describeMatch, weeklyData } from "@/lib/aiTools";
+import { runAgent } from "@/lib/aiAgent";
+import { providerConfig, makeStep } from "@/lib/aiProviders";
+import { resultFromRow } from "@/lib/practice";
+import { BASE_ELO } from "@/lib/constants";
 
 // Runs on the server only. The AI key lives in a non-public env var and is
 // never sent to the browser.
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-
-const DEFAULT_MODELS = {
-  gemini: "gemini-2.5-flash", // free tier
-  groq: "llama-3.3-70b-versatile", // free tier
-  openai: "gpt-4o-mini", // paid
-  anthropic: "claude-3-5-haiku-latest", // paid
-};
 
 function jsonRes(obj, status = 200) {
   return new Response(JSON.stringify(obj), {
@@ -23,13 +21,43 @@ function jsonRes(obj, status = 200) {
 // The personal Blackbird AI tab: the signed-in player's own games, form,
 // records, trends, practice and rivalries, with follow-up questions in
 // context and an optional chart drawn from the app's own series.
-function buildPersonalPrompt(summary, question, history) {
+const CHART_RULES =
+  "CHARTS: when a chart helps (a trend, a comparison, a breakdown, or the player asks for a chart), append up to THREE fenced blocks after your prose, each on its own lines:\n" +
+  "```chart\n{\"type\": \"line\", \"title\": \"Checkout % by month\", \"unit\": \"%\", \"decimals\": 1, \"series\": \"checkoutPctByMonth\"}\n```\n" +
+  "Types: \"line\" (trends), \"bar\" (counts per period or category), \"stackedBar\" (several series stacked per period), " +
+  "\"donut\" (a split, e.g. wins by game mode, with points [{\"label\": \"X01\", \"y\": 4}]), " +
+  "\"heatmap\" (where darts land: {\"type\": \"heatmap\", \"heatmap\": \"h1\"} with an id from dart_heatmap), " +
+  "\"stats\" (2 to 4 headline numbers: {\"type\": \"stats\", \"items\": [{\"label\": \"3-dart avg\", \"value\": \"52.4\"}]}). " +
+  "`series` is one id or an array of up to four ids to compare (e.g. [\"s1\", \"s2\"] for you vs an opponent); add \"names\" for the legend. " +
+  "Ids are the summary's series keys or ids returned by tools (s1, s2, h1). Add \"last\": N to keep the most recent N points. " +
+  "For a small comparison you computed yourself, use \"points\" with numbers taken straight from the data. " +
+  "Never put a chart block mid-sentence, never chart data that isn't there, and never say you can't draw: the app renders the charts.\n\n";
+
+const STYLE_RULES =
+  "STYLE: be specific and cite the real numbers with sample sizes. Be encouraging but honest: say what is going well " +
+  "and what to work on, with concrete practice suggestions when asked. " +
+  "Write plain prose, no markdown headers, bold or bullet symbols. A few sentences for simple questions, " +
+  "up to about 350 words for a detailed one. Finish your thought. " +
+  "Format dates naturally like 'Tuesday, October 9th' and never as raw ISO timestamps. " +
+  "If the data cannot answer the question, say so plainly and suggest what to log next.";
+
+const TOOL_RULES =
+  "TOOLS: you can call tools to dig deeper than the summary: query_games (filter games), get_stats (totals for any mode or date range), " +
+  "head_to_head (record vs one opponent), analyze_game (dart by dart for one game), get_series (a metric over time, returns a chartable id), " +
+  "dart_heatmap (where darts land, returns a heatmap id). Use them whenever the question needs filtering, a date range, another player, " +
+  "a specific game, or a chart the summary doesn't already have. Call several in one turn when they are independent. " +
+  "Other players' data is only what the signed-in player can see (people they follow). Resolve 'today', 'this month' and similar from `today`.\n\n";
+
+// The personal Blackbird AI tab: the signed-in player's own games, form,
+// records, trends, practice and rivalries, with follow-up questions in
+// context, tools for deeper questions, and up to three charts.
+function buildPersonalPrompt(summary, question, history, { tools = false } = {}) {
   const name = summary?.me?.name || "the player";
   const seriesKeys = Object.keys(summary?.series || {});
   const system =
     `You are Blackbird AI, ${name}'s personal darts coach inside the Blackbird scoring app. ` +
     "You are talking directly to that player: say 'you' and 'your', never their name in the third person. " +
-    "Use ONLY the JSON data provided; never invent stats, games, opponents or dates.\n\n" +
+    "Use ONLY the JSON data provided and tool results; never invent stats, games, opponents or dates.\n\n" +
     "THE DATA: `me` has career totals per game type (X01, cricket, baseball and the party games). " +
     "`me.rankInCircle` and `me.circleSize` rank the player among their circle (themselves plus the players they follow), never a whole league; `me.circle` counts who they follow and who follows them. " +
     "`checkouts` has finishing stats replayed from every X01 dart log: checkout chances (darts thrown at a finish), " +
@@ -48,30 +76,63 @@ function buildPersonalPrompt(summary, question, history) {
     "Checkout % is checkouts hit divided by checkout chances; a chance is one dart thrown while the remaining score could be finished with that dart. " +
     "When asked about a trend, read the monthly or weekly tables and quote the actual values and sample sizes; " +
     "with fewer than about 10 chances in a period say the sample is small. Null means no data for that period.\n\n" +
-    "CHARTS: when a chart would help (any trend, comparison or 'show me' request, or when the player asks for a chart or graph), " +
-    "append exactly one fenced block after your prose, on its own lines:\n" +
-    "```chart\n{\"type\": \"line\", \"title\": \"Checkout % by month\", \"unit\": \"%\", \"decimals\": 1, \"series\": \"checkoutPctByMonth\"}\n```\n" +
-    "`series` must be one of these keys from the data: " + (seriesKeys.length ? seriesKeys.join(", ") : "(none yet)") + ". " +
-    "Add \"last\": N to show only the most recent N points. Use type \"bar\" for counts or comparisons. " +
-    "For a comparison you computed yourself (for example wins per opponent), use \"points\": [{\"label\": \"Sam\", \"y\": 4}] instead of series, with numbers taken straight from the data. " +
-    "Never put a chart block in the middle of a sentence, never send more than one, and never draw a chart of data that is not there. " +
-    "The chart is rendered by the app, so do not describe it as attached or say you cannot draw.\n\n" +
-    "STYLE: be specific and cite the real numbers. Be encouraging but honest: point out what is going well " +
-    "and what to work on, with concrete practice suggestions when asked. " +
-    "Write plain prose, no markdown headers, bold or bullet symbols. A few sentences for simple questions, " +
-    "up to about 350 words for a detailed one. Finish your thought. " +
-    "Format dates naturally like 'Tuesday, October 9th' and never as raw ISO timestamps. " +
-    "If the data cannot answer the question, say so plainly and suggest what to log next.";
+    (tools ? TOOL_RULES : "") +
+    CHART_RULES +
+    "Summary series keys available: " + (seriesKeys.length ? seriesKeys.join(", ") : "(none)") + ".\n\n" +
+    STYLE_RULES;
   const turns = (Array.isArray(history) ? history : [])
     .filter((m) => m && (m.role === "user" || m.role === "assistant") && typeof m.content === "string")
     .slice(-10)
     .map((m) => ({ role: m.role, content: m.content.slice(0, 1200) }));
   const q = (question || "").toString().slice(0, 600).trim();
+  const data = tools ? slimSummary(summary) : summary;
   const user = `QUESTION: ${q}
 
 DATA:
-${JSON.stringify(summary)}`;
+${JSON.stringify(data)}`;
   return { system, user, turns };
+}
+
+/**
+ * With tools available the prompt carries headline numbers only; the model
+ * fetches detail itself. Chart series stay resolvable server-side.
+ */
+function slimSummary(s) {
+  if (!s) return s;
+  const { series, careers, recentGames, trends, headToHead, practice, ...rest } = s;
+  return {
+    ...rest,
+    trends: { byMonth: (trends?.byMonth || []).slice(-6) },
+    headToHead: (headToHead || []).slice(0, 8).map(({ last5, byGameType, ...h }) => h),
+    recentGames: (recentGames || []).slice(-8),
+    practice: practice ? { sessions: practice.sessions, thisWeek: practice.thisWeek, bots: { games: practice.bots?.games, wins: practice.bots?.wins, ladderLevel: practice.bots?.ladderLevel } } : null,
+  };
+}
+
+function buildGamePrompt(match, me) {
+  const system =
+    `You are Blackbird AI, ${me}'s darts coach. Write a short match report on ONE game for ${me}, talking to them as 'you'. ` +
+    "Use ONLY the JSON data: the players' metrics, legs or rounds, and the visit-by-visit log (darts like T20, D16, S5, Miss). " +
+    "Cover: the result and how it was decided, the key moments (big visits, the leg or round that swung it, busts), " +
+    "finishing (checkout chances and hits, doubles missed) or the mode's equivalent, and one specific thing to practise. " +
+    "If the game has no dart log, say only totals are known and keep it brief. About 150 to 250 words.\n\n" +
+    "Then add ONE or TWO chart blocks using the ids in `chartableSeries` (use the ids array to compare players):\n" +
+    "```chart\n{\"type\": \"line\", \"title\": \"Score per visit\", \"series\": [\"s1\", \"s2\"]}\n```\n" +
+    "Only use ids listed there. " +
+    STYLE_RULES;
+  return { system, user: `GAME:\n${JSON.stringify(match)}` };
+}
+
+function buildWeeklyPrompt(week) {
+  const system =
+    `You are Blackbird AI, ${week.player}'s darts coach. Write this week's report card for ${week.player}, talking to them as 'you'. ` +
+    "Use ONLY the JSON data: this week's totals against last week's, Elo change, opponents and each game. " +
+    "Open with a one-line verdict on the week, then the highlights with real numbers, what slipped compared with last week " +
+    "(only if previousWeek exists), and end with ONE concrete focus for next week. About 120 to 180 words.\n\n" +
+    "Then add a stats block with 3 or 4 of the week's headline numbers, and at most one chart from `chartableSeries`:\n" +
+    "```chart\n{\"type\": \"stats\", \"items\": [{\"label\": \"Games\", \"value\": \"6\"}, {\"label\": \"Win %\", \"value\": \"50%\"}]}\n```\n" +
+    STYLE_RULES;
+  return { system, user: `WEEK:\n${JSON.stringify(week)}` };
 }
 
 function buildPrompt(kind, summary, question) {
@@ -110,89 +171,29 @@ function buildPrompt(kind, summary, question) {
   return { system, user: `${task}\n\nDATA:\n${JSON.stringify(summary)}` };
 }
 
+/** One plain model call (no tools). */
 async function callAI({ system, user, turns = [] }) {
-  const provider = (process.env.AI_PROVIDER || "openai").toLowerCase();
-  const model = process.env.AI_MODEL || DEFAULT_MODELS[provider];
-  // earlier turns of the conversation, oldest first, then the new question
-  const chat = [...turns, { role: "user", content: user }];
+  const cfg = providerConfig();
+  const out = await makeStep(cfg)({ system, messages: [...turns, { role: "user", content: user }], tools: null, final: true });
+  return { text: out.text || "", model: out.model };
+}
 
-  if (provider === "gemini") {
-    const key = process.env.GEMINI_API_KEY;
-    if (!key) throw new Error("GEMINI_API_KEY is not set");
-    const r = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${key}`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          systemInstruction: { parts: [{ text: system }] },
-          contents: chat.map((m) => ({ role: m.role === "assistant" ? "model" : "user", parts: [{ text: m.content }] })),
-          generationConfig: {
-            maxOutputTokens: 3000,
-            temperature: 0.8,
-            // gemini-2.5 spends output tokens on internal "thinking", which can
-            // truncate the visible answer; turn it off so all tokens go to text
-            thinkingConfig: { thinkingBudget: 0 },
-          },
-        }),
-      }
-    );
-    const data = await r.json();
-    if (!r.ok) throw new Error(data?.error?.message || "Gemini request failed");
-    const parts = data?.candidates?.[0]?.content?.parts || [];
-    const text = parts
-      .filter((p) => p && p.text && !p.thought)
-      .map((p) => p.text)
-      .join("");
-    return { text, model: `gemini/${model}` };
-  }
+/** Every game_results row the signed-in user may read, through their own token (RLS applies). */
+async function loadData(sUrl, sKey, token) {
+  const sb = createClient(sUrl, sKey, { global: { headers: { Authorization: `Bearer ${token}` } }, auth: { persistSession: false } });
+  const [{ data: rows, error }, { data: players }] = await Promise.all([
+    sb.from("game_results").select("*").order("completed_at", { ascending: true }),
+    sb.from("players").select("username, handle"),
+  ]);
+  if (error) throw error;
+  return { rows: (rows || []).map((r) => resultFromRow(r, BASE_ELO)), players: players || [] };
+}
 
-  if (provider === "groq" || provider === "openai") {
-    const key = provider === "groq" ? process.env.GROQ_API_KEY : process.env.OPENAI_API_KEY;
-    if (!key) throw new Error(`${provider.toUpperCase()}_API_KEY is not set`);
-    const base =
-      provider === "groq"
-        ? "https://api.groq.com/openai/v1/chat/completions"
-        : "https://api.openai.com/v1/chat/completions";
-    const r = await fetch(base, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` },
-      body: JSON.stringify({
-        model,
-        max_tokens: 3000,
-        temperature: 0.8,
-        messages: [{ role: "system", content: system }, ...chat],
-      }),
-    });
-    const data = await r.json();
-    if (!r.ok) throw new Error(data?.error?.message || `${provider} request failed`);
-    return { text: data?.choices?.[0]?.message?.content || "", model: `${provider}/${model}` };
-  }
-
-  if (provider === "anthropic") {
-    const key = process.env.ANTHROPIC_API_KEY;
-    if (!key) throw new Error("ANTHROPIC_API_KEY is not set");
-    const r = await fetch("https://api.anthropic.com/v1/messages", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-api-key": key,
-        "anthropic-version": "2023-06-01",
-      },
-      body: JSON.stringify({
-        model,
-        max_tokens: 3000,
-        system,
-        messages: chat,
-      }),
-    });
-    const data = await r.json();
-    if (!r.ok) throw new Error(data?.error?.message || "Anthropic request failed");
-    const text = (data?.content || []).map((b) => b.text || "").join("");
-    return { text, model: `anthropic/${model}` };
-  }
-
-  throw new Error(`Unknown AI_PROVIDER: ${provider}`);
+function friendlyError(e) {
+  const msg = e?.message || "AI request failed";
+  if (/_API_KEY is not set|Unknown AI_PROVIDER/.test(msg)) return { status: 503, error: "Blackbird AI isn't switched on yet. The site owner needs to add an AI provider key." };
+  if (e?.quota) return { status: 429, error: "Blackbird AI has hit its free usage limit for now. Try again in a minute (or tomorrow if it keeps happening)." };
+  return { status: 500, error: msg };
 }
 
 export async function POST(req) {
@@ -213,26 +214,94 @@ export async function POST(req) {
   } catch {
     return jsonRes({ error: "Bad request" }, 400);
   }
-  const { kind, summary, question, history } = body || {};
-  if (!summary) return jsonRes({ error: "Missing data" }, 400);
-  if ((kind === "custom" || kind === "me") && !(question || "").toString().trim()) {
-    return jsonRes({ error: "Type a question first." }, 400);
-  }
+  const { kind, summary, question, history, gameId, me: meName } = body || {};
 
   try {
-    const prompt = kind === "me" ? buildPersonalPrompt(summary, question, history) : buildPrompt(kind, summary, question);
-    const { text: raw, model } = await callAI(prompt);
+    // one game's match report
+    if (kind === "game") {
+      if (!gameId || !meName) return jsonRes({ error: "Missing game" }, 400);
+      const { rows, players } = await loadData(sUrl, sKey, token);
+      const gameRows = rows.filter((r) => r.gameId === gameId);
+      if (!gameRows.length) return jsonRes({ error: "That game isn't available." }, 404);
+      const runner = createToolRunner({ rows, players, me: meName });
+      const match = describeMatch(gameRows, runner.register);
+      const { text: raw, model } = await callAI(buildGamePrompt(match, meName));
+      const { text, charts } = extractCharts(raw);
+      let resolved = resolveCharts(charts, runner.series, runner.heatmaps);
+      // no usable chart from the model: draw the first series the game has
+      if (!resolved.length && match.chartableSeries[0]) {
+        const cs = match.chartableSeries[0];
+        resolved = resolveCharts([{ type: "line", title: cs.metric === "visitScores" ? "Score per visit" : cs.metric, series: cs.ids, names: cs.players }], runner.series);
+      }
+      return jsonRes({ text: text || raw, charts: resolved, model });
+    }
+
+    // the weekly report card
+    if (kind === "weekly") {
+      if (!meName) return jsonRes({ error: "Missing player" }, 400);
+      const { rows, players } = await loadData(sUrl, sKey, token);
+      const runner = createToolRunner({ rows, players, me: meName });
+      const week = weeklyData({ rows, me: meName, register: runner.register });
+      if (!week) return jsonRes({ empty: true });
+      const { text: raw, model } = await callAI(buildWeeklyPrompt(week));
+      const { text, charts } = extractCharts(raw);
+      return jsonRes({ text: text || raw, charts: resolveCharts(charts, runner.series, runner.heatmaps), from: week.from, to: week.to, model });
+    }
+
+    if (!summary) return jsonRes({ error: "Missing data" }, 400);
+    if ((kind === "custom" || kind === "me") && !(question || "").toString().trim()) {
+      return jsonRes({ error: "Type a question first." }, 400);
+    }
+    if (kind !== "me") {
+      const { text: raw, model } = await callAI(buildPrompt(kind, summary, question));
+      if (!raw.trim()) return jsonRes({ error: "The model returned an empty response." }, 502);
+      return jsonRes({ text: raw, model });
+    }
+
+    // the personal coach: tools over the user's own visible rows, then up
+    // to three charts resolved against the app's numbers
+    const me = summary?.me?.name;
+    let data = null;
+    try {
+      data = me ? await loadData(sUrl, sKey, token) : null;
+    } catch {
+      data = null; // no tools this time; the summary still answers
+    }
+    let raw = "";
+    let model = "";
+    let store = { ...(summary.series || {}) };
+    let heatmaps = {};
+    if (data) {
+      const runner = createToolRunner({ rows: data.rows, players: data.players, me });
+      const prompt = buildPersonalPrompt(summary, question, history, { tools: true });
+      try {
+        const out = await runAgent({
+          system: prompt.system,
+          messages: [...prompt.turns, { role: "user", content: prompt.user }],
+          tools: TOOL_DEFS,
+          step: makeStep(providerConfig()),
+          runTool: (name, args) => runner.run(name, args),
+        });
+        raw = out.text;
+        model = out.model;
+        store = { ...store, ...runner.series };
+        heatmaps = runner.heatmaps;
+      } catch (e) {
+        if (e?.quota || /_API_KEY is not set|Unknown AI_PROVIDER/.test(e?.message || "")) throw e;
+        raw = ""; // tool calling failed: fall back to the plain summary path
+      }
+    }
+    if (!raw.trim()) {
+      const out = await callAI(buildPersonalPrompt(summary, question, history));
+      raw = out.text;
+      model = out.model;
+    }
     if (!raw.trim()) return jsonRes({ error: "The model returned an empty response." }, 502);
-    if (kind !== "me") return jsonRes({ text: raw, model });
-    // the personal coach may append one chart block; resolve it against the
-    // player's own series so the numbers drawn are the app's, not the model's
-    const { text, chart } = extractChart(raw);
-    const resolved = chart ? resolveChart(chart, summary.series) : null;
-    return jsonRes({ text: text || raw, chart: resolved, model });
+    const { text, charts } = extractCharts(raw);
+    const resolved = resolveCharts(charts, store, heatmaps);
+    return jsonRes({ text: text || raw, charts: resolved, chart: resolved[0] || null, model });
   } catch (e) {
-    const msg = e.message || "AI request failed";
-    // a missing provider key is a setup problem, not a user problem
-    const setup = /_API_KEY is not set|Unknown AI_PROVIDER/.test(msg);
-    return jsonRes({ error: setup ? "Blackbird AI isn't switched on yet. The site owner needs to add an AI provider key." : msg }, setup ? 503 : 500);
+    const { status, error } = friendlyError(e);
+    return jsonRes({ error }, status);
   }
 }

@@ -3705,9 +3705,12 @@ html:not([data-theme="dark"]) .app.is-profile {
   width: 100%;
   min-width: 0;
   max-width: 100%;
-  height: 46px;
+  min-height: 46px;
   margin: 0;
-  padding: 0 12px;
+  padding: 0 10px;
+  /* iOS ignores height when centring a date field's text; line-height
+     centres it vertically there, text-align horizontally */
+  line-height: 44px;
   border: 1px solid var(--line);
   border-radius: var(--radius-sm);
   background: var(--surface);
@@ -3715,11 +3718,15 @@ html:not([data-theme="dark"]) .app.is-profile {
   font: inherit;
   font-size: 16px; /* 16px stops iOS zooming in on focus */
   font-weight: 600;
-  text-align: left;
+  text-align: center;
 }
 .period-field input[type="date"]::-webkit-date-and-time-value {
   margin: 0;
-  text-align: left;
+  text-align: center;
+}
+.period-field input[type="date"]::-webkit-datetime-edit {
+  display: flex;
+  justify-content: center;
 }
 .period-field input[type="date"]:focus {
   outline: none;
@@ -3736,8 +3743,12 @@ html:not([data-theme="dark"]) .app.is-profile {
 }
 .period-hint {
   position: absolute;
-  left: 13px;
-  bottom: 13px;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 46px;
+  line-height: 46px;
+  text-align: center;
   font-size: 16px;
   font-weight: 500;
   color: var(--muted);
@@ -3827,4 +3838,148 @@ html:not([data-theme="dark"]) .app.is-profile {
 }
 .container-fill .mu-play {
   margin-top: auto;
+}
+
+/* AI charts: legends, donut, stat cards, dartboard heatmap (components/Charts.js) */
+.chart-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+  margin-top: 6px;
+  font-size: calc(13px * var(--fs));
+  color: var(--ink-soft);
+}
+.chart-legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.chart-legend i {
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+}
+.donut {
+  display: grid;
+  grid-template-columns: minmax(0, 150px) minmax(0, 1fr);
+  align-items: center;
+  gap: 12px;
+}
+.donut-svg {
+  width: 100%;
+  display: block;
+}
+.donut-legend {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 2px;
+}
+.donut-legend button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 5px 4px;
+  border: 0;
+  border-radius: 6px;
+  background: none;
+  color: var(--ink);
+  font: inherit;
+  font-size: calc(14px * var(--fs));
+  text-align: left;
+  cursor: pointer;
+}
+.donut-legend button[aria-pressed="true"] {
+  background: var(--surface-2);
+}
+.donut-legend i {
+  flex: none;
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+}
+.donut-legend span {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ai-stat-cards {
+  display: grid;
+  gap: 8px;
+}
+.ai-stat-card {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  padding: 10px;
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+}
+.ai-stat-card b {
+  font-size: calc(20px * var(--fs));
+  line-height: 1.1;
+  color: var(--ink);
+  overflow-wrap: anywhere;
+}
+.ai-stat-card span {
+  font-size: calc(12px * var(--fs));
+  color: var(--muted);
+}
+.heatmap-svg {
+  display: block;
+  width: 100%;
+  max-width: 300px;
+  margin: 0 auto;
+}
+.heatmap-read {
+  margin-top: 6px;
+  text-align: center;
+  font-size: calc(13px * var(--fs));
+  color: var(--ink-soft);
+}
+.ai-chart + .ai-chart {
+  margin-top: 12px;
+}
+.ai-weekly {
+  margin-bottom: 14px;
+  padding: 12px 14px;
+  border: 1px solid var(--accent-line);
+  border-radius: var(--radius);
+  background: var(--surface);
+  box-shadow: var(--shadow);
+}
+.ai-weekly-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 6px;
+}
+.ai-weekly-title {
+  font-family: var(--font-display-stack);
+  font-weight: 700;
+  font-size: calc(16px * var(--fs));
+  color: var(--ink);
+}
+.ai-weekly .ai-text {
+  white-space: pre-wrap;
+  font-size: calc(14px * var(--fs));
+  line-height: 1.5;
+  color: var(--ink-soft);
+}
+.btn.ai-analyze {
+  width: 100%;
+  padding: 13px;
+  font-size: calc(15px * var(--fs));
+}
+.ai-game-report .ai-text {
+  white-space: pre-wrap;
+  font-size: calc(14px * var(--fs));
+  line-height: 1.5;
+  color: var(--ink-soft);
 }

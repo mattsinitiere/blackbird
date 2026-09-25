@@ -872,7 +872,7 @@ export default function Page() {
           <Records usernames={visibleUsernames} stats={stats} results={results} practice={practice} openGame={openGame} back={() => setView("leaderboard")} playerColors={playerColors} />
         )}
         {view === "game" && gameRows && (
-          <GameDetail rows={gameRows} playerColors={playerColors} back={() => setView(gameFrom)} />
+          <GameDetail rows={gameRows} playerColors={playerColors} back={() => setView(gameFrom)} me={myName} />
         )}
         {view === "matchup" && (
           <Matchup usernames={visibleUsernames} me={myName} elo={elo} results={results} stats={stats} playerColors={playerColors} openGame={openGame} openSetup={openSetup} />
