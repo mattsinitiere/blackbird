@@ -6,6 +6,9 @@ import BadgeMedal from "./BadgeMedal";
 import BotAvatar from "./BotAvatar";
 import { botFor } from "@/lib/bots";
 
+// games whose winner splash has already played this session
+const SPLASH_SHOWN = new Set();
+
 function EloDelta({ elo, size = 12 }) {
   if (!elo) return null;
   const up = elo.delta >= 0;
@@ -25,8 +28,14 @@ function EloDelta({ elo, size = 12 }) {
  * the shell owns saving, rematch and navigation.
  */
 export default function GameSummary({ match = null, summary, saveState, saveError, onRetrySave, onRematch, onNewGame, onDone, onOpenReport, playerColors, newBadges = [], bot = null, onChooseBot, onPlayBot, onPracticeHub }) {
-  // the winner moment (and any badges it unlocked), full screen, once
-  const [splash, setSplash] = useState(true);
+  // the winner moment (and any badges it unlocked), full screen, once per
+  // game: coming back from the match report remounts this screen
+  const gameKey = `${summary?.completedAt || ""}|${summary?.winner || ""}`;
+  const [splash, setSplash] = useState(() => {
+    const show = !SPLASH_SHOWN.has(gameKey);
+    SPLASH_SHOWN.add(gameKey);
+    return show;
+  });
   const closeSplash = useCallback(() => setSplash(false), []);
   if (!summary) return null;
   const { winner, title, rows, highlights, ranked, durationMin, totalDarts } = summary;
