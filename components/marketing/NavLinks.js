@@ -4,6 +4,8 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { NAV, isCurrent } from "@/lib/marketing/nav";
+import { supabase } from "@/lib/supabase";
+import { useSession } from "@/lib/useSession";
 
 function Items({ pathname, onNavigate }) {
   return NAV.map((item) => (
@@ -14,9 +16,14 @@ function Items({ pathname, onNavigate }) {
   ));
 }
 
-/** Header links with the current page marked, plus a disclosure menu below 720px. */
+/**
+ * Header links with the current page marked, plus a disclosure menu below
+ * 900px. On phones the header has no room for Sign out (or, on the
+ * narrowest ones, Sign In), so they move here.
+ */
 export default function NavLinks() {
   const pathname = usePathname();
+  const { session } = useSession();
   const [open, setOpen] = useState(false);
   const button = useRef(null);
   const panel = useRef(null);
@@ -60,6 +67,23 @@ export default function NavLinks() {
       </button>
       <nav ref={panel} aria-label="Site pages" className="mk-menu" hidden={!open} id="mk-menu">
         <Items pathname={pathname} onNavigate={() => setOpen(false)} />
+        {!session && (
+          <Link className="mk-menu-signin" href="/login" onClick={() => setOpen(false)}>
+            Sign In
+          </Link>
+        )}
+        {session && (
+          <button
+            className="mk-menu-signout"
+            type="button"
+            onClick={() => {
+              setOpen(false);
+              supabase.auth.signOut();
+            }}
+          >
+            Sign out
+          </button>
+        )}
         <Link href="/app" onClick={() => setOpen(false)}>
           Open Blackbird <span aria-hidden="true">→</span>
         </Link>

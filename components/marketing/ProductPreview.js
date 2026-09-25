@@ -5,10 +5,10 @@ import { usePreview } from "./PreviewProvider";
 import { MOCKS } from "./Mocks";
 
 const TABS = [
-  { id: "scoring", num: "01", label: "Match Scoring" },
-  { id: "practice", num: "02", label: "Practice & Bots" },
-  { id: "stats", num: "03", label: "Player Stats" },
-  { id: "coaching", num: "04", label: "AI Coaching" },
+  { id: "scoring", num: "01", label: "Match Scoring", short: "Scoring" },
+  { id: "practice", num: "02", label: "Practice & Bots", short: "Practice" },
+  { id: "stats", num: "03", label: "Player Stats", short: "Stats" },
+  { id: "coaching", num: "04", label: "AI Coaching", short: "Coaching" },
 ];
 
 /** The framed product preview under the hero: three tabs and a tap-to-score demo. */
@@ -58,7 +58,11 @@ export default function ProductPreview() {
             onClick={() => select(t.id)}
             onKeyDown={(e) => onKey(e, i)}
           >
-            {t.num} <span>{t.label}</span>
+            {t.num}{" "}
+            <span>
+              <span className="mk-tab-long">{t.label}</span>
+              <span className="mk-tab-short">{t.short}</span>
+            </span>
           </button>
         ))}
       </div>
