@@ -932,13 +932,56 @@ label.check input {
   color: var(--muted);
   animation: load-up 0.5s 0.1s ease both;
 }
-.load-spinner {
-  width: 54px;
-  height: 54px;
-  margin-top: 30px;
-  display: block;
-  color: var(--ink);
-  animation: load-fade 0.5s 0.2s ease both, load-spin 1.4s linear infinite;
+.load-mark {
+  position: relative;
+  width: 132px;
+  height: 132px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: load-fade 0.5s ease both;
+}
+.load-orbit {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  animation: load-spin 1.3s cubic-bezier(0.55, 0.15, 0.45, 0.85) infinite;
+}
+.load-track {
+  fill: none;
+  stroke: var(--line);
+  stroke-width: 3;
+}
+/* a quarter-circle arc that fades in along its length toward the tip */
+.load-arc {
+  fill: none;
+  stroke-width: 4;
+  stroke-linecap: round;
+  stroke-dasharray: 88 264;
+  transform: rotate(-90deg);
+  transform-origin: 60px 60px;
+}
+.load-tip {
+  fill: var(--accent);
+}
+.load-icon {
+  position: relative;
+  display: flex;
+  animation: load-breathe 2.6s ease-in-out infinite;
+}
+@keyframes load-breathe {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.045);
+  }
+}
+.load-mark + .load-title {
+  margin-top: 22px;
 }
 @keyframes load-fade {
   from {
@@ -972,7 +1015,9 @@ label.check input {
 @media (prefers-reduced-motion: reduce) {
   .load-title,
   .load-sub,
-  .load-spinner,
+  .load-mark,
+  .load-orbit,
+  .load-icon,
   .load-status {
     animation: none;
     opacity: 1;
@@ -2055,7 +2100,22 @@ html:not([data-theme="dark"]) .app.is-profile {
 /* activity feed */
 .pf-feed {
   display: grid;
-  gap: 12px;
+  gap: 16px;
+}
+.pf-feed-item {
+  display: grid;
+  gap: 10px;
+}
+.pf-day {
+  margin: 8px 2px 0;
+  color: var(--muted);
+  font-size: calc(12px * var(--fs));
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.pf-feed-item:first-child .pf-day {
+  margin-top: 0;
 }
 .pf-filters {
   display: flex;
@@ -2079,7 +2139,27 @@ html:not([data-theme="dark"]) .app.is-profile {
   color: var(--on-accent);
 }
 .pf-post.card {
-  padding: 16px;
+  position: relative;
+  overflow: hidden;
+  padding: 16px 16px 16px 20px;
+  border-color: var(--line-strong);
+  box-shadow: 0 1px 2px rgba(32, 30, 60, 0.05), 0 10px 24px -18px rgba(32, 30, 60, 0.35);
+}
+/* result stripe down the left edge: win, loss or achievement */
+.pf-post.card::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 4px;
+  background: color-mix(in srgb, var(--muted) 45%, transparent);
+}
+.pf-post.is-win::before {
+  background: var(--pf-positive);
+}
+.pf-post.is-badge::before {
+  background: var(--accent);
 }
 .pf-post-head {
   display: flex;
@@ -2151,31 +2231,34 @@ html:not([data-theme="dark"]) .app.is-profile {
   font-size: calc(13px * var(--fs));
 }
 .pf-figures {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(calc(76px * var(--fs)), 1fr));
   gap: 8px;
-  margin-top: 12px;
+  margin: 12px 0 0;
 }
 .pf-figure {
   display: flex;
   flex-direction: column;
-  gap: 1px;
-  min-width: calc(64px * var(--fs));
-  padding: 8px 12px;
+  justify-content: center;
+  gap: 3px;
+  min-width: 0;
+  padding: 10px 12px;
   border-radius: var(--radius-sm);
   background: var(--surface-2);
 }
-.pf-figure .num {
-  font-size: calc(17px * var(--fs));
-  line-height: 1.2;
-}
-.pf-figure-main .num {
-  font-size: calc(22px * var(--fs));
+.pf-figure dd {
+  margin: 0;
+  font-size: calc(18px * var(--fs));
+  line-height: 1.1;
+  overflow-wrap: anywhere;
 }
 .pf-figure-label {
   color: var(--muted);
-  font-size: calc(11px * var(--fs));
-  font-weight: 500;
+  font-size: calc(10px * var(--fs));
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  line-height: 1.2;
 }
 .pf-up {
   color: var(--pf-positive);
@@ -2201,26 +2284,56 @@ html:not([data-theme="dark"]) .app.is-profile {
 .pf-post-foot {
   display: flex;
   justify-content: flex-end;
-  margin-top: 8px;
+  margin-top: 12px;
   border-top: 1px solid var(--line);
-  padding-top: 4px;
+  padding-top: 12px;
 }
-.pf-link {
+.pf-action-link {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  min-height: 40px;
-  padding: 6px 0;
-  border: 0;
-  background: none;
-  color: var(--accent);
+  gap: 8px;
+  min-height: 36px;
+  padding: 6px 6px 6px 14px;
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--ink);
   font: inherit;
-  font-size: calc(14px * var(--fs));
+  font-size: calc(13px * var(--fs));
   font-weight: 600;
   cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
 }
-.pf-link:hover {
-  text-decoration: underline;
+.pf-action-link:hover {
+  background: var(--surface-2);
+  border-color: var(--accent-line);
+}
+.pf-action-link:active {
+  background: var(--accent-soft);
+}
+.pf-action-link-go {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: var(--accent);
+  color: var(--on-accent);
+  flex: none;
+}
+.pf-side-card .pf-action-link {
+  margin-top: 12px;
+}
+.pf-badge-list {
+  display: grid;
+  gap: 8px;
+  margin: 12px 0 0;
+  padding: 0;
+  list-style: none;
+}
+.pf-badge-list .pf-badge-row {
+  margin-top: 0;
 }
 .pf-badge-row {
   display: flex;

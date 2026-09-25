@@ -84,3 +84,10 @@ test("matchFeed hides figures older rows never logged", () => {
   assert.equal(x01.primary, null, "no legs count was stored");
   assert.ok(x01.figures.some((f) => f.label === "3-dart avg"));
 });
+
+test("matchFeed never repeats the headline figure", () => {
+  const rows = [r("c1", "Ann", "cricket", "Ann", ["Bob"], "2026-09-17T23:23:00Z", { config: { variant: "noscore" }, stats: { mpr: 1.91, marks: 21, rounds: 11 } })];
+  const [m] = matchFeed(rows, "Ann");
+  assert.equal(m.primary.label, "MPR");
+  assert.deepEqual(m.figures.map((f) => f.label), ["marks", "rounds"]);
+});

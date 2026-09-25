@@ -2,27 +2,6 @@ import { useState, useEffect } from "react";
 import { getOccasion } from "@/lib/occasions";
 import { Logo } from "@/components/ui";
 
-function pt(r, deg) {
-  const a = (deg * Math.PI) / 180;
-  return [100 + r * Math.cos(a), 100 + r * Math.sin(a)];
-}
-
-function sector(rI, rO, a0, a1) {
-  const [x0, y0] = pt(rO, a0);
-  const [x1, y1] = pt(rO, a1);
-  const [x2, y2] = pt(rI, a1);
-  const [x3, y3] = pt(rI, a0);
-  return `M${x0} ${y0} A${rO} ${rO} 0 0 1 ${x1} ${y1} L${x2} ${y2} A${rI} ${rI} 0 0 0 ${x3} ${y3} Z`;
-}
-
-// simple 8-section board: every other 45° wedge filled, single color
-const WEDGES = [];
-for (let i = 0; i < 8; i++) {
-  if (i % 2 === 0) continue;
-  const c = -90 + i * 45;
-  WEDGES.push(sector(20, 84, c - 22.5, c + 22.5));
-}
-
 // deterministic particle fields (no randomness → stable and reproducible)
 const CONFETTI = Array.from({ length: 44 }, (_, i) => ({
   left: (i * 97) % 100,
@@ -51,10 +30,10 @@ function PartyHat() {
 }
 
 /**
- * Splash shown on every app open: the Blackbird wordmark with a spinning
- * mini dartboard as the loading wheel — a flat 8-section board drawn in a
- * single color that follows the theme (dark ink on light, light ink on
- * dark). page.js keeps this up for 1–3 seconds per open (plus however
+ * Splash shown on every app open: the Blackbird mark inside a thin track
+ * with a short arc sweeping around it (a dart's flight path), the mark
+ * gently breathing, and the wordmark beneath. The logo files swap with the
+ * theme (colour on light, white on dark) and the arc uses the accent. page.js keeps this up for 1–3 seconds per open (plus however
  * long auth/data actually take) so launching always has a moment of
  * perceived loading. Honors prefers-reduced-motion.
  *
@@ -108,17 +87,26 @@ export default function LoadingScreen({ text = "loading…" }) {
       )}
 
       <div className="load-wrap">
-        <div className="load-title">
-          {occasion === "birthday" && <PartyHat />}
-          <Logo variant="lockup" height={64} />
+        <div className="load-mark">
+          <svg className="load-orbit" viewBox="0 0 120 120" aria-hidden="true">
+            <defs>
+              <linearGradient id="load-arc" x1="0" y1="0" x2="1" y2="1">
+                <stop offset="0" stopColor="var(--accent)" stopOpacity="0" />
+                <stop offset="1" stopColor="var(--accent)" />
+              </linearGradient>
+            </defs>
+            <circle className="load-track" cx="60" cy="60" r="56" />
+            <circle className="load-arc" cx="60" cy="60" r="56" stroke="url(#load-arc)" />
+            <circle className="load-tip" cx="60" cy="4" r="3.2" />
+          </svg>
+          <span className="load-icon">
+            {occasion === "birthday" && <PartyHat />}
+            <Logo variant="icon" height={76} />
+          </span>
         </div>
-        <svg className="load-spinner" viewBox="-4 -4 208 208" aria-hidden="true">
-          <circle cx={100} cy={100} r={96} fill="none" stroke="currentColor" strokeWidth="8" />
-          {WEDGES.map((d, i) => (
-            <path key={i} d={d} fill="currentColor" />
-          ))}
-          <circle cx={100} cy={100} r={11} fill="currentColor" />
-        </svg>
+        <div className="load-title">
+          <Logo variant="word" height={30} />
+        </div>
         <div className="load-status" role="status">
           {text}
         </div>

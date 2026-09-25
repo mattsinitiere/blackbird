@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { PlayerBadge } from "../ui";
 import { playerLabel } from "@/lib/bots";
-import { ChevronIcon } from "./icons";
+import { ActionLink } from "./icons";
 import BadgeMedal from "../BadgeMedal";
 
 const PAGE = 10;
@@ -20,6 +20,17 @@ function fmtDay(iso) {
   return d.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
 }
 
+/** "Today", "Yesterday", or "Wed, Sep 17" (with the year when it isn't this year). */
+export function dayLabel(iso, now = new Date()) {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "";
+  const start = (x) => new Date(x.getFullYear(), x.getMonth(), x.getDate()).getTime();
+  const diff = Math.round((start(now) - start(d)) / 86400000);
+  if (diff === 0) return "Today";
+  if (diff === 1) return "Yesterday";
+  return d.toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric", ...(d.getFullYear() !== now.getFullYear() ? { year: "numeric" } : {}) });
+}
+
 function ordinal(n) {
   const s = ["th", "st", "nd", "rd"];
   const v = n % 100;
@@ -36,7 +47,7 @@ function MatchCard({ m, user, playerColors, openGame }) {
   const shown = m.opponents.slice(0, 4);
   const more = m.opponents.length - shown.length;
   return (
-    <article className="card pf-post" aria-label={`${m.title}, ${resultText(m)}, ${fmtWhen(m.date)}`}>
+    <article className={`card pf-post ${m.won ? "is-win" : "is-loss"}`} aria-label={`${m.title}, ${resultText(m)}, ${fmtWhen(m.date)}`}>
       <header className="pf-post-head">
         <PlayerBadge username={user} color={playerColors?.[user]} size={36} showName={false} />
         <div className="pf-post-who">
@@ -56,29 +67,23 @@ function MatchCard({ m, user, playerColors, openGame }) {
       </div>
       {!m.won && m.winner && m.players > 2 && <div className="pf-post-note">{playerLabel(m.winner)} won</div>}
 
-      <div className="pf-figures">
-        {m.primary && (
-          <div className="pf-figure pf-figure-main">
-            <span className="num">{m.primary.value}</span>
-            <span className="pf-figure-label">{m.primary.label}</span>
-          </div>
-        )}
-        {m.figures.map((f) => (
+      <dl className="pf-figures">
+        {[...(m.primary ? [m.primary] : []), ...m.figures].map((f) => (
           <div key={f.label} className="pf-figure">
-            <span className="num">{f.value}</span>
-            <span className="pf-figure-label">{f.label}</span>
+            <dd className="num">{f.value}</dd>
+            <dt className="pf-figure-label">{f.label}</dt>
           </div>
         ))}
         {m.eloDelta != null && m.eloDelta !== 0 && (
           <div className="pf-figure">
-            <span className={`num ${m.eloDelta > 0 ? "pf-up" : "pf-down"}`}>
+            <dd className={`num ${m.eloDelta > 0 ? "pf-up" : "pf-down"}`}>
               {m.eloDelta > 0 ? "+" : "−"}
               {Math.abs(m.eloDelta)}
-            </span>
-            <span className="pf-figure-label">Elo</span>
+            </dd>
+            <dt className="pf-figure-label">Elo</dt>
           </div>
         )}
-      </div>
+      </dl>
 
       {m.highlights.length > 0 && (
         <ul className="pf-highlights">
@@ -92,36 +97,40 @@ function MatchCard({ m, user, playerColors, openGame }) {
 
       {openGame && m.row.gameId && (
         <div className="pf-post-foot">
-          <button type="button" className="pf-link" onClick={() => openGame(m.row)}>
-            Match details <ChevronIcon size="0.9em" />
-          </button>
+          <ActionLink onClick={() => openGame(m.row)}>Match Details</ActionLink>
         </div>
       )}
     </article>
   );
 }
 
-function AchievementPost({ a, user, playerColors, isNew }) {
-  const b = a.badge;
+/** One card for the achievements unlocked on the same day. */
+function AchievementPost({ group, user, playerColors, seen, isMe }) {
+  const first = group[0];
+  const many = group.length > 1;
   return (
-    <article className="card pf-post pf-post-badge" aria-label={`Unlocked ${b.title}, ${fmtDay(a.date)}`}>
+    <article className="card pf-post pf-post-badge is-badge" aria-label={`Unlocked ${group.map((a) => a.badge.title).join(", ")}, ${fmtDay(first.date)}`}>
       <header className="pf-post-head">
         <PlayerBadge username={user} color={playerColors?.[user]} size={36} showName={false} />
         <div className="pf-post-who">
           <div className="pf-post-name">
-            {user} <span className="pf-post-verb">unlocked an achievement</span>
+            {user} <span className="pf-post-verb">{many ? `unlocked ${group.length} achievements` : "unlocked an achievement"}</span>
           </div>
-          <time className="pf-post-time" dateTime={a.date}>{fmtDay(a.date)}</time>
+          <time className="pf-post-time" dateTime={first.date}>{fmtDay(first.date)}</time>
         </div>
-        {isNew && <span className="badge-new pf-badge-new">New</span>}
       </header>
-      <div className="pf-badge-row">
-        <BadgeMedal badge={b} size={48} className="pf-badge-icon" />
-        <div style={{ minWidth: 0 }}>
-          <div className="pf-post-title" style={{ margin: 0 }}>{b.title}</div>
-          <div className="pf-post-note" style={{ margin: 0 }}>{b.description}</div>
-        </div>
-      </div>
+      <ul className="pf-badge-list">
+        {group.map((a) => (
+          <li key={a.key} className="pf-badge-row">
+            <BadgeMedal badge={a.badge} size={48} className="pf-badge-icon" />
+            <div style={{ minWidth: 0, flex: 1 }}>
+              <div className="pf-post-title" style={{ margin: 0 }}>{a.badge.title}</div>
+              <div className="pf-post-note" style={{ margin: 0 }}>{a.badge.description}</div>
+            </div>
+            {isMe && seen && !seen.has(a.badge.id) && <span className="badge-new pf-badge-new">New</span>}
+          </li>
+        ))}
+      </ul>
     </article>
   );
 }
@@ -135,7 +144,13 @@ export default function ActivityFeed({ items, user, isMe, seen, playerColors, op
   const [limit, setLimit] = useState(PAGE);
   const hasMatches = items.some((i) => i.kind === "match");
   const hasBadges = items.some((i) => i.kind === "achievement");
-  const list = filter === "matches" ? items.filter((i) => i.kind === "match") : items;
+  // achievements unlocked on the same day share one card
+  const list = [];
+  for (const it of filter === "matches" ? items.filter((i) => i.kind === "match") : items) {
+    const prev = list[list.length - 1];
+    if (it.kind === "achievement" && prev?.kind === "achievements" && dayLabel(prev.date) === dayLabel(it.date)) prev.group.push(it);
+    else list.push(it.kind === "achievement" ? { kind: "achievements", key: it.key, date: it.date, group: [it] } : it);
+  }
   const shown = list.slice(0, limit);
 
   return (
@@ -163,13 +178,20 @@ export default function ActivityFeed({ items, user, isMe, seen, playerColors, op
         </div>
       )}
       {shown.length === 0 && empty}
-      {shown.map((it) =>
-        it.kind === "match" ? (
-          <MatchCard key={it.key} m={it} user={user} playerColors={playerColors} openGame={openGame} />
-        ) : (
-          <AchievementPost key={it.key} a={it} user={user} playerColors={playerColors} isNew={isMe && seen && !seen.has(it.badge.id)} />
-        )
-      )}
+      {shown.map((it, i) => {
+        const day = dayLabel(it.date);
+        const newDay = i === 0 || dayLabel(shown[i - 1].date) !== day;
+        return (
+          <div key={it.key} className="pf-feed-item">
+            {newDay && day && <h3 className="pf-day">{day}</h3>}
+            {it.kind === "match" ? (
+              <MatchCard m={it} user={user} playerColors={playerColors} openGame={openGame} />
+            ) : (
+              <AchievementPost group={it.group} user={user} playerColors={playerColors} seen={seen} isMe={isMe} />
+            )}
+          </div>
+        );
+      })}
       {list.length > limit && (
         <button type="button" className="btn pf-more" onClick={() => setLimit((n) => n + PAGE)}>
           Show more ({list.length - limit} older)

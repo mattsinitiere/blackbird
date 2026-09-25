@@ -1,6 +1,6 @@
 import { PlayerBadge, pressProps } from "../ui";
 import { LineChart } from "../Charts";
-import { ChevronIcon } from "./icons";
+import { ChevronIcon, ActionLink } from "./icons";
 import BadgeMedal from "../BadgeMedal";
 
 function SideCard({ title, meta, children, action }) {
@@ -17,13 +17,7 @@ function SideCard({ title, meta, children, action }) {
   );
 }
 
-function LinkButton({ onClick, children }) {
-  return (
-    <button type="button" className="pf-link" onClick={onClick}>
-      {children} <ChevronIcon size="0.9em" />
-    </button>
-  );
-}
+const LinkButton = ActionLink;
 
 /**
  * The three compact sidebar sections. Every figure is lifetime ranked,
@@ -34,7 +28,7 @@ export default function ProfileSidebar({ user, isMe, stats, elo, timeline, badge
   const avg = stats?.x01?.darts > 0 ? stats.x01.threeDartAvg.toFixed(1) : "—";
   return (
     <>
-      <SideCard title={isMe ? "Your Game" : `${user}'s Game`} meta={stats ? "All time · ranked" : null} action={stats && <LinkButton onClick={() => setTab("stats")}>All statistics</LinkButton>}>
+      <SideCard title={isMe ? "Your Game" : `${user}'s Game`} meta={stats ? "All time · ranked" : null} action={stats && <LinkButton onClick={() => setTab("stats")}>All Statistics</LinkButton>}>
         {stats ? (
           <>
             <div className="pf-elo">
@@ -69,7 +63,7 @@ export default function ProfileSidebar({ user, isMe, stats, elo, timeline, badge
       <SideCard
         title="Trophy Cabinet"
         meta={badges?.length && !unavailable ? `${unlocked.length} / ${badges.length}` : null}
-        action={badges?.length > 0 && !unavailable && <LinkButton onClick={() => setTab("achievements")}>All achievements</LinkButton>}
+        action={badges?.length > 0 && !unavailable && <LinkButton onClick={() => setTab("achievements")}>All Achievements</LinkButton>}
       >
         {unlocked.length ? (
           <ul className="pf-trophies">
@@ -88,7 +82,7 @@ export default function ProfileSidebar({ user, isMe, stats, elo, timeline, badge
       <SideCard
         title={isMe ? "Your Circle" : "Frequent Opponents"}
         meta={circle?.length ? `${circle.length}` : null}
-        action={isMe && onOpenFriends && <LinkButton onClick={onOpenFriends}>Friends &amp; followers</LinkButton>}
+        action={isMe && onOpenFriends && <LinkButton onClick={onOpenFriends}>Friends &amp; Followers</LinkButton>}
       >
         {circle?.length ? (
           <ul className="pf-circle">

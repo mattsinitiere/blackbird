@@ -51,3 +51,15 @@ export function ChevronIcon(props) {
     </Svg>
   );
 }
+
+/** Small title-case action button with a chevron, used across the profile. */
+export function ActionLink({ onClick, children, className = "" }) {
+  return (
+    <button type="button" className={`pf-action-link ${className}`.trim()} onClick={onClick}>
+      <span>{children}</span>
+      <span className="pf-action-link-go" aria-hidden="true">
+        <ChevronIcon size="0.85em" />
+      </span>
+    </button>
+  );
+}
