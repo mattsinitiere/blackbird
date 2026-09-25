@@ -360,9 +360,11 @@ export function MultiLineChart({ labels = [], datasets = [], unit = "", decimals
     minY -= 1;
     maxY += 1;
   }
+  const allPositive = minY >= 0;
   const pad = (maxY - minY) * 0.15;
   minY -= pad;
   maxY += pad;
+  if (allPositive) minY = Math.max(0, minY); // no axis below zero for counts and scores
   if (unit === "%") {
     minY = Math.max(0, minY);
     maxY = Math.min(100, maxY);

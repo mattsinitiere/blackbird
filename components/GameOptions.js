@@ -39,8 +39,9 @@ export function X01Options({ startScore, setStartScore, doubleOut, setDoubleOut,
             className={`btn ${legs === v ? "btn-toggle-on" : ""}`}
             style={{ flex: 1 }}
             onClick={() => setLegs(v)}
+            aria-label={v === 1 ? "Single leg" : `Best of ${v} legs`}
           >
-            {v === 1 ? "Single" : `Best of ${v}`}
+            {v === 1 ? "Single" : `BO${v}`}
           </button>
         ))}
       </div>

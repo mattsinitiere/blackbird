@@ -841,6 +841,7 @@ export default function Page() {
         {view === "summary" && finished && (
           <GameSummary
             key={finished.summary.completedAt}
+            match={finished.match}
             newBadges={finished.newBadges || []}
             onOpenReport={openReport}
             summary={finished.summary}

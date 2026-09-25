@@ -1,6 +1,7 @@
 import { useState, useCallback } from "react";
 import { PlayerBadge, UndoIcon } from "./ui";
-import Celebration from "./Celebration";
+import WinnerSplash from "./WinnerSplash";
+import MatchChart from "./MatchChart";
 import BadgeMedal from "./BadgeMedal";
 import BotAvatar from "./BotAvatar";
 import { botFor } from "@/lib/bots";
@@ -23,14 +24,10 @@ function EloDelta({ elo, size = 12 }) {
  * End-of-game screen. Pure presentation of a summary from lib/summary.js;
  * the shell owns saving, rematch and navigation.
  */
-export default function GameSummary({ summary, saveState, saveError, onRetrySave, onRematch, onNewGame, onDone, onOpenReport, playerColors, newBadges = [], bot = null, onChooseBot, onPlayBot, onPracticeHub }) {
-  // the winner moment, then one moment per badge unlocked by this game.
-  // `next` is stable so the overlay's timer never restarts on re-render.
-  const [queue, setQueue] = useState(() => [
-    { type: "win", label: `${(summary?.rows?.find((r) => r.isWinner) || summary?.rows?.[0])?.name || summary?.winner} wins` },
-    ...newBadges.map((b) => ({ type: "badge", label: `${b.badge.title} · ${b.username}` })),
-  ]);
-  const next = useCallback(() => setQueue((q) => q.slice(1)), []);
+export default function GameSummary({ match = null, summary, saveState, saveError, onRetrySave, onRematch, onNewGame, onDone, onOpenReport, playerColors, newBadges = [], bot = null, onChooseBot, onPlayBot, onPracticeHub }) {
+  // the winner moment (and any badges it unlocked), full screen, once
+  const [splash, setSplash] = useState(true);
+  const closeSplash = useCallback(() => setSplash(false), []);
   if (!summary) return null;
   const { winner, title, rows, highlights, ranked, durationMin, totalDarts } = summary;
   const winRow = rows.find((r) => r.isWinner) || rows[0];
@@ -43,7 +40,7 @@ export default function GameSummary({ summary, saveState, saveError, onRetrySave
 
   return (
     <div className="fade">
-      {queue[0] && <Celebration key={queue.length} type={queue[0].type} label={queue[0].label} onDone={next} />}
+      {splash && <WinnerSplash winner={winRow?.u || winner} name={winName} title={title} color={colorOf(winRow || {})} solo={rows.length === 1} badges={newBadges} onDone={closeSplash} />}
 
       <div className="card mb-12" style={{ textAlign: "center", borderColor: "var(--accent)", background: "var(--accent-soft)" }}>
         <div className="tag" style={{ color: "var(--accent)" }}>Winner</div>
@@ -137,9 +134,11 @@ export default function GameSummary({ summary, saveState, saveError, onRetrySave
         </div>
       )}
 
+      {match && <MatchChart match={match} playerColors={playerColors} />}
+
       {onOpenReport && (
         <button className="btn mb-12" style={{ width: "100%" }} onClick={onOpenReport}>
-          Match report · every dart
+          Match Report
         </button>
       )}
 
