@@ -61,10 +61,10 @@ export default function Practice({ practice, me, onStart, back, playerColors, op
   }
   if (p.x01.bestAvg > 0) pbTiles.push({ label: "Solo X01 avg", value: p.x01.bestAvg.toFixed(1) });
   const trends = [
-    { title: "Bob's 27 score", data: p.drills.bobs27.series },
-    { title: "Checkouts hit", data: p.drills.checkoutDrill.series },
-    { title: "Scoring per visit", data: p.drills.scoringDrill.series, decimals: 1 },
-    { title: "Solo X01 3-dart avg", data: p.x01.series, decimals: 1 },
+    { title: "Bob's 27 Score", data: p.drills.bobs27.series },
+    { title: "Checkouts Hit", data: p.drills.checkoutDrill.series },
+    { title: "Scoring Per Visit", data: p.drills.scoringDrill.series, decimals: 1 },
+    { title: "Solo X01 3-Dart Avg", data: p.x01.series, decimals: 1 },
   ].filter((t) => t.data.length >= 2);
 
   return (
@@ -138,7 +138,7 @@ export default function Practice({ practice, me, onStart, back, playerColors, op
       </div>
 
       <div className="card mb-12">
-        <h3 className="section-title">Sessions · Last 3 Months</h3>
+        <h3 className="section-title">Practice Sessions · Last 3 Months</h3>
         <BarChart data={weekly} />
       </div>
 
@@ -155,8 +155,9 @@ export default function Practice({ practice, me, onStart, back, playerColors, op
 
       {trends.length > 0 && (
         <div className="charts-2col">
-          {trends.map((t) => (
-            <div key={t.title} className="card">
+          {trends.map((t, i) => (
+            // an odd one out at the end fills the row instead of leaving a gap
+            <div key={t.title} className={`card${i === trends.length - 1 && trends.length % 2 ? " is-wide" : ""}`}>
               <h3 className="section-title">{t.title}</h3>
               <LineChart data={t.data} decimals={t.decimals || 0} />
             </div>

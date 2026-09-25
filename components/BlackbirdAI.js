@@ -55,9 +55,9 @@ function SendIcon() {
  * doesn't change the model, its effort, its cost or the daily count.
  */
 const BRAIN_LEVELS = [
-  { id: 1, label: "Less Thinking", tag: "Quick answer" },
-  { id: 2, label: "Balanced", tag: "Thinking" },
-  { id: 3, label: "Deep Thinking", tag: "Thinking deeply" },
+  { id: 1, label: "Less Thinking", hint: "Quick answers", tag: "Quick answer" },
+  { id: 2, label: "Balanced", hint: "The everyday default", tag: "Thinking" },
+  { id: 3, label: "Deep Thinking", hint: "Takes it further", tag: "Thinking deeply" },
 ];
 const BRAIN_KEY = "bb-ai-brain";
 
@@ -72,6 +72,80 @@ function BrainIcon({ level = 2, size }) {
       {level >= 2 && <path d="M7.6 9.2c1.3 0 2.4.8 2.4 2.1M16.4 9.2c-1.3 0-2.4.8-2.4 2.1" />}
       {level >= 3 && <path d="M6.8 14.6c1.4.2 2.6-.4 3.2-1.5M17.2 14.6c-1.4.2-2.6-.4-3.2-1.5M9.3 5.8c.1.9.8 1.6 1.8 1.8M14.7 5.8c-.1.9-.8 1.6-1.8 1.8" />}
     </svg>
+  );
+}
+
+function Chevron() {
+  return (
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M6 9l6 6 6-6" />
+    </svg>
+  );
+}
+
+function Check() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M5 12.5l4.5 4.5L19 7.5" />
+    </svg>
+  );
+}
+
+/** The thinking-level pill in the input box; opens a small menu above it. */
+function BrainPicker({ value, onChange, disabled }) {
+  const [open, setOpen] = useState(false);
+  const wrapRef = useRef(null);
+  const current = BRAIN_LEVELS[value - 1];
+  useEffect(() => {
+    if (!open) return;
+    const away = (e) => {
+      if (wrapRef.current && !wrapRef.current.contains(e.target)) setOpen(false);
+    };
+    const esc = (e) => {
+      if (e.key === "Escape") setOpen(false);
+    };
+    document.addEventListener("pointerdown", away);
+    document.addEventListener("keydown", esc);
+    return () => {
+      document.removeEventListener("pointerdown", away);
+      document.removeEventListener("keydown", esc);
+    };
+  }, [open]);
+  useEffect(() => {
+    if (disabled) setOpen(false);
+  }, [disabled]);
+  return (
+    <div className="ai-brain" ref={wrapRef}>
+      <button type="button" className={`ai-brain-btn${open ? " is-open" : ""}`} aria-haspopup="menu" aria-expanded={open} aria-label={`Thinking level: ${current.label}`} onClick={() => setOpen((o) => !o)} disabled={disabled}>
+        <BrainIcon level={value} size={18} />
+        <span>{current.label}</span>
+        <Chevron />
+      </button>
+      {open && (
+        <div className="ai-brain-menu" role="menu" aria-label="Thinking level">
+          {BRAIN_LEVELS.map((b) => (
+            <button
+              key={b.id}
+              type="button"
+              role="menuitemradio"
+              aria-checked={value === b.id}
+              className={`ai-brain-item${value === b.id ? " is-on" : ""}`}
+              onClick={() => {
+                onChange(b.id);
+                setOpen(false);
+              }}
+            >
+              <BrainIcon level={b.id} size={20} />
+              <span className="ai-brain-item-text">
+                <b>{b.label}</b>
+                <small>{b.hint}</small>
+              </span>
+              {value === b.id && <Check />}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -403,49 +477,36 @@ export default function BlackbirdAI({ me, userId, stats, elo, results, practice,
           send(input);
         }}
       >
-        <div className="ai-brain" role="radiogroup" aria-label="Thinking level">
-          {BRAIN_LEVELS.map((b) => (
-            <button
-              key={b.id}
-              type="button"
-              role="radio"
-              aria-checked={brain === b.id}
-              aria-label={b.label}
-              title={b.label}
-              className={`ai-brain-opt${brain === b.id ? " is-on" : ""}`}
-              onClick={() => pickBrain(b.id)}
-              disabled={busy}
-            >
-              <BrainIcon level={b.id} />
-            </button>
-          ))}
-          <span className="ai-brain-label">{BRAIN_LEVELS[brain - 1].label}</span>
+        <div className={`ai-box${busy || !hasData ? " is-disabled" : ""}`}>
+          <textarea
+            ref={inputRef}
+            className="ai-input"
+            value={input}
+            onChange={onChange}
+            onKeyDown={onKeyDown}
+            placeholder={hasData ? "Ask about your games…" : "Log a game first…"}
+            rows={1}
+            disabled={busy || !hasData}
+            aria-label="Ask Blackbird AI"
+            onBlur={() => {
+              // iOS scrolls the page up for the keyboard; put it back so the
+              // header and input stay where they belong
+              if (typeof window !== "undefined" && window.scrollY) window.scrollTo(0, 0);
+            }}
+          />
+          <div className="ai-box-bar">
+            <BrainPicker value={brain} onChange={pickBrain} disabled={busy} />
+            {busy ? (
+              <button className="btn ai-send ai-stop" type="button" onClick={stop} aria-label="Stop">
+                <StopIcon />
+              </button>
+            ) : (
+              <button className="btn btn-primary ai-send" type="submit" disabled={!hasData || !input.trim()} aria-label="Send">
+                <SendIcon />
+              </button>
+            )}
+          </div>
         </div>
-        <textarea
-          ref={inputRef}
-          className="input ai-input"
-          value={input}
-          onChange={onChange}
-          onKeyDown={onKeyDown}
-          placeholder={hasData ? "Ask about your games…" : "Log a game first…"}
-          rows={1}
-          disabled={busy || !hasData}
-          aria-label="Ask Blackbird AI"
-          onBlur={() => {
-            // iOS scrolls the page up for the keyboard; put it back so the
-            // header and input stay where they belong
-            if (typeof window !== "undefined" && window.scrollY) window.scrollTo(0, 0);
-          }}
-        />
-        {busy ? (
-          <button className="btn ai-send ai-stop" type="button" onClick={stop} aria-label="Stop">
-            <StopIcon />
-          </button>
-        ) : (
-          <button className="btn btn-primary ai-send" type="submit" disabled={!hasData || !input.trim()} aria-label="Send">
-            <SendIcon />
-          </button>
-        )}
       </form>
     </div>
   );
