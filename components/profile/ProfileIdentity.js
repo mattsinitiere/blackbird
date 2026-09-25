@@ -65,7 +65,7 @@ export default function ProfileIdentity({ user, player, playerColors, isMe, foll
           )}
           {since && (
             <span>
-              <CalendarIcon /> On Blackbird since {since}
+              <CalendarIcon /> Member Since {since}
             </span>
           )}
         </div>
