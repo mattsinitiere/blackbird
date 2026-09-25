@@ -1919,7 +1919,8 @@ label.check input {
 .ai-input {
   flex: 1;
   resize: none;
-  overflow: hidden;
+  /* grows with the text up to max-height, then scrolls */
+  overflow-y: auto;
   line-height: 1.4;
   min-height: 44px;
   max-height: 120px;
