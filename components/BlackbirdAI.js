@@ -50,6 +50,31 @@ function SendIcon() {
   );
 }
 
+/**
+ * The thinking-level picker is cosmetic: it isn't sent to the server and
+ * doesn't change the model, its effort, its cost or the daily count.
+ */
+const BRAIN_LEVELS = [
+  { id: 1, label: "Less Thinking", tag: "Quick answer" },
+  { id: 2, label: "Balanced", tag: "Thinking" },
+  { id: 3, label: "Deep Thinking", tag: "Thinking deeply" },
+];
+const BRAIN_KEY = "bb-ai-brain";
+
+/** A brain outline; more folds (and a larger size) for a higher level. */
+function BrainIcon({ level = 2, size }) {
+  const px = size || [16, 19, 22][level - 1];
+  return (
+    <svg width={px} height={px} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M12 5.2a3 3 0 0 0-5.4-1.6A3 3 0 0 0 3.7 7.8a3.1 3.1 0 0 0 .4 5.2A3.3 3.3 0 0 0 7.3 18a2.9 2.9 0 0 0 4.7 1.4" />
+      <path d="M12 5.2a3 3 0 0 1 5.4-1.6 3 3 0 0 1 2.9 4.2 3.1 3.1 0 0 1-.4 5.2 3.3 3.3 0 0 1-3.2 5 2.9 2.9 0 0 1-4.7 1.4" />
+      <path d="M12 5.2v14.2" />
+      {level >= 2 && <path d="M7.6 9.2c1.3 0 2.4.8 2.4 2.1M16.4 9.2c-1.3 0-2.4.8-2.4 2.1" />}
+      {level >= 3 && <path d="M6.8 14.6c1.4.2 2.6-.4 3.2-1.5M17.2 14.6c-1.4.2-2.6-.4-3.2-1.5M9.3 5.8c.1.9.8 1.6 1.8 1.8M14.7 5.8c-.1.9-.8 1.6-1.8 1.8" />}
+    </svg>
+  );
+}
+
 function BirdAvatar() {
   return (
     <span className="ai-avatar" aria-hidden="true">
@@ -73,6 +98,7 @@ export default function BlackbirdAI({ me, userId, stats, elo, results, practice,
   const [loaded, setLoaded] = useState(false);
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
+  const [brain, setBrain] = useState(2);
   const listRef = useRef(null);
   const inputRef = useRef(null);
 
@@ -81,8 +107,18 @@ export default function BlackbirdAI({ me, userId, stats, elo, results, practice,
       const raw = window.localStorage.getItem(storageKey);
       if (raw) setMessages(JSON.parse(raw).slice(-40).map((m) => (m.streaming ? { ...m, streaming: false, steps: undefined } : m)));
     } catch {}
+    try {
+      const b = parseInt(window.localStorage.getItem(BRAIN_KEY), 10);
+      if (b >= 1 && b <= 3) setBrain(b);
+    } catch {}
     setLoaded(true);
   }, [storageKey]);
+  const pickBrain = (b) => {
+    setBrain(b);
+    try {
+      window.localStorage.setItem(BRAIN_KEY, String(b));
+    } catch {}
+  };
   useEffect(() => {
     if (!loaded) return;
     try {
@@ -151,7 +187,7 @@ export default function BlackbirdAI({ me, userId, stats, elo, results, practice,
     const id = Date.now();
     const aid = id + 1;
     const history = messages.filter((m) => !m.error && m.content).slice(-8).map(({ role, content }) => ({ role, content }));
-    setMessages((prev) => [...prev, { id, role: "user", content: q }, { id: aid, role: "assistant", content: "", streaming: true, steps: [] }]);
+    setMessages((prev) => [...prev, { id, role: "user", content: q }, { id: aid, role: "assistant", content: "", streaming: true, steps: [], brain }]);
     setInput("");
     if (inputRef.current) inputRef.current.style.height = "auto";
     setBusy(true);
@@ -303,6 +339,12 @@ export default function BlackbirdAI({ me, userId, stats, elo, results, practice,
             <div key={m.id} className={`ai-row ${m.role === "user" ? "is-user" : "is-bot"}${m.error ? " is-error" : ""}`}>
               {m.role === "assistant" ? <BirdAvatar /> : <PlayerBadge username={me || "?"} color={playerColors?.[me]} size={26} showName={false} />}
               <div className={`ai-bubble${chartsOf(m).length ? " has-chart" : ""}`}>
+                {live && !shown && (
+                  <div className="ai-brain-tag">
+                    <BrainIcon level={m.brain || 2} size={14} />
+                    {BRAIN_LEVELS[(m.brain || 2) - 1].tag}…
+                  </div>
+                )}
                 {live && (m.steps || []).length > 0 && (
                   <ul className="ai-steps" aria-live="polite">
                     {m.steps.map((st, i) => (
@@ -361,6 +403,24 @@ export default function BlackbirdAI({ me, userId, stats, elo, results, practice,
           send(input);
         }}
       >
+        <div className="ai-brain" role="radiogroup" aria-label="Thinking level">
+          {BRAIN_LEVELS.map((b) => (
+            <button
+              key={b.id}
+              type="button"
+              role="radio"
+              aria-checked={brain === b.id}
+              aria-label={b.label}
+              title={b.label}
+              className={`ai-brain-opt${brain === b.id ? " is-on" : ""}`}
+              onClick={() => pickBrain(b.id)}
+              disabled={busy}
+            >
+              <BrainIcon level={b.id} />
+            </button>
+          ))}
+          <span className="ai-brain-label">{BRAIN_LEVELS[brain - 1].label}</span>
+        </div>
         <textarea
           ref={inputRef}
           className="input ai-input"

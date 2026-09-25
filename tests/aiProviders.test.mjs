@@ -66,3 +66,24 @@ test("streamed chunks become text deltas and whole tool calls", async () => {
   assert.equal(r.text, "You lead.");
   assert.deepEqual(r.toolCalls, [{ id: "c1", name: "get_stats", args: { opponent: "Chuck" } }]);
 });
+
+test("a model that refuses to stream is asked again without streaming, keeping its tools", async () => {
+  const bodies = [];
+  const realFetch = globalThis.fetch;
+  globalThis.fetch = async (url, init) => {
+    const body = JSON.parse(init.body);
+    bodies.push(body);
+    if (body.stream) return { ok: false, status: 400, json: async () => ({ error: { message: "Your organization must be verified to stream this model." } }) };
+    return { ok: true, status: 200, json: async () => ({ choices: [{ message: { content: "", tool_calls: [{ id: "c1", function: { name: "t", arguments: "{}" } }] } }] }) };
+  };
+  try {
+    const out = await makeStep({ provider: "openai", model: "m", key: "k" })({ ...msgs, onDelta: () => {} });
+    assert.equal(bodies.length, 2);
+    assert.equal(bodies[0].stream, true);
+    assert.equal("stream" in bodies[1], false);
+    assert.ok(bodies[1].tools?.length);
+    assert.deepEqual(out.toolCalls, [{ id: "c1", name: "t", args: {} }]);
+  } finally {
+    globalThis.fetch = realFetch;
+  }
+});

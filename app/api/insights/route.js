@@ -319,12 +319,15 @@ function streamCoach({ sUrl, sKey, token, summary, question, history, left }) {
   const stream = new ReadableStream({
     async start(controller) {
       const send = (obj) => controller.enqueue(enc.encode(JSON.stringify(obj) + "\n"));
+      let via = "plain";
       try {
         const me = summary?.me?.name;
+        send({ type: "status", text: "Reading your games…" });
         let data = null;
         try {
           data = me ? await loadData(sUrl, sKey, token) : null;
-        } catch {
+        } catch (e) {
+          console.error("[insights] loading games failed:", e?.message || e);
           data = null; // no tools this time; the summary still answers
         }
         let raw = "";
@@ -334,6 +337,7 @@ function streamCoach({ sUrl, sKey, token, summary, question, history, left }) {
         if (data) {
           const runner = createToolRunner({ rows: data.rows, players: data.players, me });
           const prompt = buildPersonalPrompt(summary, question, history, { tools: true });
+          send({ type: "status", text: "Thinking…" });
           try {
             const out = await runAgent({
               system: prompt.system,
@@ -349,13 +353,18 @@ function streamCoach({ sUrl, sKey, token, summary, question, history, left }) {
             raw = out.text;
             store = { ...store, ...runner.series };
             heatmaps = runner.heatmaps;
+            if (raw.trim()) via = "tools";
           } catch (e) {
             if (e?.quota || /_API_KEY is not set|Unknown AI_PROVIDER/.test(e?.message || "")) throw e;
+            console.error("[insights] tool loop failed:", e?.message || e);
             raw = ""; // tool calling failed: fall back to the plain summary path
             send({ type: "reset" });
           }
+        } else {
+          console.error("[insights] no game data for tools; answering from the summary");
         }
         if (!raw.trim()) {
+          if (!data) send({ type: "status", text: "Thinking…" });
           const out = await callAI(buildPersonalPrompt(summary, question, history));
           raw = out.text;
           if (raw) send({ type: "delta", text: raw });
@@ -364,9 +373,10 @@ function streamCoach({ sUrl, sKey, token, summary, question, history, left }) {
           send({ type: "error", error: "The model returned an empty response." });
         } else {
           const { text, charts, followups, actions } = extractBlocks(raw);
-          send({ type: "done", text: text || raw, charts: resolveCharts(charts, store, heatmaps), followups, actions, left });
+          send({ type: "done", text: text || raw, charts: resolveCharts(charts, store, heatmaps), followups, actions, left, via });
         }
       } catch (e) {
+        console.error("[insights] coach failed:", e?.message || e);
         send({ type: "error", error: friendlyError(e).error });
       }
       controller.close();
