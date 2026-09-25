@@ -8,6 +8,7 @@ import { PlayerBadge, UndoIcon } from "./ui";
 import { botFor, playerLabel } from "@/lib/bots";
 import { pickCricketTarget, botThrow } from "@/lib/botStrategy";
 import { useBotTurn } from "@/lib/useBotTurn";
+import { ALTER_EGO_ID, botFromConfig } from "@/lib/alterEgo";
 import { createRecorder, ensureRecorder, stamp, recordVisit, finishRecorder } from "@/lib/recorder";
 
 const numOf = (t) => (t === "B" ? 25 : Number(t));
@@ -78,7 +79,7 @@ export default function PlayCricket({ game, resume, onProgress, onFinish, onQuit
     onFinish({
       id: game.id,
       gameType: "cricket",
-      config: { variant },
+      config: game.config?.alterEgo ? { variant, alterEgo: game.config.alterEgo } : { variant },
       players,
       winner,
       perPlayer,
@@ -184,7 +185,9 @@ export default function PlayCricket({ game, resume, onProgress, onFinish, onQuit
   };
 
   // a bot at the oche throws three darts (misses count) then ends its turn
-  const bot = botFor(cur);
+  // the Alter Ego is rebuilt from the profile frozen into the game when it
+  // started (lib/alterEgo.js); it's never recomputed mid-game or on resume
+  const bot = cur === ALTER_EGO_ID ? botFromConfig(game.config?.alterEgo) : botFor(cur);
   useBotTurn({
     active: !!bot && !celeb && !doneRef.current,
     key: `${turn}:${botThrows}`,

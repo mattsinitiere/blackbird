@@ -5,7 +5,8 @@ import { useRouter } from "next/navigation";
 import { supabase, isConfigured } from "@/lib/supabase";
 import { getPlayers, addPlayer as dbAddPlayer, linkPlayerAuth as dbLinkPlayerAuth, setPlayerHidden as dbSetPlayerHidden, setPlayerColor as dbSetPlayerColor, updatePlayerProfile as dbUpdatePlayerProfile, getGameResults, recordGame, getFollows, getGameRowsForSync, getEloFor, getMyEvents, recordEvents, followPlayer as dbFollowPlayer, unfollowPlayer as dbUnfollowPlayer, getPlans, deletePlan as dbDeletePlan, recordPlanCompletion } from "@/lib/db";
 import { planGame } from "@/lib/planLaunch";
-import { planProgress, itemLabel } from "@/lib/trainingPlans";
+import { planProgress, itemLabel, MAX_PLANS } from "@/lib/trainingPlans";
+import { MerlinCreate } from "@/components/TrainingPlans";
 import { merlinState } from "@/lib/merlin";
 import { hintPrefs } from "@/lib/strategy/prefs";
 import { doubleRates } from "@/lib/strategy/evidence";
@@ -212,6 +213,13 @@ export default function Page() {
   // a practice plan the AI suggested: open New Game / Play a Bot filled in
   const onAIAction = (a) => {
     if (!a) return;
+    // a training plan: Create With Merlin opens over the chat, pre-filled
+    if (a.type === "plan") {
+      const { goal, minutes, perWeek, weeks, note } = a;
+      setAiPlan({ key: Date.now(), initial: goal ? { goal, minutes, perWeek, weeks, note } : { minutes, perWeek, weeks, note }, auto: !!goal });
+      if (planState.plans === undefined) loadPlans();
+      return;
+    }
     if (a.type === "bot") openBots({ bot: a.bot, gameType: a.gameType }, "ai");
     else openSetup({ gameType: a.gameType, players: [myName].filter(Boolean), config: a.config || {} });
   };
@@ -301,6 +309,7 @@ export default function Page() {
 
   // training plans (lib/trainingPlans.js): { plans: [] | null (not set up), completions, loading, error }
   const [planState, setPlanState] = useState({ plans: undefined, completions: [], loading: true, error: "" });
+  const [aiPlan, setAiPlan] = useState(null); // a plan button pressed in Blackbird AI
   const [planNotice, setPlanNotice] = useState("");
   const loadPlans = useCallback(async () => {
     try {
@@ -1057,6 +1066,20 @@ export default function Page() {
         )}
         {view === "ai" && (
           <BlackbirdAI me={myName} userId={session.user?.id} stats={stats} elo={elo} results={results} practice={practice} players={circlePlayers} social={social} playerColors={playerColors} autoAsk={aiAsk} onAction={onAIAction} />
+        )}
+        {aiPlan && (planState.plans !== undefined || planState.error) && (
+          <MerlinCreate
+            key={aiPlan.key}
+            initial={aiPlan.initial}
+            autoDraft={aiPlan.auto}
+            atLimit={(planState.plans?.length || 0) >= MAX_PLANS}
+            onClose={() => setAiPlan(null)}
+            onSaved={() => loadPlans()}
+            onView={() => {
+              setAiPlan(null);
+              setView("practice");
+            }}
+          />
         )}
         {view === "friends" && (
           <Friends

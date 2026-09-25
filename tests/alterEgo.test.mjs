@@ -19,6 +19,12 @@ import {
   frozenConfig,
   botFromConfig,
   describeProfile,
+  MODES,
+  ALTER_EGO_MIN_ROUNDS,
+  sigmaForCricketMPR,
+  sigmaForBaseballRPI,
+  simulatedCricketMPR,
+  simulatedBaseballRPI,
 } from "../lib/alterEgo.js";
 import { mulberry32, throwAt } from "../lib/simulator.js";
 import { aimPoint } from "../lib/board.js";
@@ -337,9 +343,108 @@ test("no network: the module imports only pure local modules", () => {
   const read = (rel) => readFileSync(fileURLToPath(new URL(rel, import.meta.url)), "utf8");
   const src = read("../lib/alterEgo.js");
   const imports = [...src.matchAll(/from\s+"([^"]+)"/g)].map((m) => m[1]).sort();
-  assert.deepEqual(imports, ["./board.js", "./darts.js", "./simulator.js", "./x01log.js"]);
-  for (const f of ["../lib/alterEgo.js", "../lib/board.js", "../lib/darts.js", "../lib/simulator.js", "../lib/x01log.js"]) {
+  assert.deepEqual(imports, ["./board.js", "./botStrategy.js", "./darts.js", "./simulator.js", "./x01log.js"]);
+  for (const f of ["../lib/alterEgo.js", "../lib/board.js", "../lib/botStrategy.js", "../lib/darts.js", "../lib/simulator.js", "../lib/x01log.js"]) {
     const s = read(f);
     assert.doesNotMatch(s, /\bfetch\s*\(|XMLHttpRequest|supabase|WebSocket/i, f);
   }
+});
+
+// ---------------------------------------------------------------------------
+// Cricket and Baseball
+
+const roundsRow = (mode, i, { hits, rounds, user = ME, extra = {} } = {}) => ({
+  username: user,
+  gameType: mode,
+  result: "practice",
+  completedAt: new Date(NOW.getTime() - (i + 1) * 86400e3).toISOString(),
+  opponents: ["bot:rook"],
+  config: mode === "cricket" ? { variant: "standard" } : {},
+  stats: mode === "cricket" ? { marks: hits, rounds, dartsThrown: rounds * 3 } : { runs: hits, innings: rounds, dartsThrown: rounds * 3 },
+  ...extra,
+});
+
+test("cricket and baseball: modes exist and thresholds say what is missing", () => {
+  assert.deepEqual(MODES, ["x01", "cricket", "baseball"]);
+  const few = [0, 1, 2].map((i) => roundsRow("cricket", i, { hits: 40, rounds: 20 }));
+  const p = buildProfile(few, { me: ME, now: NOW, mode: "cricket" });
+  assert.equal(p.ok, false);
+  assert.equal(p.reason, "not-enough-games");
+  assert.deepEqual(p.need, { ...ALTER_EGO_MIN_ROUNDS });
+  assert.match(describeProfile(p), /Not enough Cricket play yet: 3\/5 games, 60\/50 rounds/);
+  const short = [0, 1, 2, 3, 4].map((i) => roundsRow("baseball", i, { hits: 20, rounds: 9 }));
+  const b = buildProfile(short, { me: ME, now: NOW, mode: "baseball" });
+  assert.equal(b.reason, "not-enough-rounds", "45 innings is below 50");
+  assert.match(describeProfile(b), /45\/50 innings/);
+});
+
+test("cricket: profile is marks per round over the window; exclusions hold", () => {
+  const rows = [
+    ...Array.from({ length: 6 }, (_, i) => roundsRow("cricket", i, { hits: 36, rounds: 20 })), // 1.8 MPR
+    roundsRow("cricket", 7, { hits: 90, rounds: 10, user: "bob" }),
+    roundsRow("cricket", 8, { hits: 90, rounds: 10, extra: { opponents: [ALTER_EGO_ID] } }),
+    roundsRow("cricket", 9, { hits: 90, rounds: 10, extra: { stats: { mpr: 9 } } }), // no marks/rounds: coverage only
+    roundsRow("baseball", 1, { hits: 90, rounds: 9 }),
+    { ...roundsRow("cricket", 10, { hits: 90, rounds: 10 }), gameType: "x01" },
+  ];
+  assert.equal(eligibleRows(rows, ME, "cricket").length, 6);
+  const p = buildProfile(rows, { me: ME, now: NOW, mode: "cricket", window: "last30d" });
+  assert.equal(p.ok, true);
+  assert.equal(p.mode, "cricket");
+  assert.equal(p.perRound, 1.8);
+  assert.equal(p.rounds, 120);
+  assert.equal(p.coverage.rowsWithoutLogs, 1);
+  assert.match(describeProfile(p), /1\.80 marks per round over 120 rounds/);
+});
+
+test("calibration fit (cricket): whole simulated legs at the fitted sigma reproduce the target MPR (±0.1, independent seed)", () => {
+  for (const mpr of [0.8, 1.5, 2.5, 3.4]) {
+    const sigma = sigmaForCricketMPR(mpr);
+    const got = simulatedCricketMPR(sigma, { seed: 4242 });
+    assert.ok(Math.abs(got - mpr) <= 0.1, `target ${mpr}: sigma ${sigma} gives ${got.toFixed(3)}`);
+  }
+  assert.ok(sigmaForCricketMPR(1) > sigmaForCricketMPR(2), "a better MPR needs a tighter grouping");
+});
+
+test("calibration fit (baseball): the fitted sigma reproduces the target runs per inning (±0.1, independent seed)", () => {
+  for (const rpi of [0.8, 2, 3.5, 5]) {
+    const sigma = sigmaForBaseballRPI(rpi);
+    const got = simulatedBaseballRPI(sigma, { seed: 4242 });
+    assert.ok(Math.abs(got - rpi) <= 0.1, `target ${rpi}: sigma ${sigma} gives ${got.toFixed(3)}`);
+  }
+});
+
+test("baseball: the frozen bot, aiming like the ladder bots, scores about the profile's runs per inning", () => {
+  const rows = Array.from({ length: 6 }, (_, i) => roundsRow("baseball", i, { hits: 27, rounds: 9 })); // 3 runs per inning
+  const p = buildProfile(rows, { me: ME, now: NOW, mode: "baseball" });
+  assert.equal(p.perRound, 3);
+  const bot = botFromConfig(JSON.parse(JSON.stringify(frozenConfig(p))));
+  const rng = mulberry32(77);
+  let runs = 0;
+  const innings = 3000;
+  for (let k = 0; k < innings; k++) {
+    const n = (k % 9) + 1;
+    for (let d = 0; d < 3; d++) {
+      const l = throwAt(aimPoint(n, 3), bot.sigma, rng);
+      if (l.n === n) runs += l.mult;
+    }
+  }
+  assert.ok(Math.abs(runs / innings - 3) <= 0.15, `got ${(runs / innings).toFixed(2)}`);
+});
+
+test("frozen cricket/baseball configs survive JSON (resume); X01 configs without a mode still build the X01 bot", () => {
+  const rows = Array.from({ length: 6 }, (_, i) => roundsRow("cricket", i, { hits: 30, rounds: 12 }));
+  const p = buildProfile(rows, { me: ME, now: NOW, mode: "cricket" });
+  const cfg = frozenConfig(p);
+  assert.deepEqual(Object.keys(cfg).sort(), ["from", "games", "mode", "perRound", "rounds", "sigma", "to", "v", "window"]);
+  const bot = botFromConfig(JSON.parse(JSON.stringify(cfg)));
+  assert.equal(bot.id, ALTER_EGO_ID);
+  assert.equal(bot.mode, "cricket");
+  assert.equal(bot.sigma, cfg.sigma);
+  assert.match(bot.blurb, /2\.50 marks per round/);
+  assert.equal(botFromConfig({ mode: "cricket", sigma: -1, perRound: 2 }), null);
+  const legacy = botFromConfig({ v: 1, sigmaScoring: 20, sigmaFinish: 25, scoringAvg: 60, checkoutDartRate: 0.3 });
+  assert.equal(legacy.sigma, 20);
+  assert.equal(legacy.sigmaFinish, 25);
+  assert.throws(() => buildProfile([], { me: ME, mode: "killer" }), /unknown Alter Ego mode/);
 });

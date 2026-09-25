@@ -1,7 +1,7 @@
 # Alter Ego
 
-A practice X01 opponent that plays **roughly like the player's own recent
-form**. It is not AI-driven and not a copy of the player: the player's logged
+A practice opponent for **X01, Cricket and Baseball** that plays **roughly
+like the player's own recent form** in that game. It is not AI-driven and not a copy of the player: the player's logged
 darts are boiled down to two numbers, each of which becomes a landing error
 (sigma, mm) for the same throw simulator the ladder bots use.
 
@@ -148,6 +148,46 @@ between sessions. It returns `null` for a missing or corrupt snapshot.
 - It does not model tiredness, pressure, match situation or streaks, and
   setup-shot accuracy in 41–170 uses the scoring sigma.
 - Small windows are noisy; the thresholds only guarantee a minimum.
+
+## Cricket and Baseball
+
+Chosen with the X01 / Cricket / Baseball chips on the Alter Ego card in
+Practice. The same windows, exclusions (games against Alter Ego, other
+players, other modes) and freezing rules apply as for X01.
+
+- **Measured.** One number per mode, from the stats every saved game
+  already has (no dart log needed):
+  - Cricket: marks per round, `Σ marks ÷ Σ rounds`, the MPR the app shows.
+    Standard and no-score games both count; marks already exclude dead darts.
+  - Baseball: runs per inning, `Σ runs ÷ Σ innings`.
+- **Thresholds** (`ALTER_EGO_MIN_ROUNDS`): 5 games and 50 rounds (innings),
+  about 150 darts. Below that the card says what is missing.
+- **Calibration.** Seeded Monte Carlo bisection to one sigma, as for X01:
+  - Cricket (`sigmaForCricketMPR`) plays **whole simulated standard legs**
+    of the Alter Ego against itself with the ladder bots' strategy
+    (`pickCricketTarget`) and PlayCricket's MPR rule, so the marks a real
+    game wastes on closed numbers are part of the fit. 12 bisection steps
+    (~0.03 mm), about 0.2 s per fit.
+  - Baseball (`sigmaForBaseballRPI`) aims at the treble of numbers 1–9, the
+    same aim the Baseball bots use (`pickBaseballTarget`).
+- **Tolerances** (tests, independent seed): Cricket MPR within ±0.1 for
+  targets 0.8–3.4; Baseball runs per inning within ±0.1 for 0.8–5.
+- **Frozen config**: `{ v, mode, window, from, to, games, rounds, perRound,
+  sigma }`. A config without `mode` is X01 (every game saved before this).
+- **Play**: PlayCricket and PlayBaseball rebuild the bot from the frozen
+  config and throw with the existing bot code. Results are practice (a bot
+  is in the game), with the frozen config kept on the saved result.
+
+Caveats, stated on the card too:
+
+- The Alter Ego matches the *rate*; its choices are the bots' standard
+  strategy, not the player's. A player who, say, chases points early will
+  see a different game shape at the same MPR.
+- Every Cricket number (and the bull) is treated as equally hard, and one
+  sigma covers everything: no favourite numbers, no bull specialists.
+- The self-play fit assumes an evenly matched opponent; against a much
+  stronger or weaker player the in-game MPR shifts a little, because more or
+  fewer marks land on numbers the opponent has already closed.
 
 ## Versioning
 

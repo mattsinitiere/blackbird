@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Modal } from "./ui";
 import { supabase } from "@/lib/supabase";
 import { MERLIN } from "@/lib/merlin";
@@ -222,13 +222,21 @@ function Choice({ options, value, onChange, label }) {
   );
 }
 
-function MerlinCreate({ onClose, onSaved }) {
-  const [form, setForm] = useState({ goal: "finishing", minutes: 30, perWeek: 3, weeks: 2, note: "" });
+/**
+ * Create With Merlin. `initial` pre-fills the form (a plan button in
+ * Blackbird AI) and `autoDraft` drafts straight away; `atLimit` shows the limit instead
+ * of drafting; with `onView`, a saved plan shows a confirmation with View
+ * in Practice rather than closing.
+ */
+export function MerlinCreate({ onClose, onSaved, initial = null, autoDraft = false, atLimit = false, onView = null }) {
+  const [form, setForm] = useState(() => ({ goal: "finishing", minutes: 30, perWeek: 3, weeks: 2, note: "", ...(initial || {}) }));
   const [draft, setDraft] = useState(null); // { draft, baseline, starter }
+  const [saved, setSaved] = useState(null);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
   const [key, setKey] = useState(newKey);
   const set = (k) => (v) => setForm((f) => ({ ...f, [k]: v }));
+  const autoRef = useRef(false);
 
   const makeDraft = async () => {
     setBusy(true);
@@ -247,14 +255,78 @@ function MerlinCreate({ onClose, onSaved }) {
     setBusy(true);
     setErr("");
     try {
-      await callPlans({ action: "create", requestKey: key, source: draft.starter ? "custom" : "ai", definition: draft.draft });
-      await onSaved();
+      const out = await callPlans({ action: "create", requestKey: key, source: draft.starter ? "custom" : "ai", definition: draft.draft });
+      await onSaved(out?.plan || null);
+      if (onView) setSaved(out?.plan || { definition: draft.draft });
     } catch (e) {
       setErr(e.errors?.length ? `${e.message} ${e.errors.join(" ")}` : e.message);
     } finally {
       setBusy(false);
     }
   };
+
+  // a plan button from the chat drafts at once (one AI request), once
+  useEffect(() => {
+    if (!autoDraft || atLimit || autoRef.current) return;
+    autoRef.current = true;
+    makeDraft();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  if (atLimit) {
+    return (
+      <Modal>
+        <div className="plan-modal">
+          <div className="plan-modal-head">
+            <div>
+              <div className="plan-modal-kicker">{MERLIN.name} · {MERLIN.tagline}</div>
+              <h3 className="plan-modal-title">Create a Training Plan</h3>
+            </div>
+            <button type="button" className="btn btn-sm" onClick={onClose} aria-label="Close">
+              Close
+            </button>
+          </div>
+          <p className="plans-limit" role="status">{LIMIT_MESSAGE}</p>
+          {onView && (
+            <div className="plan-modal-actions">
+              <button type="button" className="btn btn-primary" onClick={() => onView(null)}>
+                View My Plans
+              </button>
+            </div>
+          )}
+        </div>
+      </Modal>
+    );
+  }
+
+  if (saved) {
+    return (
+      <Modal>
+        <div className="plan-modal">
+          <div className="plan-modal-head">
+            <div>
+              <div className="plan-modal-kicker">{MERLIN.name} · {MERLIN.tagline}</div>
+              <h3 className="plan-modal-title">{saved.definition?.title || "Training Plan"}</h3>
+            </div>
+            <button type="button" className="btn btn-sm" onClick={onClose} aria-label="Close">
+              Close
+            </button>
+          </div>
+          <p className="plan-saved" role="status">
+            <span className="plan-saved-check" aria-hidden="true">✓</span> Plan Saved. You'll find it in Practice under Training Plans, and {MERLIN.name} will check in on Home.
+          </p>
+          <div className="plan-modal-actions">
+            <button type="button" className="btn" onClick={onClose}>
+              Back to Chat
+            </button>
+            <button type="button" className="btn btn-primary" onClick={() => onView(saved.id || null)}>
+              View in Practice
+            </button>
+          </div>
+        </div>
+      </Modal>
+    );
+  }
 
   return (
     <Modal>
@@ -285,14 +357,14 @@ function MerlinCreate({ onClose, onSaved }) {
             {err && <p className="plans-error" role="alert">{err}</p>}
             <div className="plan-modal-actions">
               <button type="button" className="btn btn-primary" disabled={busy} onClick={makeDraft}>
-                {busy ? "Building…" : "Draft My Plan"}
+                {busy ? "Building…" : autoDraft ? "Draft Again" : "Draft My Plan"}
               </button>
             </div>
           </>
         ) : (
           <>
             {draft.starter && <p className="plan-starter">Starter assessment: not enough recorded games yet for a personalised plan.</p>}
-            <div className="plan-sub">{goalLabel(draft.draft.goal)} · {draft.draft.weeks} week{draft.draft.weeks > 1 ? "s" : ""} · {draft.draft.sessions.length} sessions</div>
+            <div className="plan-sub">{goalLabel(draft.draft.goal)} · {draft.draft.weeks} week{draft.draft.weeks > 1 ? "s" : ""} · {draft.draft.sessions.length} session{draft.draft.sessions.length === 1 ? "" : "s"}</div>
             {draft.draft.why && <p className="plan-why">{draft.draft.why}</p>}
             <BaselineLine b={draft.baseline} />
             <SessionList def={draft.draft} />

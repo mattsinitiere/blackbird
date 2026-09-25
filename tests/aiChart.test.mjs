@@ -88,3 +88,29 @@ test("normal three-backtick blocks still parse; code-like text that isn't a char
 test("while streaming, a half-written two-backtick block is hidden", () => {
   assert.equal(visibleNow('Great game.\n\n``versus {"type": "ver'), "Great game.");
 });
+
+test("a plan action is validated: known goal, snapped minutes, clamped counts, trimmed note", async () => {
+  const { validateAction } = await import("../lib/aiBlocks.js");
+  const a = validateAction({ type: "plan", goal: "finishing", minutes: 40, perWeek: 9, weeks: 6, note: "  keeps   missing D16 " + "x".repeat(200), label: "Build My Doubles Plan" });
+  assert.equal(a.type, "plan");
+  assert.equal(a.goal, "finishing");
+  assert.equal(a.minutes, 45);
+  assert.equal(a.perWeek, 5);
+  assert.equal(a.weeks, 4, "5 a week × 6 weeks is over the 24-session cap");
+  assert.equal(a.note.length, 140);
+  assert.match(a.note, /^keeps missing D16 x/);
+  assert.equal(a.label, "Build My Doubles Plan");
+  const unknown = validateAction({ type: "plan", goal: "darts-mastery" });
+  assert.equal(unknown.goal, null, "an unknown goal isn't passed on; the form asks instead");
+  assert.deepEqual([unknown.minutes, unknown.perWeek, unknown.weeks, unknown.label], [30, 3, 2, "Build This Plan"]);
+});
+
+test("a plan action inside an actions block survives extraction next to a drill", () => {
+  const reply =
+    "Your doubles are the gap: 21% on 140 checkout darts.\n\n```actions\n" +
+    '[{"type": "plan", "goal": "finishing", "minutes": 30, "perWeek": 3, "weeks": 2, "label": "Build This Plan"}, {"type": "drill", "gameType": "bobs27"}]\n```';
+  const out = extractAll(reply);
+  assert.equal(out.text, "Your doubles are the gap: 21% on 140 checkout darts.");
+  assert.equal(out.actions.length, 2);
+  assert.deepEqual(out.actions[0], { type: "plan", goal: "finishing", minutes: 30, perWeek: 3, weeks: 2, note: "", label: "Build This Plan" });
+});

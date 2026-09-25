@@ -4564,6 +4564,27 @@ html:not([data-theme="dark"]) .app.is-profile {
   font-size: calc(13px * var(--fs));
   color: var(--ink-soft);
 }
+.plan-saved {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  margin: 12px 0 4px;
+  font-size: calc(14px * var(--fs));
+  line-height: 1.45;
+  color: var(--ink);
+}
+.plan-saved-check {
+  flex: none;
+  display: inline-grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: #16a34a;
+  color: #fff;
+  font-weight: 800;
+  font-size: 14px;
+}
 .plans-actions {
   display: grid;
   grid-template-columns: 1fr 1fr;

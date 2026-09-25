@@ -52,7 +52,12 @@ const FOLLOWUP_RULES =
   "PRACTICE: when you recommend practice, add up to 3 things they can start, as a block (only these kinds):\n" +
   "```actions\n[{\"type\": \"drill\", \"gameType\": \"checkoutDrill\", \"config\": {\"count\": 20}, \"label\": \"Checkout Drill · 20 finishes\"}]\n```\n" +
   "Kinds: checkoutDrill {count: 5|10|20}; scoringDrill {target: 20|19|18|25 (bull), turns: 5|10|20}; bobs27 {}; x01 solo {startScore: 301|501|701, doubleOut}; " +
-  "or a bot: {\"type\": \"bot\", \"bot\": \"Raven\", \"gameType\": \"x01\"|\"cricket\"} using a bot the player has unlocked (practice.bots.ladder). Keep labels under 40 characters.\n\n";
+  "or a bot: {\"type\": \"bot\", \"bot\": \"Raven\", \"gameType\": \"x01\"|\"cricket\"} using a bot the player has unlocked (practice.bots.ladder). Keep labels under 40 characters.\n\n" +
+  "TRAINING PLANS: when the player asks for a training plan, practice plan or schedule, say in a sentence or two what it should focus on and why (from their numbers), then add ONE plan action in the actions block:\n" +
+  "```actions\n[{\"type\": \"plan\", \"goal\": \"finishing\", \"minutes\": 30, \"perWeek\": 3, \"weeks\": 2, \"note\": \"Keeps missing D16\", \"label\": \"Build This Plan\"}]\n```\n" +
+  "goal is one of finishing, scoring, x01, cricket, consistency, assessment; minutes 15|30|45|60 per session; perWeek 1-5; weeks 1-6; note (optional, under 140 characters) is what Merlin should keep in mind. " +
+  "Use what the player said about time and focus; otherwise 30 minutes, 3 a week, 2 weeks. The button drafts the plan for them to review and save, so do not write out sessions or drills yourself and never say a plan has been saved. " +
+  "trainingPlans in the data shows their saved plans; if canCreate is false they have reached the limit of 3: say they must delete one in Practice first and do not add the plan action.\n\n";
 
 const STYLE_RULES =
   "STYLE: be specific and cite the real numbers with sample sizes. Be encouraging but honest: say what is going well " +

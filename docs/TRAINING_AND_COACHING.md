@@ -87,6 +87,24 @@ Until the migrations are applied, the app still works:
   - If a plan game is still being played on the device, it saves as
     ordinary practice and the summary says so.
 
+### Creating a plan from Blackbird AI
+
+- Asking the chat for a training plan gets a short answer plus a **Build
+  This Plan** button (an actions block with `type: "plan"`).
+  - `validateAction` in `lib/aiBlocks.js` allows only a known goal,
+    minutes snapped to 15/30/45/60, 1–5 sessions a week and 1–6 weeks
+    (capped at 24 sessions), and a note of up to 140 characters.
+  - An unknown goal is dropped, so the form opens without drafting.
+- The button opens Create With Merlin over the chat, pre-filled, and drafts
+  at once through `/api/plans` (one AI request). The player can adjust,
+  redraft or close; nothing is saved until **Save Plan**, which goes through
+  the same server validation, idempotency and three-plan limit as Practice.
+- Saved plans show a confirmation with **View in Practice**.
+- The chat's data includes `trainingPlans` (count, titles, `canCreate`),
+  read as the player. At the limit the model is told to say so rather than
+  offer the button, and the modal shows the limit message regardless.
+- The model never writes the sessions itself.
+
 ## Merlin (Home)
 
 `lib/merlin.js` picks one state, in this order:
@@ -145,7 +163,9 @@ the card:
 
 ## Alter Ego
 
-An X01 practice opponent built from the player's own logged games:
+A practice opponent for X01, Cricket or Baseball built from the player's own
+logged games (Cricket: marks per round; Baseball: runs per inning; see
+docs/ALTER_EGO.md). Training-plan Alter Ego items remain X01 only. For X01:
 
 - **Windows:** the last 10 eligible games, the last 30 days, or the
   previous calendar month.

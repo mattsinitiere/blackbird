@@ -5,6 +5,7 @@ import { PlayerBadge, UndoIcon } from "./ui";
 import { botFor, playerLabel } from "@/lib/bots";
 import { pickBaseballTarget, botThrow } from "@/lib/botStrategy";
 import { useBotTurn } from "@/lib/useBotTurn";
+import { ALTER_EGO_ID, botFromConfig } from "@/lib/alterEgo";
 import { createRecorder, ensureRecorder, stamp, recordVisit, finishRecorder, stripDarts } from "@/lib/recorder";
 
 export default function PlayBaseball({ game, resume, onProgress, onFinish, onQuit, castActive, playerColors }) {
@@ -68,7 +69,7 @@ export default function PlayBaseball({ game, resume, onProgress, onFinish, onQui
         onFinish({
           id: game.id,
           gameType: "baseball",
-          config: {},
+          config: game.config?.alterEgo ? { alterEgo: game.config.alterEgo } : {},
           players,
           winner,
           perPlayer,
@@ -95,7 +96,9 @@ export default function PlayBaseball({ game, resume, onProgress, onFinish, onQui
   };
 
   // a bot at the oche aims the triple of the inning's number
-  const bot = botFor(cur);
+  // the Alter Ego is rebuilt from the profile frozen into the game when it
+  // started (lib/alterEgo.js); it's never recomputed mid-game or on resume
+  const bot = cur === ALTER_EGO_ID ? botFromConfig(game.config?.alterEgo) : botFor(cur);
   useBotTurn({
     active: !!bot && !doneRef.current,
     key: `${turn}:${turnDarts.length}`,

@@ -14,7 +14,7 @@ const SUGGESTIONS = [
   "Compare my 3-dart average with my top rival by month",
   "Break down my wins by game mode",
   "How is my checkout percentage trending?",
-  "What should I practice this week?",
+  "Build me a training plan",
   "Which achievements am I closest to?",
 ];
 
