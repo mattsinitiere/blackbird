@@ -3,8 +3,16 @@ import { PlayerBadge, PlayerLookContext } from "./ui";
 import { defaultPlayerColor } from "@/lib/constants";
 import { isTagIcon } from "@/lib/profile";
 import { iconParts } from "@/lib/icons";
+import { cardStats } from "@/lib/playerCard";
 
-const FONT = '"Figtree", Arial, sans-serif';
+// The app's Figtree is registered by next/font under a hashed family name
+// (exposed as --font-figtree), so a canvas asking for "Figtree" would get
+// Arial. Resolve the real family at export time.
+function cardFont() {
+  const fam = typeof window !== "undefined" ? getComputedStyle(document.documentElement).getPropertyValue("--font-figtree").trim() : "";
+  return `${fam ? `${fam}, ` : ""}"Figtree", Arial, sans-serif`;
+}
+let FONT = cardFont();
 
 function isLight(hex) {
   const c = hex.replace("#", "");
@@ -14,47 +22,55 @@ function isLight(hex) {
   return (r * 299 + g * 587 + b * 114) / 1000 > 160;
 }
 
+/** The profile's palette, light or dark to match the app. */
 function themePalette() {
-  const root = typeof window !== "undefined" ? getComputedStyle(document.documentElement) : null;
-  const accent = (root && root.getPropertyValue("--accent").trim()) || "#1b1942";
   const theme = (typeof document !== "undefined" && document.documentElement.dataset.theme) || "light";
-
   if (theme === "dark") {
     return {
       theme,
-      accent,
       bg: "#101419",
+      surface: "#181d23",
+      cover: "#1b1942",
+      accent: "#a9a3dc",
+      accentSoft: "rgba(169,163,220,0.16)",
       ink: "#edf2f7",
-      inkSoft: "rgba(237,242,247,0.58)",
-      tile: "rgba(255,255,255,0.05)",
-      tileBorder: "rgba(255,255,255,0.11)",
-      frame: "rgba(255,255,255,0.12)",
+      muted: "#939da9",
+      tile: "#1f252c",
+      line: "#2c333d",
     };
   }
   return {
     theme: "light",
-    accent,
-    bg: "#fcfcfd",
-    ink: "#20202b",
-    inkSoft: "rgba(32,32,43,0.55)",
-    tile: "rgba(32,32,43,0.045)",
-    tileBorder: "rgba(32,32,43,0.10)",
-    frame: "rgba(32,32,43,0.12)",
+    bg: "#f5f6f9",
+    surface: "#ffffff",
+    cover: "#26214d",
+    accent: "#26214d",
+    accentSoft: "#eeedf5",
+    ink: "#201e3c",
+    muted: "#727381",
+    tile: "#f5f6f9",
+    line: "#e6e7ed",
   };
 }
 
 async function ensureFont() {
+  FONT = cardFont();
   if (typeof document === "undefined" || !document.fonts) return;
   try {
-    await Promise.all([
-      document.fonts.load('800 80px "Figtree"'),
-      document.fonts.load('700 40px "Figtree"'),
-      document.fonts.load('600 30px "Figtree"'),
-    ]);
+    await Promise.all(["500", "600", "700", "800"].map((w) => document.fonts.load(`${w} 40px ${FONT}`)));
     await document.fonts.ready;
   } catch {
     /* fall back to Arial */
   }
+}
+
+function loadImage(src) {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.onload = () => resolve(img);
+    img.onerror = () => resolve(null);
+    img.src = src;
+  });
 }
 
 function roundRect(ctx, x, y, w, h, r) {
@@ -67,26 +83,19 @@ function roundRect(ctx, x, y, w, h, r) {
   ctx.closePath();
 }
 
-function fitFont(ctx, text, maxWidth, startSize, weight) {
-  let size = startSize;
+function setFont(ctx, weight, size, spacing = 0) {
   ctx.font = `${weight} ${size}px ${FONT}`;
-  while (ctx.measureText(text).width > maxWidth && size > 28) {
-    size -= 4;
-    ctx.font = `${weight} ${size}px ${FONT}`;
-  }
-  return size;
+  if ("letterSpacing" in ctx) ctx.letterSpacing = `${spacing}px`;
 }
 
-function paintBackground(ctx, W, H, pal) {
-  ctx.fillStyle = pal.bg;
-  ctx.fillRect(0, 0, W, H);
-  const glow = ctx.createRadialGradient(W * 0.82, 110, 60, W * 0.82, 110, 720);
-  glow.addColorStop(0, pal.accent);
-  glow.addColorStop(1, "rgba(0,0,0,0)");
-  ctx.globalAlpha = pal.theme === "light" ? 0.1 : 0.16;
-  ctx.fillStyle = glow;
-  ctx.fillRect(0, 0, W, H);
-  ctx.globalAlpha = 1;
+function fitFont(ctx, text, maxWidth, startSize, weight) {
+  let size = startSize;
+  setFont(ctx, weight, size);
+  while (ctx.measureText(text).width > maxWidth && size > 36) {
+    size -= 4;
+    setFont(ctx, weight, size);
+  }
+  return size;
 }
 
 /** Draw one lib/icons.js icon on the canvas, `size` px square at (x, y). */
@@ -107,7 +116,12 @@ function drawIcon(ctx, id, x, y, size, color) {
   ctx.restore();
 }
 
-function drawCard(user, stats, elo, playerColor, handle, look = {}) {
+/**
+ * The shareable card, 1080×1350 (4:5), styled like the profile: an indigo
+ * cover with the Blackbird mark, the avatar overlapping it, name and tag,
+ * Elo / record / win % across, then only the stats the player actually has.
+ */
+function drawCard({ user, stats, elo, playerColor, handle, look = {}, images = {} }) {
   const W = 1080;
   const H = 1350;
   const pal = themePalette();
@@ -115,119 +129,181 @@ function drawCard(user, stats, elo, playerColor, handle, look = {}) {
   canvas.width = W;
   canvas.height = H;
   const ctx = canvas.getContext("2d");
+  ctx.textBaseline = "alphabetic";
 
-  paintBackground(ctx, W, H, pal);
+  const X = 40;
+  const Y = 40;
+  const CW = W - 80;
+  const CH = H - 80;
+  const L = 96; // content left edge
+  const R = W - 96; // content right edge
 
-  // rounded frame
-  ctx.strokeStyle = pal.frame;
+  ctx.fillStyle = pal.bg;
+  ctx.fillRect(0, 0, W, H);
+
+  // card
+  ctx.save();
+  roundRect(ctx, X, Y, CW, CH, 48);
+  ctx.fillStyle = pal.surface;
+  ctx.fill();
+  ctx.clip();
+
+  // cover band
+  const coverH = 280;
+  ctx.fillStyle = pal.cover;
+  ctx.fillRect(X, Y, CW, coverH);
+  ctx.fillStyle = "rgba(255,255,255,0.8)";
+  setFont(ctx, 700, 24, 5);
+  ctx.textAlign = "left";
+  ctx.fillText("EVERY DART COUNTS.", L, Y + 76);
+  ctx.save();
+  ctx.beginPath();
+  ctx.rect(X, Y, CW, coverH);
+  ctx.clip(); // the big type stays inside the band
+  ctx.fillStyle = "rgba(255,255,255,0.12)";
+  setFont(ctx, 800, 190, -6);
+  ctx.textAlign = "right";
+  ctx.fillText("PLAY ON.", R + 20, Y + coverH + 36);
+  ctx.restore();
+  if (images.icon) ctx.drawImage(images.icon, R - 64, Y + 40, 64, 64);
+  ctx.restore();
+
+  // card border on top of the clipped fill
+  ctx.strokeStyle = pal.line;
   ctx.lineWidth = 2;
-  roundRect(ctx, 40, 40, W - 80, H - 80, 52);
+  roundRect(ctx, X, Y, CW, CH, 48);
   ctx.stroke();
 
-  const cx = W / 2;
-  ctx.textAlign = "center";
-
-  // header
-  ctx.fillStyle = pal.accent;
-  ctx.font = `800 34px ${FONT}`;
-  ctx.fillText("BLACKBIRD", cx, 130);
-  ctx.fillStyle = pal.inkSoft;
-  ctx.font = `600 24px ${FONT}`;
-  ctx.fillText("DART SCORING", cx, 168);
-
-  // player avatar circle
-  const avatarColor = playerColor || defaultPlayerColor(user);
-  const avatarR = 56;
-  const avatarCY = 250;
+  // avatar overlapping the cover
+  const avR = 104;
+  const avX = L + avR;
+  const avY = Y + coverH;
   ctx.beginPath();
-  ctx.arc(cx, avatarCY, avatarR, 0, Math.PI * 2);
+  ctx.arc(avX, avY, avR + 12, 0, Math.PI * 2);
+  ctx.fillStyle = pal.surface;
+  ctx.fill();
+  ctx.beginPath();
+  ctx.arc(avX, avY, avR, 0, Math.PI * 2);
+  const avatarColor = playerColor || defaultPlayerColor(user);
   ctx.fillStyle = avatarColor;
   ctx.fill();
   ctx.fillStyle = isLight(avatarColor) ? "#333" : "#fff";
-  ctx.font = `700 54px ${FONT}`;
-  ctx.fillText(user.charAt(0).toUpperCase(), cx, avatarCY + 18);
+  setFont(ctx, 800, 104);
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillText(user.charAt(0).toUpperCase(), avX, avY + 6);
+  ctx.textBaseline = "alphabetic";
 
-  // player name
+  // name, fitted to the width
+  let y = avY + avR + 96;
+  ctx.textAlign = "left";
   ctx.fillStyle = pal.ink;
-  const nameSize = fitFont(ctx, user, W - 220, 90, "800");
-  ctx.font = `800 ${nameSize}px ${FONT}`;
-  ctx.fillText(user, cx, 370);
-  // @handle · tag letters, then the tag icon (vector, not text)
+  const nameSize = fitFont(ctx, user, R - L, 88, 800);
+  setFont(ctx, 800, nameSize, -1);
+  ctx.fillText(user, L, y);
+
+  // @handle, then the tag as a pill (letters and/or vector icon)
+  y += 58;
+  let x = L;
+  if (handle) {
+    ctx.fillStyle = pal.muted;
+    setFont(ctx, 500, 34);
+    ctx.fillText(`@${handle}`, x, y);
+    x += ctx.measureText(`@${handle}`).width + 20;
+  }
   const tagLetters = look.tag || "";
   const tagIcon = isTagIcon(look.tagIcon) ? look.tagIcon : null;
-  if (handle || tagLetters || tagIcon) {
-    ctx.fillStyle = pal.accent;
-    ctx.font = `700 30px ${FONT}`;
-    const hasTag = tagLetters || tagIcon;
-    const text = handle ? `@${handle}${hasTag ? `  ·  ${tagLetters}` : ""}` : tagLetters;
-    const iconSize = 32;
-    const gap = tagIcon && tagLetters ? 10 : 0;
-    const textW = ctx.measureText(text).width;
-    const x0 = cx - (textW + (tagIcon ? gap + iconSize : 0)) / 2;
-    ctx.textAlign = "left";
-    ctx.fillText(text, x0, 410);
-    ctx.textAlign = "center";
-    if (tagIcon) drawIcon(ctx, tagIcon, x0 + textW + gap, 410 - iconSize + 5, iconSize, pal.accent);
+  if (tagLetters || tagIcon) {
+    setFont(ctx, 700, 24, 2);
+    const iconSize = 28;
+    const textW = tagLetters ? ctx.measureText(tagLetters).width : 0;
+    const pillW = 24 + (tagIcon ? iconSize : 0) + (tagIcon && tagLetters ? 10 : 0) + textW;
+    const pillH = 44;
+    const pillY = y - 33;
+    roundRect(ctx, x, pillY, pillW, pillH, 10);
+    ctx.fillStyle = pal.accentSoft;
+    ctx.fill();
+    let px = x + 12;
+    if (tagIcon) {
+      drawIcon(ctx, tagIcon, px, pillY + (pillH - iconSize) / 2, iconSize, pal.accent);
+      px += iconSize + (tagLetters ? 10 : 0);
+    }
+    if (tagLetters) {
+      ctx.fillStyle = pal.accent;
+      ctx.fillText(tagLetters, px, y - 2);
+    }
   }
 
-  // ELO
-  ctx.fillStyle = pal.accent;
-  ctx.font = `800 140px ${FONT}`;
-  ctx.fillText(String(Math.round(elo || 1000)), cx, 530);
-  ctx.fillStyle = pal.inkSoft;
-  ctx.font = `700 28px ${FONT}`;
-  ctx.fillText("ELO RATING", cx, 575);
-
-  // record
-  const wins = stats.wins;
-  const losses = stats.games - stats.wins;
-  ctx.fillStyle = pal.ink;
-  ctx.font = `700 38px ${FONT}`;
-  ctx.fillText(`${wins}-${losses}  ·  ${stats.games} games  ·  ${stats.winPct.toFixed(0)}% win`, cx, 650);
-
-  // tiles
-  const tiles = [
-    ["3-DART AVG", stats.x01.threeDartAvg ? stats.x01.threeDartAvg.toFixed(1) : "—"],
-    ["BEST LEG", stats.x01.bestLeg ? `${stats.x01.bestLeg}` : "—"],
-    ["HIGH OUT", stats.x01.highestCheckout || "—"],
-    ["HIGH TURN", stats.x01.highestTurn || "—"],
-    ["CRICKET MPR", stats.cricket.mpr ? stats.cricket.mpr.toFixed(2) : "—"],
-    ["AVG RUNS", stats.baseball.avgRuns ? stats.baseball.avgRuns.toFixed(1) : "—"],
+  // headline row: Elo, record, win %
+  y += 52;
+  const rowTop = y;
+  const rowH = 150;
+  ctx.fillStyle = pal.line;
+  ctx.fillRect(L, rowTop, R - L, 2);
+  ctx.fillRect(L, rowTop + rowH, R - L, 2);
+  const heads = [
+    { label: "ELO RATING", value: String(Math.round(elo || 1000)), color: pal.accent },
+    { label: "RECORD", value: `${stats.wins}–${stats.games - stats.wins}`, color: pal.ink },
+    { label: "WIN RATE", value: `${stats.winPct.toFixed(0)}%`, color: pal.ink },
   ];
-  const cols = 2;
-  const gap = 28;
-  const tileW = (W - 160 - gap) / cols;
-  const tileH = 150;
-  const startX = 80;
-  const startY = 720;
-  tiles.forEach((t, i) => {
-    const col = i % cols;
-    const row = Math.floor(i / cols);
-    const x = startX + col * (tileW + gap);
-    const y = startY + row * (tileH + gap);
-    ctx.fillStyle = pal.tile;
-    roundRect(ctx, x, y, tileW, tileH, 30);
-    ctx.fill();
-    ctx.strokeStyle = pal.tileBorder;
-    ctx.lineWidth = 1.5;
-    roundRect(ctx, x, y, tileW, tileH, 30);
-    ctx.stroke();
-
+  const colW = (R - L) / 3;
+  heads.forEach((h, i) => {
+    const hx = L + i * colW + (i === 0 ? 0 : 32);
+    if (i > 0) {
+      ctx.fillStyle = pal.line;
+      ctx.fillRect(L + i * colW, rowTop + 28, 2, rowH - 56);
+    }
     ctx.textAlign = "left";
-    ctx.fillStyle = pal.inkSoft;
-    ctx.font = `700 22px ${FONT}`;
-    ctx.fillText(t[0], x + 28, y + 48);
-    ctx.fillStyle = pal.ink;
-    ctx.font = `800 52px ${FONT}`;
-    ctx.fillText(String(t[1]), x + 28, y + 112);
+    ctx.fillStyle = h.color;
+    setFont(ctx, 800, 72, -2);
+    ctx.fillText(h.value, hx, rowTop + 92);
+    ctx.fillStyle = pal.muted;
+    setFont(ctx, 600, 20, 3);
+    ctx.fillText(h.label, hx, rowTop + 126);
   });
 
-  // footer
-  ctx.textAlign = "center";
-  ctx.fillStyle = pal.inkSoft;
-  ctx.font = `600 26px ${FONT}`;
+  // stat tiles: only stats the player has (lib/playerCard.js)
+  const tiles = cardStats(stats);
+  const gridTop = rowTop + rowH + 40;
+  const gap = 20;
+  const tileW = (R - L - gap) / 2;
+  // tiles shrink to fit above the footer (up to three rows)
+  const footTop = Y + CH - 96;
+  const rows = Math.max(1, Math.ceil(tiles.length / 2));
+  const tileH = Math.min(124, (footTop - 32 - gridTop - gap * (rows - 1)) / rows);
+  // fewer stats: centre the grid in the space instead of leaving a gap below
+  const gridH = rows * tileH + gap * (rows - 1);
+  const gridY = gridTop + Math.max(0, (footTop - 32 - gridTop - gridH) / 2);
+  tiles.forEach((t, i) => {
+    const tx = L + (i % 2) * (tileW + gap);
+    const ty = gridY + Math.floor(i / 2) * (tileH + gap);
+    roundRect(ctx, tx, ty, tileW, tileH, 22);
+    ctx.fillStyle = pal.tile;
+    ctx.fill();
+    ctx.textAlign = "left";
+    ctx.fillStyle = pal.muted;
+    setFont(ctx, 600, 20, 3);
+    ctx.fillText(t.label.toUpperCase(), tx + 28, ty + tileH * 0.36);
+    ctx.fillStyle = pal.ink;
+    setFont(ctx, 800, 50, -1);
+    ctx.fillText(t.value, tx + 28, ty + tileH * 0.8);
+  });
+
+  // footer: wordmark left, scope and date right
+  const footY = footTop;
+  ctx.fillStyle = pal.line;
+  ctx.fillRect(L, footY, R - L, 2);
+  if (images.word) {
+    const h = 34;
+    const w = h * (2995.033 / 914.325); // the wordmark's aspect (see Logo in ui.js)
+    ctx.drawImage(images.word, L, footY + 30, w, h);
+  }
+  ctx.textAlign = "right";
+  ctx.fillStyle = pal.muted;
+  setFont(ctx, 500, 24);
   const date = new Date().toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
-  ctx.fillText(date, cx, H - 58);
+  ctx.fillText(`All-time ranked · ${date}`, R, footY + 58);
+  if ("letterSpacing" in ctx) ctx.letterSpacing = "0px";
 
   return canvas;
 }
@@ -243,7 +319,9 @@ export default function PlayerCard({ user, handle, stats, elo, onOpenAccount, pl
     try {
       await ensureFont();
       const color = playerColors?.[user] || defaultPlayerColor(user);
-      const canvas = drawCard(user, stats, elo, color, handle, look || {});
+      const dark = document.documentElement.dataset.theme === "dark";
+      const [icon, word] = await Promise.all([loadImage("/brand/icon-white.svg"), loadImage(`/brand/word-${dark ? "white" : "color"}.svg`)]);
+      const canvas = drawCard({ user, stats, elo, playerColor: color, handle, look: look || {}, images: { icon, word } });
       const blob = await new Promise((res) => canvas.toBlob(res, "image/png"));
       if (!blob) throw new Error("Could not create image.");
       const file = new File([blob], `${user}-blackbird.png`, { type: "image/png" });
