@@ -2039,10 +2039,14 @@ html:not([data-theme="dark"]) .app.is-profile {
 .pf-cover--night {
   background: linear-gradient(160deg, #221d4d 0%, #3b2461 55%, #5e2a60 100%);
 }
+.pf-cover--contours {
+  background: linear-gradient(150deg, #2d2766, #1b1942);
+}
 [data-theme="dark"] .pf-cover--dartboard,
 [data-theme="dark"] .pf-cover--flight,
 [data-theme="dark"] .pf-cover--scoreboard,
-[data-theme="dark"] .pf-cover--night {
+[data-theme="dark"] .pf-cover--night,
+[data-theme="dark"] .pf-cover--contours {
   filter: brightness(0.85);
 }
 .pf-cover.pf-cover-mini {

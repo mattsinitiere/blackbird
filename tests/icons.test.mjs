@@ -45,5 +45,8 @@ test("the migration's allowed tag icons and covers match the app's lists", async
     return [...m[1].matchAll(/'([a-z]+)'/g)].map((x) => x[1]).sort();
   };
   assert.deepEqual(list("players_tag_icon_set"), TAG_ICONS.map((t) => t.id).sort());
-  assert.deepEqual(list("players_cover_set"), COVERS.map((c) => c.id).sort());
+  // covers were widened later by their own migration
+  const coverSql = fs.readFileSync(new URL("../supabase/migration-contours-cover.sql", import.meta.url), "utf8");
+  const covers = [...coverSql.match(/players_cover_set[\s\S]*?in \(([\s\S]*?)\)\)/)[1].matchAll(/'([a-z]+)'/g)].map((x) => x[1]).sort();
+  assert.deepEqual(covers, COVERS.map((c) => c.id).sort());
 });

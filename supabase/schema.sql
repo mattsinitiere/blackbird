@@ -30,7 +30,7 @@ alter table players add constraint players_tag_icon_set
   ));
 alter table players drop constraint if exists players_cover_set;
 alter table players add constraint players_cover_set
-  check (cover is null or cover in ('playon','dartboard','flight','scoreboard','night'));
+  check (cover is null or cover in ('playon','dartboard','flight','scoreboard','night','contours'));
 
 -- Matches: one row per completed game.
 create table if not exists matches (

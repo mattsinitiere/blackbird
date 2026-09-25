@@ -17,6 +17,16 @@ const WEDGES = Array.from({ length: 20 }, (_, i) => i).filter((i) => i % 2 === 0
 // fixed star field (no randomness: stable across renders)
 const STARS = Array.from({ length: 34 }, (_, i) => ({ x: (i * 173) % 600, y: 10 + ((i * 67) % 130), r: 0.6 + ((i * 7) % 3) * 0.45, o: 0.35 + ((i * 11) % 5) / 10 }));
 
+// wobbly concentric rings (fixed, so stable across renders)
+const CONTOURS = Array.from({ length: 11 }, (_, k) => {
+  const i = k + 1;
+  const r = i * 20;
+  return {
+    d: `M${480 - r} 90c${r * 0.3} ${-r * 0.9} ${r * 1.6} ${-r * 0.85} ${r * 2} ${-r * 0.1}s${-r * 0.4} ${r * 1.1} ${-r * 1.1} ${r * 0.95}S${480 - r - 10} ${90 + r * 0.4} ${480 - r} 90z`,
+    o: +(0.16 - i * 0.011).toFixed(3),
+  };
+});
+
 function Art({ id }) {
   switch (id) {
     case "dartboard":
@@ -68,6 +78,16 @@ function Art({ id }) {
           <path d="M360 92c10-14 24-18 36-8 12-10 26-6 36 8-12-4-24-2-36 8-12-10-24-12-36-8z" fill="#fff" fillOpacity="0.75" />
           <path d="M448 62c6-8 14-10 21-5 7-5 15-3 21 5-7-2-14-1-21 5-7-6-14-7-21-5z" fill="#fff" fillOpacity="0.5" />
           <circle cx="520" cy="44" r="18" fill="#fff" fillOpacity="0.14" />
+        </g>
+      );
+    case "contours":
+      // topographic rings rippling out from a bullseye on the right
+      return (
+        <g fill="none" stroke="#fff">
+          {CONTOURS.map((c, i) => (
+            <path key={i} d={c.d} strokeOpacity={c.o} strokeWidth="1.6" />
+          ))}
+          <circle cx="490" cy="84" r="5" fill="#fff" fillOpacity="0.35" stroke="none" />
         </g>
       );
     default:
