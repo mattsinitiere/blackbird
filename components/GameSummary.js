@@ -1,13 +1,14 @@
-import { useState, useCallback } from "react";
+import { useEffect } from "react";
 import { PlayerBadge, UndoIcon } from "./ui";
-import WinnerSplash from "./WinnerSplash";
+import { feedback } from "@/lib/feedback";
 import MatchChart from "./MatchChart";
 import BadgeMedal from "./BadgeMedal";
 import BotAvatar from "./BotAvatar";
 import { botFor } from "@/lib/bots";
 
-// games whose winner splash has already played this session
-const SPLASH_SHOWN = new Set();
+// games whose win buzz has already played this session (coming back from
+// the match report remounts this screen)
+const CELEBRATED = new Set();
 
 function EloDelta({ elo, size = 12 }) {
   if (!elo) return null;
@@ -28,15 +29,13 @@ function EloDelta({ elo, size = 12 }) {
  * the shell owns saving, rematch and navigation.
  */
 export default function GameSummary({ match = null, summary, saveState, saveError, onRetrySave, onRematch, onNewGame, onDone, onOpenReport, playerColors, newBadges = [], bot = null, onChooseBot, onPlayBot, onPracticeHub }) {
-  // the winner moment (and any badges it unlocked), full screen, once per
-  // game: coming back from the match report remounts this screen
+  // a haptic / sound for the win, once per game (Settings → Accessibility)
   const gameKey = `${summary?.completedAt || ""}|${summary?.winner || ""}`;
-  const [splash, setSplash] = useState(() => {
-    const show = !SPLASH_SHOWN.has(gameKey);
-    SPLASH_SHOWN.add(gameKey);
-    return show;
-  });
-  const closeSplash = useCallback(() => setSplash(false), []);
+  useEffect(() => {
+    if (CELEBRATED.has(gameKey)) return;
+    CELEBRATED.add(gameKey);
+    feedback("big");
+  }, [gameKey]);
   if (!summary) return null;
   const { winner, title, rows, highlights, ranked, durationMin, totalDarts } = summary;
   const winRow = rows.find((r) => r.isWinner) || rows[0];
@@ -49,7 +48,6 @@ export default function GameSummary({ match = null, summary, saveState, saveErro
 
   return (
     <div className="fade">
-      {splash && <WinnerSplash winner={winRow?.u || winner} name={winName} title={title} color={colorOf(winRow || {})} solo={rows.length === 1} badges={newBadges} onDone={closeSplash} />}
 
       <div className="card mb-12" style={{ textAlign: "center", borderColor: "var(--accent)", background: "var(--accent-soft)" }}>
         <div className="tag" style={{ color: "var(--accent)" }}>Winner</div>
