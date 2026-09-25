@@ -4992,3 +4992,42 @@ html:not([data-theme="dark"]) .app.is-profile {
   opacity: 0.45;
   cursor: default;
 }
+
+/* ---------- Admin analytics (components/AdminAnalytics.js) ---------- */
+.an-section .ai-stat-cards {
+  margin-bottom: 12px;
+}
+.an-note {
+  margin: 8px 0 0;
+  font-size: calc(12px * var(--fs));
+  color: var(--muted);
+  line-height: 1.4;
+}
+.an-modes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 10px;
+}
+.an-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 14px;
+  margin-top: 12px;
+}
+.an-sub {
+  font-size: calc(11px * var(--fs));
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 4px;
+}
+.an-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 5px 0;
+  border-bottom: 1px solid var(--line);
+  font-size: calc(13px * var(--fs));
+}
