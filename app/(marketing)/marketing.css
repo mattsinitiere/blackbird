@@ -239,3 +239,7 @@
 .mk-tab-short{display:none}
 @media(max-width:420px){.mk-tab-long{display:none}.mk-tab-short{display:inline}}
 @media(max-width:360px){.mk-preview-tabs{padding:0 10px;gap:12px}}
+.mk-legal-dates{font-size:14px;color:var(--muted);margin:-12px 0 32px}
+.mk-legal-content ul{padding-left:22px;margin:0 0 16px}
+.mk-legal-content li{font-size:16px;line-height:1.8;color:var(--muted);margin-bottom:6px}
+.mk-legal-content li strong{color:var(--ink);font-weight:600}

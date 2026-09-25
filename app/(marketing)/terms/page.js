@@ -17,7 +17,7 @@ export default function TermsPage() {
 <h2>Profiles and Submitted Information</h2><p>Only submit profile information and other content that you have permission to provide. Blackbird uses submitted account and game information to operate its scoring, profile, practice, and scoreboard features, as described in the Privacy Policy.</p>
 <h2>Brand and Website Materials</h2><p>Blackbird’s branding, website design, and product materials are provided for viewing and use of the service. These terms do not grant permission to misrepresent affiliation with Blackbird or Sinitiere Labs.</p>
 <h2>Availability and Changes</h2><p>Features may change as Blackbird develops. Maintenance, service interruptions, or device and network limitations may affect availability. Any paid offering, subscription, hardware purchase, or refund policy will require separate, clearly presented terms before it is introduced.</p>
-<h2>Privacy</h2><p>Review the <a href="/privacy">Privacy Policy draft</a> for the current description of account information, player visibility, browser storage, and hosting services.</p>
+<h2>Privacy</h2><p>Review the <a href="/privacy">Privacy Policy</a> for how account information, player visibility, Blackbird AI, browser storage, and hosting services are handled.</p>
 <h2>Finalization and Contact</h2><p>The public support contact, eligibility requirements, account suspension and termination process, and any jurisdiction-specific provisions must be confirmed before these terms become effective. No purchase, subscription, or agreement is created by viewing this draft.</p>
     </LegalPage>
   );
