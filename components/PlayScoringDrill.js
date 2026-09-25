@@ -86,7 +86,8 @@ export default function PlayScoringDrill({ game, resume, onProgress, onFinish, o
   };
 
   const addDart = (mult) => {
-    const dart = stamp(mult === 0 ? { n: 0, mult: 0 } : { n: target, mult }, game.startedAt);
+    // the drill defines the target number (any bed of it counts)
+    const dart = { ...stamp(mult === 0 ? { n: 0, mult: 0 } : { n: target, mult }, game.startedAt), a: { n: target } };
     const next = [...turnDarts, dart];
     if (next.length === 3) return commit(next);
     setTurnDarts(next);

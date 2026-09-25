@@ -1,5 +1,6 @@
 import { useMemo } from "react";
 import TrainingPlans from "./TrainingPlans";
+import AlterEgoCard from "./AlterEgoCard";
 import { buildProfile } from "@/lib/alterEgo";
 import { BackBar, Mini, Stat, PlayerBadge, pressProps } from "./ui";
 import { BarChart, LineChart } from "./Charts";
@@ -91,6 +92,8 @@ export default function Practice({ practice, me, onStart, back, playerColors, op
           liveGame={liveGame}
         />
       )}
+
+      {onStartGame && <AlterEgoCard rows={myRows} me={me} onStartGame={onStartGame} />}
 
       <div className="card mb-12">
         <h3 className="section-title">Bot Ladder</h3>

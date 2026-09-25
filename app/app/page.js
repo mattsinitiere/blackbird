@@ -7,6 +7,8 @@ import { getPlayers, addPlayer as dbAddPlayer, linkPlayerAuth as dbLinkPlayerAut
 import { planGame } from "@/lib/planLaunch";
 import { planProgress, itemLabel } from "@/lib/trainingPlans";
 import { merlinState } from "@/lib/merlin";
+import { hintPrefs } from "@/lib/strategy/prefs";
+import { doubleRates } from "@/lib/strategy/evidence";
 import { followingUsernames, followerUsernames, circlePlayers as circleOf, followsForSocial } from "@/lib/follows";
 import { normalizeHandle, validateHandle } from "@/lib/profile";
 import { PROFILE_PARAM, resolveProfileParam } from "@/lib/profileLink";
@@ -690,6 +692,13 @@ export default function Page() {
     startGame(out.game);
   }, [live, myName, myRows, startGame]);
 
+  // strategy hints: the user's hint settings plus doubles evidence from
+  // drills with known targets (computed once from saved rows, not per dart)
+  const hintCtx = useMemo(() => {
+    const prefs = hintPrefs(session?.user?.user_metadata || {});
+    return { prefs, evidence: prefs.mode === "personalized" ? doubleRates(myRows, { me: myName }) : null };
+  }, [session, myRows, myName]);
+
   // Merlin's Home card: deterministic, from saved plans, progress and results
   const merlinCard = useMemo(
     () => merlinState({ plans: planState.plans, completions: planState.completions, liveGame: live, rows: myRows, me: myName }),
@@ -956,8 +965,8 @@ export default function Page() {
             )}
           </div>
         )}
-        {view === "playX01" && live && <PlayX01 game={live} resume={liveProgress.current} onProgress={saveProgress} onFinish={finishMatch} onQuit={askQuit} castActive={!!castCode} playerColors={playerColors} />}
-        {view === "playCricket" && live && <PlayCricket game={live} resume={liveProgress.current} onProgress={saveProgress} onFinish={finishMatch} onQuit={askQuit} castActive={!!castCode} playerColors={playerColors} />}
+        {view === "playX01" && live && <PlayX01 game={live} resume={liveProgress.current} onProgress={saveProgress} onFinish={finishMatch} onQuit={askQuit} castActive={!!castCode} playerColors={playerColors} hints={hintCtx} me={myName} />}
+        {view === "playCricket" && live && <PlayCricket game={live} resume={liveProgress.current} onProgress={saveProgress} onFinish={finishMatch} onQuit={askQuit} castActive={!!castCode} playerColors={playerColors} hints={hintCtx} />}
         {view === "playBaseball" && live && <PlayBaseball game={live} resume={liveProgress.current} onProgress={saveProgress} onFinish={finishMatch} onQuit={askQuit} castActive={!!castCode} playerColors={playerColors} />}
         {view === "playAroundTheClock" && live && <PlayAroundTheClock game={live} resume={liveProgress.current} onProgress={saveProgress} onFinish={finishMatch} onQuit={askQuit} castActive={!!castCode} playerColors={playerColors} />}
         {view === "playKiller" && live && <PlayKiller game={live} resume={liveProgress.current} onProgress={saveProgress} onFinish={finishMatch} onQuit={askQuit} castActive={!!castCode} playerColors={playerColors} />}

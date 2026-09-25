@@ -5,7 +5,7 @@ import { dartLabel } from "@/lib/darts";
 import { PlayerBadge, UndoIcon } from "./ui";
 import { createRecorder, ensureRecorder, stamp, recordVisit, recordEvent, finishRecorder, stripDarts } from "@/lib/recorder";
 import { playerLabel } from "@/lib/bots";
-import { getCheckoutPath } from "@/lib/checkouts";
+import { recommend, routeLabel } from "@/lib/strategy/x01";
 import { checkoutTargets, applyCheckoutDart, CHECKOUT_DRILL_DARTS } from "@/lib/drills";
 
 /**
@@ -160,7 +160,9 @@ export default function PlayCheckoutDrill({ game, resume, onProgress, onFinish, 
   // live remaining for the current visit
   let liveRem = me.visitStart;
   for (const d of turnDarts) liveRem = applyCheckoutDart(liveRem, d).rem;
-  const hint = liveRem >= 2 ? getCheckoutPath(liveRem) : null;
+  // standard route for the darts left in this visit (lib/strategy/x01.js)
+  const rec = liveRem >= 2 && turnDarts.length < 3 ? recommend({ remaining: liveRem, dartsLeft: 3 - turnDarts.length, doubleOut: true }) : null;
+  const hint = rec && rec.route.length ? `${rec.kind === "checkout" ? "Checkout" : "Setup"}: ${routeLabel(rec.route)}` : null;
   const dartsLeft = CHECKOUT_DRILL_DARTS - me.dartsThis - turnDarts.length;
 
   return (

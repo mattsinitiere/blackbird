@@ -4919,3 +4919,76 @@ html:not([data-theme="dark"]) .app.is-profile {
 .merlin.is-loading .merlin-headline {
   color: var(--muted);
 }
+
+/* ---------- strategy hints (components/StrategyHint.js) ---------- */
+.hint-card {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+.hint-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.hint-kind {
+  font-size: calc(11px * var(--fs));
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+.hint-route {
+  font-weight: 700;
+  font-size: calc(17px * var(--fs));
+  color: var(--ink);
+}
+.hint-why {
+  margin-left: auto;
+  padding: 4px 0;
+  border: 0;
+  background: none;
+  color: var(--accent);
+  font: inherit;
+  font-size: calc(12px * var(--fs));
+  font-weight: 600;
+  text-decoration: underline;
+  cursor: pointer;
+  min-height: 32px;
+}
+.hint-alt {
+  margin-top: 2px;
+  font-size: calc(12px * var(--fs));
+  color: var(--ink-soft);
+}
+.hint-explain {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid color-mix(in srgb, var(--accent) 25%, transparent);
+  font-size: calc(13px * var(--fs));
+  color: var(--ink-soft);
+}
+.hint-explain p {
+  margin: 4px 0 0;
+}
+.hint-basis {
+  font-weight: 700;
+  color: var(--ink);
+}
+
+/* ---------- Alter Ego (components/AlterEgoCard.js) ---------- */
+.ae-desc {
+  margin: 10px 0 6px;
+  font-size: calc(14px * var(--fs));
+  line-height: 1.45;
+  color: var(--ink);
+}
+.ae-cov {
+  margin: 0 0 10px;
+  font-size: calc(12px * var(--fs));
+  color: var(--muted);
+}
+.plan-chip:disabled {
+  opacity: 0.45;
+  cursor: default;
+}

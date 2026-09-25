@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import { HINT_MODES, PREFERRED_DOUBLES } from "@/lib/strategy/prefs";
 import { BackBar, PlayerBadge, Modal, TagPill } from "./ui";
 import { supabase } from "@/lib/supabase";
 import { isHandleAvailable } from "@/lib/db";
@@ -44,6 +45,14 @@ export default function Account({ user, players, results, addPlayer, setPlayerHi
   const [fontScale, setFontScale] = useState(FONT_SCALES.some((f) => f.id === meta.fontScale) ? meta.fontScale : "normal");
   const [haptics, setHaptics] = useState(meta.haptics !== false);
   const [sounds, setSounds] = useState(meta.sounds === true);
+  // strategy hints (lib/strategy): advisory only, never touch the score
+  const [hints, setHints] = useState(HINT_MODES.some((h) => h.id === meta.hints) ? meta.hints : "standard");
+  const [preferredDouble, setPreferredDouble] = useState(PREFERRED_DOUBLES.includes(meta.preferredDouble) ? meta.preferredDouble : "");
+  const saveHints = (patch) => {
+    if (patch.hints !== undefined) setHints(patch.hints);
+    if (patch.preferredDouble !== undefined) setPreferredDouble(patch.preferredDouble || "");
+    persist(patch);
+  };
   const setFeedback = (patch) => {
     if (patch.haptics !== undefined) setHaptics(patch.haptics);
     if (patch.sounds !== undefined) setSounds(patch.sounds);
@@ -415,6 +424,32 @@ export default function Account({ user, players, results, addPlayer, setPlayerHi
                 <div className="set-hint" style={{ marginTop: 2 }}>A soft tick per dart, a low note on a bust, a chime on a checkout or win.</div>
               </div>
               <Switch on={sounds} label="Sounds" onChange={(v) => setFeedback({ sounds: v })} />
+            </div>
+          </div>
+
+          <div className="card mb-12">
+            <div className="set-title">Checkout &amp; Cricket Hints</div>
+            <div className="set-hint" style={{ marginTop: 2 }}>
+              Suggestions while you play. They never change a score, a turn or the rules. Personalized uses your own drill results only when there's enough of them; otherwise you get the standard route.
+            </div>
+            <div className="plan-choice" role="radiogroup" aria-label="Hints" style={{ marginTop: 10 }}>
+              {HINT_MODES.map((h) => (
+                <button key={h.id} type="button" role="radio" aria-checked={hints === h.id} className={`plan-chip${hints === h.id ? " is-on" : ""}`} onClick={() => saveHints({ hints: h.id })}>
+                  {h.label}
+                </button>
+              ))}
+            </div>
+            <div className="set-toggle" style={{ marginTop: 16, paddingTop: 16, borderTop: "1px solid var(--line)" }}>
+              <div>
+                <div className="set-title">Preferred Double</div>
+                <div className="set-hint" style={{ marginTop: 2 }}>Routes finish on it when that's about as good as the standard route.</div>
+              </div>
+              <select className="select" style={{ width: "auto", minWidth: 110 }} aria-label="Preferred double" value={preferredDouble} onChange={(e) => saveHints({ preferredDouble: e.target.value || null })}>
+                <option value="">None</option>
+                {PREFERRED_DOUBLES.map((d) => (
+                  <option key={d} value={d}>{d}</option>
+                ))}
+              </select>
             </div>
           </div>
         </>

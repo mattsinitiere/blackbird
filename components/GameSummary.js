@@ -4,7 +4,7 @@ import { feedback } from "@/lib/feedback";
 import MatchChart from "./MatchChart";
 import BadgeMedal from "./BadgeMedal";
 import BotAvatar from "./BotAvatar";
-import { botFor } from "@/lib/bots";
+import { playerLabel, botFor } from "@/lib/bots";
 
 // games whose win buzz has already played this session (coming back from
 // the match report remounts this screen)
@@ -199,7 +199,7 @@ function BotActions({ bot, onRematch, onChooseBot, onPlayBot, onPracticeHub }) {
         style={{ width: "100%", fontSize: "calc(16px * var(--fs))", padding: 16, display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 8 }}
         onClick={onRematch}
       >
-        <UndoIcon /> Rematch {b ? b.name : "Bot"}
+        <UndoIcon /> Rematch {b ? b.name : playerLabel(bot.id)}
       </button>
       <div className="row" style={{ marginTop: 10 }}>
         {onChooseBot && <button className="btn" style={{ flex: 1 }} onClick={onChooseBot}>Choose Opponent</button>}

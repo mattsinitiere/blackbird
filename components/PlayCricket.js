@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import { CricketHint } from "./StrategyHint";
 import { X01_TARGETS, CRICKET_VALUE } from "@/lib/constants";
 import { markSymbol } from "@/lib/darts";
 import DartBoard from "./DartBoard";
@@ -11,7 +12,7 @@ import { createRecorder, ensureRecorder, stamp, recordVisit, finishRecorder } fr
 
 const numOf = (t) => (t === "B" ? 25 : Number(t));
 
-export default function PlayCricket({ game, resume, onProgress, onFinish, onQuit, castActive, playerColors }) {
+export default function PlayCricket({ game, resume, onProgress, onFinish, onQuit, castActive, playerColors, hints = null }) {
   const { players } = game;
   const variant = game.config?.variant || "standard";
 
@@ -218,6 +219,7 @@ export default function PlayCricket({ game, resume, onProgress, onFinish, onQuit
 
   return (
     <div className="fade">
+      {!bot && <CricketHint variant={variant} me={cur} players={players} state={state} prefs={hints?.prefs} />}
       {celeb && <Celebration type={celeb.type} label={celeb.label} onDone={() => setCeleb(null)} />}
       <div className="between mb-12">
         <div>
