@@ -4020,3 +4020,78 @@ html:not([data-theme="dark"]) .app.is-profile {
   padding: 0;
   border-radius: 12px;
 }
+
+/* Tale of the Tape: hover or tap a bar for the split */
+.mu-mid-btn {
+  padding: 4px 2px;
+  border: 0;
+  border-radius: 8px;
+  background: none;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.mu-mid-btn.is-open {
+  background: var(--surface-2);
+}
+.mu-mid-btn:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+.mu-mid-btn .mu-gap {
+  display: flex;
+}
+.mu-split {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: baseline;
+  gap: 2px 6px;
+  font-size: calc(12px * var(--fs));
+  color: var(--muted);
+}
+.mu-split-gap {
+  flex-basis: 100%;
+  text-align: center;
+  font-weight: 600;
+  color: var(--ink-soft);
+}
+.container-fill .mu-tape.has-open {
+  max-height: none;
+}
+@media (min-width: 900px) {
+  .charts-2col > .card.is-wide {
+    grid-column: 1 / -1;
+  }
+}
+
+/* Achievements: each category its own section (components/Achievements.js) */
+.badge-section {
+  margin-top: 18px;
+  padding-top: 16px;
+  border-top: 1px solid var(--line);
+}
+.badge-section:first-of-type {
+  margin-top: 10px;
+  padding-top: 0;
+  border-top: 0;
+}
+.badge-section-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+.badge-section-title {
+  font-size: calc(12px * var(--fs));
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+}
+.badge-section-count {
+  font-size: calc(12px * var(--fs));
+  font-weight: 600;
+  color: var(--muted);
+}

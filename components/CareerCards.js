@@ -210,7 +210,7 @@ export default function CareerCards({ career }) {
         <SimpleCard title="Bob's 27" c={c.bobs27} items={[["Best", c.bobs27.bestScore ?? "—"], ["Avg", n1(c.bobs27.avgScore)], ["Double rate", pc(c.bobs27.doubleHitRate)], ["Clean runs", c.bobs27.cleanRuns], ["Bust rate", pc(c.bobs27.bustRate)]]} />
       )}
       {c.checkoutDrill && (
-        <SimpleCard title="Checkout drill" c={c.checkoutDrill} items={[["Hit rate", pc(c.checkoutDrill.hitRate)], ["Darts / hit", n1(c.checkoutDrill.dartsPerHit)], ["Highest", c.checkoutDrill.highestCheckout ?? "—"], ["Double rate", pc(c.checkoutDrill.doubleHitRate)]]}>
+        <SimpleCard title="Checkout Drill" c={c.checkoutDrill} items={[["Hit rate", pc(c.checkoutDrill.hitRate)], ["Darts / hit", n1(c.checkoutDrill.dartsPerHit)], ["Highest", c.checkoutDrill.highestCheckout ?? "—"], ["Double rate", pc(c.checkoutDrill.doubleHitRate)]]}>
           <div style={{ marginTop: 10 }}>
             <div className="tag" style={{ marginBottom: 4 }}>Finishes by range</div>
             <Bars items={Object.entries(c.checkoutDrill.byRange).map(([k, v]) => ({ label: k, value: v.pct ?? 0, display: v.finishes ? `${v.hits}/${v.finishes}` : "—" }))} />
@@ -218,7 +218,7 @@ export default function CareerCards({ career }) {
         </SimpleCard>
       )}
       {c.scoringDrill && (
-        <SimpleCard title="Scoring drill" c={c.scoringDrill} items={[["Best / visit", n1(c.scoringDrill.bestAvgPerVisit)], ["Hit rate", pc(c.scoringDrill.hitRate)], ["Treble rate", pc(c.scoringDrill.trebleRate)]]} />
+        <SimpleCard title="Scoring Drill" c={c.scoringDrill} items={[["Best / visit", n1(c.scoringDrill.bestAvgPerVisit)], ["Hit rate", pc(c.scoringDrill.hitRate)], ["Treble rate", pc(c.scoringDrill.trebleRate)]]} />
       )}
     </>
   );

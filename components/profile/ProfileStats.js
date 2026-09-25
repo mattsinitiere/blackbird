@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import { Stat, Mini, pressProps } from "../ui";
 import { LineChart } from "../Charts";
 import CareerCards from "../CareerCards";
@@ -69,8 +70,8 @@ export function PracticeCard({ rows, me, onOpen, openGame, playerColors }) {
         ))}
       </div>
       {onOpen && (
-        <button className="btn mt-12" style={{ width: "100%" }} onClick={onOpen}>
-          Practice hub: bots, drills &amp; trends
+        <button className="btn btn-primary mt-12" style={{ width: "100%", padding: 14, fontSize: "calc(15px * var(--fs))" }} onClick={onOpen}>
+          Start Practice
         </button>
       )}
     </div>
@@ -84,6 +85,9 @@ export function PracticeCard({ rows, me, onOpen, openGame, playerColors }) {
  */
 export default function ProfileStats({ user, player, stats, allStats = stats, elo, timeline, career, practiceRows, period = "all", bounds = {}, custom = {}, onPeriod, onCustom, onOpenPractice, openGame, playerColors, rivalryCard, empty }) {
   const label = periodLabel(period, bounds);
+  // with an odd number of charts, Elo spans both desktop columns so the grid has no gap
+  const eloWide = !!stats && (2 + (stats.x01?.games > 0 ? 1 : 0) + (stats.cricket?.games > 0 ? 1 : 0)) % 2 === 1;
+  const desktop = useDesktop();
   return (
     <>
       {rivalryCard}
@@ -113,9 +117,10 @@ export default function ProfileStats({ user, player, stats, allStats = stats, el
           </div>
 
           <div className="charts-2col">
-            <div className="card">
+            {/* with an odd number of charts, Elo spans both columns so the grid has no gap */}
+            <div className={`card${eloWide ? " is-wide" : ""}`}>
               <h3 className="section-title">Elo Over Time</h3>
-              <LineChart data={timeline.elo} color="var(--accent)" />
+              <LineChart data={timeline.elo} color="var(--accent)" wide={eloWide && desktop} />
             </div>
             {stats.x01.games > 0 && (
               <div className="card">
@@ -212,4 +217,17 @@ function DateField({ label, hint, value, min, max, onChange }) {
       </span>
     </label>
   );
+}
+
+/** True at the width where the stats charts sit two to a row. */
+function useDesktop() {
+  const [on, setOn] = useState(false);
+  useEffect(() => {
+    const mq = window.matchMedia("(min-width: 900px)");
+    const f = () => setOn(mq.matches);
+    f();
+    mq.addEventListener?.("change", f);
+    return () => mq.removeEventListener?.("change", f);
+  }, []);
+  return on;
 }

@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { profileHref } from "@/lib/profileLink";
 import { ShareIcon } from "./icons";
 
 /**
@@ -14,11 +13,12 @@ export default function ShareButton({ player, user }) {
   const share = async () => {
     setStatus("");
     setManual("");
-    const url = `${window.location.origin}${profileHref(player || { username: user })}`;
-    const title = `${user} on Blackbird`;
+    // the app itself: a profile link means nothing to someone not signed in
+    const url = `${window.location.origin}/`;
+    const title = "Blackbird Dart Scoring System";
     if (navigator.share) {
       try {
-        await navigator.share({ title, text: `${user}'s darts profile`, url });
+        await navigator.share({ title, text: "Score darts, track your stats and play your friends on Blackbird.", url });
         return;
       } catch (e) {
         if (e && e.name === "AbortError") return;
@@ -26,7 +26,7 @@ export default function ShareButton({ player, user }) {
     }
     try {
       await navigator.clipboard.writeText(url);
-      setStatus("Profile link copied.");
+      setStatus("Link copied.");
     } catch {
       setManual(url);
     }

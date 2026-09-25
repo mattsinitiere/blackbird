@@ -455,12 +455,7 @@ export default function PlayerCard({ user, handle, stats, elo, onOpenAccount, pl
         }}
       />
       <div style={{ position: "relative" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <span className="num" style={{ fontSize: "calc(36px * var(--fs))", color: "var(--accent)" }}>{Math.round(elo || 1000)}</span>
-          <span className="tag">Elo</span>
-        </div>
-
-        <div className="row mt-12" style={{ flexWrap: "wrap" }}>
+        <div className="row" style={{ flexWrap: "wrap" }}>
           <button className="btn btn-primary" style={{ flex: 1, minWidth: 150 }} onClick={exportCard} disabled={busy}>
             {busy ? "Preparing…" : "Export Player Card"}
           </button>

@@ -31,8 +31,13 @@ export default function AchievementsCard({ badges, isMe, seen }) {
         const list = badges.filter((b) => b.category === cat);
         if (!list.length) return null;
         return (
-          <div key={cat} style={{ marginTop: 10 }}>
-            <div className="tag" style={{ marginBottom: 6 }}>{cat}</div>
+          <section key={cat} className="badge-section" aria-label={cat}>
+            <div className="badge-section-head">
+              <span className="badge-section-title">{cat}</span>
+              <span className="badge-section-count">
+                {list.filter((b) => b.unlocked).length}/{list.length}
+              </span>
+            </div>
             <div className="badge-grid">
               {list.map((b) => {
                 const isNew = isMe && b.unlocked && seen && !seen.has(b.id);
@@ -58,7 +63,7 @@ export default function AchievementsCard({ badges, isMe, seen }) {
                 );
               })}
             </div>
-          </div>
+          </section>
         );
       })}
       {open && <BadgeDetail badge={open} onClose={() => setOpen(null)} />}

@@ -79,8 +79,9 @@ function Readout({ pct, value, sub }) {
  * data: [{ x:number, y:number, date?:string, label?:string }]
  * textScale enlarges the axis text where the chart is drawn narrow.
  */
-export function LineChart({ data, color = "var(--accent)", unit = "", decimals = 0, textScale = 1 }) {
-  const W = 600;
+export function LineChart({ data, color = "var(--accent)", unit = "", decimals = 0, textScale = 1, wide = false }) {
+  // a wide card gets a wider drawing, so it keeps the same height
+  const W = wide ? 1200 : 600;
   const H = 230;
   const padL = Math.round(46 * textScale);
   const padR = 16;

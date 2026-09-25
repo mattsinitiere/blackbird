@@ -18,6 +18,7 @@ export default function Matchup({ usernames, me, elo, results, stats, playerColo
   const [pickB, setB] = useState(null);
   const [tab, setTab] = useState("tape");
   const [picking, setPicking] = useState(null); // "a" | "b" | null
+  const [openRow, setOpenRow] = useState(null); // tape row showing its split
 
   // defaults are derived, so they settle once data loads
   const a = pickA && pool.includes(pickA) ? pickA : pool.includes(me) ? me : pool[0];
@@ -88,9 +89,9 @@ export default function Matchup({ usernames, me, elo, results, stats, playerColo
       </div>
 
       {tab === "tape" ? (
-        <section className="card mu-card mu-tape" aria-label="Tale of the tape" style={{ "--rows": tape.length + ((stats?.[a]?.lastFive?.length > 0 || stats?.[b]?.lastFive?.length > 0) ? 1 : 0) }}>
+        <section className={`card mu-card mu-tape${openRow ? " has-open" : ""}`} aria-label="Tale of the tape" style={{ "--rows": tape.length + ((stats?.[a]?.lastFive?.length > 0 || stats?.[b]?.lastFive?.length > 0) ? 1 : 0) }}>
           {tape.map((r) => (
-            <TapeRow key={r.key} row={r} colA={colorOf(a)} colB={colorOf(b)} />
+            <TapeRow key={r.key} row={r} nameA={a} nameB={b} colA={colorOf(a)} colB={colorOf(b)} open={openRow === r.key} onOpen={(on) => setOpenRow(on ? r.key : null)} />
           ))}
           {(stats?.[a]?.lastFive?.length > 0 || stats?.[b]?.lastFive?.length > 0) && (
             <div className="mu-row">
@@ -145,20 +146,44 @@ function fg(color) {
   return /^#[0-9a-f]{6}$/i.test(color) && isLight(color) ? "#222" : "#fff";
 }
 
-function TapeRow({ row, colA, colB }) {
+const GAP_DIGITS = { avg: 1, runs: 1, mpr: 2 };
+
+/** One tale-of-the-tape row; hover or tap the bar to read the split. */
+function TapeRow({ row, nameA, nameB, colA, colB, open, onOpen }) {
   const total = row.av + row.bv;
   const share = total > 0 ? (row.av / total) * 100 : 50;
   const pill = (side, col) => (row.better === side ? { background: col, color: fg(col) } : undefined);
+  const pa = Math.round(share);
+  const gap = Math.abs(row.av - row.bv);
+  const d = GAP_DIGITS[row.key] || 0;
+  const gapText = row.better ? `${row.better === "a" ? nameA : nameB} +${gap.toFixed(d)}${row.key === "winPct" ? " pts" : ""}` : "Even";
+  const hover = typeof window !== "undefined" && window.matchMedia?.("(hover: hover)").matches;
   return (
     <div className="mu-row">
       <span className={`mu-val num ${row.better === "a" ? "is-better" : ""}`} style={pill("a", colA)}>{row.a}</span>
-      <div className="mu-mid">
+      <button
+        type="button"
+        className={`mu-mid mu-mid-btn${open ? " is-open" : ""}`}
+        aria-expanded={open}
+        aria-label={`${row.label}: ${nameA} ${row.a}, ${nameB} ${row.b}. Show split`}
+        onClick={() => onOpen(!open)}
+        onMouseEnter={hover ? () => onOpen(true) : undefined}
+        onMouseLeave={hover ? () => onOpen(false) : undefined}
+      >
         <span className="mu-label">{row.label}</span>
-        <div className="mu-gap" aria-hidden="true">
+        <span className="mu-gap" aria-hidden="true">
           <i style={{ width: `${share}%`, background: colA, opacity: row.better === "b" ? 0.35 : 1 }} />
           <i style={{ width: `${100 - share}%`, background: colB, opacity: row.better === "a" ? 0.35 : 1 }} />
-        </div>
-      </div>
+        </span>
+        {open && (
+          <span className="mu-split" role="status">
+            <b style={{ color: "var(--ink)" }}>{pa}%</b>
+            <span>·</span>
+            <b style={{ color: "var(--ink)" }}>{100 - pa}%</b>
+            <span className="mu-split-gap">{gapText}</span>
+          </span>
+        )}
+      </button>
       <span className={`mu-val num is-b ${row.better === "b" ? "is-better" : ""}`} style={pill("b", colB)}>{row.b}</span>
     </div>
   );
