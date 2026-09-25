@@ -1,4 +1,5 @@
 import { createClient } from "@supabase/supabase-js";
+import { isDeletedPlayerName } from "@/lib/accountDeletion";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -55,6 +56,8 @@ export async function POST(req) {
 
   let linked = 0;
   for (const p of unlinked) {
+    // a deleted account's player must never be re-claimed by a new login
+    if (isDeletedPlayerName(p.username)) continue;
     const matchId = usersByName[(p.username || "").toLowerCase()];
     if (matchId && !alreadyLinked.has(matchId)) {
       await admin.from("players").update({ auth_id: matchId }).eq("username", p.username);

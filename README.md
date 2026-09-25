@@ -144,7 +144,12 @@ single source of truth for game data.
   share sheet on mobile.
 - **Admin panel**: the configured admin account can manage login accounts,
   rename players, set or change anyone's @handle, hide/delete players and
-  reset scores.
+  reset scores. **Delete account** is how privacy deletion requests are
+  handled (`lib/accountDeletion.js`): the player is renamed "Deleted player
+  xxxxxx" everywhere (`lib/playerRename.js`), its profile is cleared and
+  hidden, follows of it are removed, then the login is deleted (its AI
+  logs, plans and activity cascade). Past games stay in opponents' records,
+  and the row keeps the dead auth id so no one can claim it.
 - **Public website + invite-only sign-up**: `/` is the marketing page
   (features, game modes, TV mode, FAQ) with Sign In / Sign Up in the
   header; once signed in the header shows Play and your avatar, and

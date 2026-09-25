@@ -124,7 +124,7 @@ export default function Admin({ stats, addPlayer, back, refreshData, playerColor
   };
 
   const deleteUser = async (id, email) => {
-    if (typeof window !== "undefined" && !window.confirm(`Delete the login account for ${email}? This removes their ability to sign in.`)) return;
+    if (typeof window !== "undefined" && !window.confirm(`Delete the account for ${email}? Their login and private data (AI history, plans, activity) are removed, and their player profile is cleared. Past games stay, credited to "Deleted player". This can't be undone.`)) return;
     setBusy(id);
     setErr("");
     try {
