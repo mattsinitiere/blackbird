@@ -171,18 +171,45 @@ function PeriodPicker({ period, custom, onPeriod, onCustom }) {
       </div>
       {period === "custom" && (
         <div className="period-custom">
-          <label className="period-field">
-            <span>From</span>
-            <input type="date" className={custom.from ? "" : "is-empty"} max={custom.to || today} value={custom.from || ""} onChange={(e) => onCustom({ ...custom, from: e.target.value })} aria-label="From date" />
-            {!custom.from && <span className="period-hint">First game</span>}
-          </label>
-          <label className="period-field">
-            <span>To</span>
-            <input type="date" className={custom.to ? "" : "is-empty"} min={custom.from || undefined} max={today} value={custom.to || ""} onChange={(e) => onCustom({ ...custom, to: e.target.value })} aria-label="To date" />
-            {!custom.to && <span className="period-hint">Today</span>}
-          </label>
+          <DateField label="From" hint="First game" value={custom.from} max={custom.to || today} onChange={(v) => onCustom({ ...custom, from: v })} />
+          <DateField label="To" hint="Today" value={custom.to} min={custom.from || undefined} max={today} onChange={(v) => onCustom({ ...custom, to: v })} />
         </div>
       )}
     </div>
+  );
+}
+
+const fmtDay = (v) => {
+  const [y, m, d] = String(v).split("-").map(Number);
+  return new Date(y, m - 1, d).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
+};
+
+/**
+ * A date field whose text we draw ourselves, centred: iOS Safari pins a
+ * native date input's text to the top of its box whatever the CSS says.
+ * The real input sits invisibly on top, so a tap still opens the phone's
+ * own date picker.
+ */
+function DateField({ label, hint, value, min, max, onChange }) {
+  return (
+    <label className="period-field">
+      <span>{label}</span>
+      <span className={`period-box${value ? "" : " is-empty"}`}>
+        {value ? fmtDay(value) : hint}
+        <input
+          type="date"
+          value={value || ""}
+          min={min}
+          max={max}
+          onChange={(e) => onChange(e.target.value)}
+          onClick={(e) => {
+            try {
+              e.currentTarget.showPicker?.();
+            } catch {}
+          }}
+          aria-label={`${label} date`}
+        />
+      </span>
+    </label>
   );
 }
