@@ -33,7 +33,7 @@ MIGRATIONS=(
   migration-per-player.sql migration-add-profile.sql migration-follows-tags.sql
   migration-tag-icons-covers.sql migration-contours-cover.sql migration-dev-tag-icons.sql
   migration-player-events.sql migration-ai-usage.sql migration-realtime.sql
-  migration-scoped-data.sql migration-ai-log.sql migration-training-plans.sql
+  migration-scoped-data.sql migration-ai-log.sql migration-training-plans.sql migration-search-paths.sql
 )
 for m in "${MIGRATIONS[@]}"; do
   [ -f "$ROOT/supabase/$m" ] || { echo "missing migration $m"; exit 1; }
