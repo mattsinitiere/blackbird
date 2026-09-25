@@ -45,3 +45,26 @@ test("matches: only your games, one per game, newest first, by opponent, result 
   assert.deepEqual(searchAll({ query: "gh", players, results, me: "Gracie" }).matches.map((m) => m.gameId), ["g4"], "opponents by @handle");
   assert.deepEqual(searchAll({ query: "", players, results, me: "Ann" }).matches.map((m) => m.gameId), ["g3", "g1", "g2"], "empty query: recent games");
 });
+
+test("achievements: by title, description or category; unlocked first; 'locked' narrows", () => {
+  const achievements = [
+    { id: "a", title: "Ton 80", description: "Score 180 in one visit.", category: "Scoring", unlocked: false, progress: { value: 1, target: 3 } },
+    { id: "b", title: "Bot Slayer", description: "Beat a bot.", category: "Practice", unlocked: true, earnedAt: "2026-09-01" },
+    { id: "c", title: "Ton Up", description: "Score 100 or more.", category: "Scoring", unlocked: true, earnedAt: "2026-09-10" },
+  ];
+  const r = searchAll({ query: "ton", achievements });
+  assert.deepEqual(r.achievements.map((a) => a.id), ["c", "a"]);
+  assert.deepEqual(searchAll({ query: "scoring locked", achievements }).achievements.map((a) => a.id), ["a"]);
+  assert.deepEqual(searchAll({ query: "bot", achievements }).achievements.map((a) => a.id), ["b"]);
+  assert.deepEqual(searchAll({ query: "", achievements }).achievements, [], "nothing listed until you type");
+});
+
+test("plans: by title or goal", () => {
+  const plans = [
+    { id: "p1", definition: { title: "Doubles Tune-Up", goal: "finishing" } },
+    { id: "p2", definition: { title: "Cricket Month", goal: "cricket" } },
+  ];
+  assert.deepEqual(searchAll({ query: "doubles", plans }).plans.map((p) => p.id), ["p1"], "title, and the goal label Doubles & Finishing");
+  assert.deepEqual(searchAll({ query: "finishing", plans }).plans.map((p) => p.id), ["p1"]);
+  assert.deepEqual(searchAll({ query: "plan", plans }).plans.map((p) => p.id), ["p1", "p2"]);
+});

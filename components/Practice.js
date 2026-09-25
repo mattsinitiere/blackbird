@@ -54,7 +54,7 @@ export function practiceLabel(r) {
  * dashboard (weekly sessions, personal bests, trends, recent sessions).
  * Everything here comes from practice rows; nothing counts toward stats.
  */
-export default function Practice({ practice, me, onStart, back, playerColors, openGame, onAskAI = null, myRows = [], plans = null, onRefreshPlans, onDeletePlan, onLaunchPlan, onStartGame, liveGame = null }) {
+export default function Practice({ practice, me, onStart, back, playerColors, openGame, onAskAI = null, myRows = [], plans = null, onRefreshPlans, onDeletePlan, onLaunchPlan, onStartGame, liveGame = null, focusPlan = null }) {
   const p = useMemo(() => computePractice(practice, me), [practice, me]);
   const alterEgoOk = useMemo(() => buildProfile(myRows, { me, window: "last10" }).ok, [myRows, me]);
   const weekly = useMemo(() => gamesPerWeek((practice || []).filter((r) => r.username === me)), [practice, me]);
@@ -90,6 +90,7 @@ export default function Practice({ practice, me, onStart, back, playerColors, op
           onDelete={onDeletePlan}
           onLaunch={onLaunchPlan}
           liveGame={liveGame}
+          focusPlan={focusPlan}
         />
       )}
 

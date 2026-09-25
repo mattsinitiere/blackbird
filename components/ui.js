@@ -428,7 +428,6 @@ export function MatchupIcon(props) {
   );
 }
 
-/** The Blackbird AI sparkle. */
 /** Magnifier for Home search. */
 export function SearchIcon({ size = 22 }) {
   return (
@@ -439,6 +438,7 @@ export function SearchIcon({ size = 22 }) {
   );
 }
 
+/** The Merlin sparkle (the chat tab). */
 export function SparkleIcon(props) {
   return (
     <NavSvg {...props}>

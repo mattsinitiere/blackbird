@@ -44,9 +44,13 @@ function ProgressBar({ pct, label }) {
   );
 }
 
-export default function TrainingPlans({ state, unlocked = [], alterEgoOk = false, onRefresh, onDelete, onLaunch, liveGame }) {
+export default function TrainingPlans({ state, unlocked = [], alterEgoOk = false, onRefresh, onDelete, onLaunch, liveGame, focusPlan = null }) {
   const [creating, setCreating] = useState(null); // "merlin" | "builder"
   const [openId, setOpenId] = useState(null);
+  // a plan picked in Home search opens straight away
+  useEffect(() => {
+    if (focusPlan?.id) setOpenId(focusPlan.id);
+  }, [focusPlan]);
   const plans = state?.plans;
   const byPlan = useMemo(() => {
     const m = {};

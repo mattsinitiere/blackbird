@@ -312,6 +312,7 @@ export default function Page() {
   const [planState, setPlanState] = useState({ plans: undefined, completions: [], loading: true, error: "" });
   const [aiPlan, setAiPlan] = useState(null); // a plan button pressed in the Merlin chat
   const [searchOpen, setSearchOpen] = useState(false);
+  const [focusPlan, setFocusPlan] = useState(null); // a plan opened from search
   const closeSearch = useCallback(() => setSearchOpen(false), []);
   const [planNotice, setPlanNotice] = useState("");
   const loadPlans = useCallback(async () => {
@@ -493,6 +494,15 @@ export default function Page() {
     [players, playerColors]
   );
   const myName = (session?.user?.user_metadata?.display_name || "").trim();
+  // your badges, for Home search (only worked out while search is open)
+  const myBadges = useMemo(() => {
+    if (!searchOpen || !myName) return [];
+    try {
+      return computeAchievements({ me: myName, results, practice, social });
+    } catch {
+      return [];
+    }
+  }, [searchOpen, myName, results, practice, social]);
   // the profile tab owns my own profile and everything reached from it
   const onMyProfile = !!myName && profileUser === myName;
   const meTabActive = (view === "profile" && onMyProfile) || ["friends", "account", "admin"].includes(view);
@@ -899,6 +909,12 @@ export default function Page() {
             openProfile={openProfile}
             openGame={openGame}
             openSetup={(initial) => openSetup({ ...initial, players: [myName].filter(Boolean) })}
+            achievements={myBadges}
+            plans={planState.plans || []}
+            openPlan={(id) => {
+              setFocusPlan({ id, key: Date.now() });
+              setView("practice");
+            }}
           />
         )}
 
@@ -967,6 +983,7 @@ export default function Page() {
             onLaunchPlan={launchPlanItem}
             onStartGame={startGame}
             liveGame={live}
+            focusPlan={focusPlan}
           />
         )}
         {((ALL_PLAY_VIEWS.includes(view) && live) || view === "summary") && castAvailable() && (
