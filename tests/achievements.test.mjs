@@ -155,3 +155,12 @@ test("new badges: login streaks, profile, fun and game modes", async () => {
   // Elo progress counts from the 1000 start, so it doesn't top "next up"
   assert.equal(b.elo_1200.progress.base, 1000);
 });
+
+test("Addict: 50 games of any kind in one day", () => {
+  const rows = Array.from({ length: 30 }, (_, i) => ({ ...game(3, "x01", "Ann", "Bob", { dartsThrown: 30, pointsScored: 280 }), completedAt: `2026-09-03T${String(10 + Math.floor(i / 6)).padStart(2, "0")}:${String((i % 6) * 5).padStart(2, "0")}:00.000Z` }));
+  const prac = Array.from({ length: 20 }, (_, i) => ({ id: 2000 + i, gameId: `pp${i}`, username: "Ann", gameType: "checkoutDrill", config: {}, winner: "Ann", result: "practice", opponents: [], stats: {}, eloAfter: 1000, completedAt: `2026-09-03T16:${String(i).padStart(2, "0")}:00.000Z` }));
+  const b = computeAchievements({ me: "Ann", results: rows, practice: prac }).find((x) => x.id === "addict");
+  assert.equal(b.unlocked, true);
+  const half = computeAchievements({ me: "Ann", results: rows, practice: [] }).find((x) => x.id === "addict");
+  assert.deepEqual(half.progress, { value: 30, target: 50, kind: "best" });
+});
