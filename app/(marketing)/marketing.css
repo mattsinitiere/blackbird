@@ -41,4 +41,4 @@
 @media(max-width:720px){.mk-profile-page{padding:32px 24px 45px}.mk-profile-page h1{font-size:37px}}
 .mk-badge-strip{display:flex;flex-wrap:wrap;gap:6px;margin-top:14px;padding-top:14px;border-top:1px solid var(--line)}
 .mk-badge{display:inline-flex;align-items:center;gap:5px;padding:4px 8px;border:1px solid var(--line);border-radius:6px;background:var(--surface-2);font-size:12px;font-weight:600;color:var(--ink-soft)}
-.mk-badge span:first-child{font-size:15px}
+.mk-badge .badge-medal{flex:none}

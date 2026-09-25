@@ -10,6 +10,7 @@ import { useMyAchievements } from "@/lib/useMyAchievements";
 import { updatePlayerProfile, setPlayerColor, isHandleAvailable } from "@/lib/db";
 import { normalizeHandle, validateHandle, suggestHandle, validateTag, BIO_MAX, LOCATION_MAX } from "@/lib/profile";
 import TagEditor from "@/components/TagEditor";
+import BadgeMedal from "@/components/BadgeMedal";
 import { PLAYER_COLORS, defaultPlayerColor } from "@/lib/constants";
 import { PlayerBadge, TagPill } from "@/components/ui";
 
@@ -213,7 +214,7 @@ function ProfileForm({ user, player, color, onSaved, session }) {
           <div className="mk-badge-strip" aria-label="Badges earned">
             {unlocked.slice(0, 18).map((b) => (
               <span key={b.id} className="mk-badge" title={`${b.title}: ${b.description}`}>
-                <span aria-hidden="true">{b.icon}</span>
+                <BadgeMedal badge={b} size={22} />
                 <span className="mk-badge-title">{b.title}</span>
               </span>
             ))}

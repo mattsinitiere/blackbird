@@ -1,6 +1,7 @@
 import { useState, useCallback } from "react";
 import { PlayerBadge, UndoIcon } from "./ui";
 import Celebration from "./Celebration";
+import BadgeMedal from "./BadgeMedal";
 
 function EloDelta({ elo, size = 12 }) {
   if (!elo) return null;
@@ -25,7 +26,7 @@ export default function GameSummary({ summary, saveState, saveError, onRetrySave
   // `next` is stable so the overlay's timer never restarts on re-render.
   const [queue, setQueue] = useState(() => [
     { type: "win", label: `${(summary?.rows?.find((r) => r.isWinner) || summary?.rows?.[0])?.name || summary?.winner} wins` },
-    ...newBadges.map((b) => ({ type: "badge", label: `${b.badge.icon} ${b.badge.title} · ${b.username}` })),
+    ...newBadges.map((b) => ({ type: "badge", label: `${b.badge.title} · ${b.username}` })),
   ]);
   const next = useCallback(() => setQueue((q) => q.slice(1)), []);
   if (!summary) return null;
@@ -66,7 +67,7 @@ export default function GameSummary({ summary, saveState, saveError, onRetrySave
           <div className="stack-8">
             {newBadges.map((b) => (
               <div key={`${b.username}-${b.badge.id}`} style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                <span className="badge-icon" aria-hidden="true">{b.badge.icon}</span>
+                <BadgeMedal badge={b.badge} size={44} className="badge-icon" />
                 <div style={{ minWidth: 0 }}>
                   <div style={{ fontWeight: 700 }}>{b.badge.title}</div>
                   <div className="tag" style={{ textTransform: "none", letterSpacing: 0 }}>

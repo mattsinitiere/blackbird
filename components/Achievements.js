@@ -1,4 +1,5 @@
 import { CATEGORIES } from "@/lib/achievements";
+import BadgeMedal from "./BadgeMedal";
 
 function fmtDate(iso) {
   if (!iso) return "";
@@ -36,7 +37,7 @@ export default function AchievementsCard({ badges, isMe, seen }) {
                 return (
                   <div key={b.id} className={`badge-tile${b.unlocked ? "" : " locked"}`} title={b.description}>
                     {isNew && <span className="badge-new">New</span>}
-                    <span className="badge-icon" aria-hidden="true">{b.icon}</span>
+                    <BadgeMedal badge={b} locked={!b.unlocked} size={46} className="badge-icon" />
                     <div className="badge-title">{b.title}</div>
                     {b.unlocked ? (
                       <div className="badge-meta">{fmtDate(b.earnedAt)}</div>

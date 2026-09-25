@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { normalizeHandle, validateHandle, suggestHandle, formatHandle, normalizeTag, validateTag, isTagIcon, tagGlyph, formatTag, TAG_ICONS } from "../lib/profile.js";
+import { normalizeHandle, validateHandle, suggestHandle, formatHandle, normalizeTag, validateTag, isTagIcon, tagLabel, TAG_ICONS } from "../lib/profile.js";
 
 test("normalizeHandle strips @, case and punctuation", () => {
   assert.equal(normalizeHandle("@Matt S."), "matts");
@@ -43,9 +43,8 @@ test("tags: normalise, validate, icons, format", () => {
   assert.equal(validateTag("BB").ok, true);
   assert.equal(isTagIcon("crown"), true);
   assert.equal(isTagIcon("dragon"), false);
-  assert.equal(tagGlyph("crown"), "👑");
-  assert.equal(formatTag({ tag: "BB", tagIcon: "crown" }), "👑 BB");
-  assert.equal(formatTag({ tag: "BB" }), "BB");
-  assert.equal(formatTag({}), "");
+  assert.equal(tagLabel({ tag: "BB", tagIcon: "crown" }), "Crown BB");
+  assert.equal(tagLabel({ tag: "BB" }), "BB");
+  assert.equal(tagLabel({}), "");
   assert.equal(TAG_ICONS.length, 12);
 });

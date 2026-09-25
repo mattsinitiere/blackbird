@@ -1,7 +1,8 @@
 import { createContext, useContext } from "react";
 import { defaultPlayerColor } from "@/lib/constants";
 import { playerLabel } from "@/lib/bots";
-import { tagGlyph } from "@/lib/profile";
+import { isTagIcon, tagLabel } from "@/lib/profile";
+import Icon from "./Icon";
 
 /**
  * How each player looks: { [username]: { color, tag, tagIcon } }. Provided
@@ -12,11 +13,11 @@ export const PlayerLookContext = createContext(null);
 
 /** The name tag pill: icon and/or 2–5 letters. Renders nothing without either. */
 export function TagPill({ tag, tagIcon, className = "" }) {
-  const glyph = tagGlyph(tagIcon);
-  if (!glyph && !tag) return null;
+  const icon = isTagIcon(tagIcon) ? tagIcon : null;
+  if (!icon && !tag) return null;
   return (
-    <span className={`tag-pill ${className}`.trim()} aria-label={`tag ${[glyph, tag].filter(Boolean).join(" ")}`}>
-      {glyph && <span className="tag-pill-icon" aria-hidden="true">{glyph}</span>}
+    <span className={`tag-pill ${className}`.trim()} aria-label={`tag ${tagLabel({ tag, tagIcon: icon })}`}>
+      {icon && <Icon id={icon} size="1.15em" strokeWidth={2.4} className="tag-pill-icon" />}
       {tag && <span>{tag}</span>}
     </span>
   );

@@ -1,4 +1,5 @@
 import { PlayerBadge } from "./ui";
+import Icon from "./Icon";
 import { TAG_ICONS, TAG_MAX, normalizeTag, validateTag } from "@/lib/profile";
 
 /**
@@ -50,7 +51,7 @@ export default function TagEditor({ username, color, tag, tagIcon, onChange, idP
             aria-label={i.label}
             title={i.label}
           >
-            <span aria-hidden="true">{i.glyph}</span>
+            <Icon id={i.id} size="1.1em" />
           </button>
         ))}
       </div>

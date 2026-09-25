@@ -2,6 +2,7 @@ import { useState } from "react";
 import { PlayerBadge } from "../ui";
 import { playerLabel } from "@/lib/bots";
 import { ChevronIcon } from "./icons";
+import BadgeMedal from "../BadgeMedal";
 
 const PAGE = 10;
 
@@ -115,7 +116,7 @@ function AchievementPost({ a, user, playerColors, isNew }) {
         {isNew && <span className="badge-new pf-badge-new">New</span>}
       </header>
       <div className="pf-badge-row">
-        <span className="pf-badge-icon" aria-hidden="true">{b.icon}</span>
+        <BadgeMedal badge={b} size={48} className="pf-badge-icon" />
         <div style={{ minWidth: 0 }}>
           <div className="pf-post-title" style={{ margin: 0 }}>{b.title}</div>
           <div className="pf-post-note" style={{ margin: 0 }}>{b.description}</div>

@@ -1,6 +1,7 @@
 import { PlayerBadge, pressProps } from "../ui";
 import { LineChart } from "../Charts";
 import { ChevronIcon } from "./icons";
+import BadgeMedal from "../BadgeMedal";
 
 function SideCard({ title, meta, children, action }) {
   const id = `pf-side-${title.replace(/\W+/g, "-").toLowerCase()}`;
@@ -74,7 +75,7 @@ export default function ProfileSidebar({ user, isMe, stats, elo, timeline, badge
           <ul className="pf-trophies">
             {unlocked.slice(0, 6).map((b) => (
               <li key={b.id} title={b.description}>
-                <span className="pf-trophy-icon" aria-hidden="true">{b.icon}</span>
+                <BadgeMedal badge={b} size={40} className="pf-trophy-icon" />
                 <span className="pf-trophy-name">{b.title}</span>
               </li>
             ))}

@@ -1,7 +1,8 @@
 import { useState, useContext } from "react";
 import { PlayerBadge, PlayerLookContext } from "./ui";
 import { defaultPlayerColor } from "@/lib/constants";
-import { formatTag } from "@/lib/profile";
+import { isTagIcon } from "@/lib/profile";
+import { iconParts } from "@/lib/icons";
 
 const FONT = '"Figtree", Arial, sans-serif';
 
@@ -88,7 +89,25 @@ function paintBackground(ctx, W, H, pal) {
   ctx.globalAlpha = 1;
 }
 
-function drawCard(user, stats, elo, playerColor, handle, tagText) {
+/** Draw one lib/icons.js icon on the canvas, `size` px square at (x, y). */
+function drawIcon(ctx, id, x, y, size, color) {
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.scale(size / 24, size / 24);
+  ctx.strokeStyle = color;
+  ctx.fillStyle = color;
+  ctx.lineWidth = 2.2;
+  ctx.lineCap = "round";
+  ctx.lineJoin = "round";
+  for (const p of iconParts(id)) {
+    const path = new Path2D(p.d);
+    if (p.fill) ctx.fill(path);
+    else ctx.stroke(path);
+  }
+  ctx.restore();
+}
+
+function drawCard(user, stats, elo, playerColor, handle, look = {}) {
   const W = 1080;
   const H = 1350;
   const pal = themePalette();
@@ -133,10 +152,22 @@ function drawCard(user, stats, elo, playerColor, handle, tagText) {
   const nameSize = fitFont(ctx, user, W - 220, 90, "800");
   ctx.font = `800 ${nameSize}px ${FONT}`;
   ctx.fillText(user, cx, 370);
-  if (handle || tagText) {
+  // @handle · tag letters, then the tag icon (vector, not text)
+  const tagLetters = look.tag || "";
+  const tagIcon = isTagIcon(look.tagIcon) ? look.tagIcon : null;
+  if (handle || tagLetters || tagIcon) {
     ctx.fillStyle = pal.accent;
     ctx.font = `700 30px ${FONT}`;
-    ctx.fillText([handle ? `@${handle}` : "", tagText || ""].filter(Boolean).join("  ·  "), cx, 410);
+    const hasTag = tagLetters || tagIcon;
+    const text = handle ? `@${handle}${hasTag ? `  ·  ${tagLetters}` : ""}` : tagLetters;
+    const iconSize = 32;
+    const gap = tagIcon && tagLetters ? 10 : 0;
+    const textW = ctx.measureText(text).width;
+    const x0 = cx - (textW + (tagIcon ? gap + iconSize : 0)) / 2;
+    ctx.textAlign = "left";
+    ctx.fillText(text, x0, 410);
+    ctx.textAlign = "center";
+    if (tagIcon) drawIcon(ctx, tagIcon, x0 + textW + gap, 410 - iconSize + 5, iconSize, pal.accent);
   }
 
   // ELO
@@ -212,7 +243,7 @@ export default function PlayerCard({ user, handle, stats, elo, onOpenAccount, pl
     try {
       await ensureFont();
       const color = playerColors?.[user] || defaultPlayerColor(user);
-      const canvas = drawCard(user, stats, elo, color, handle, formatTag(look || {}));
+      const canvas = drawCard(user, stats, elo, color, handle, look || {});
       const blob = await new Promise((res) => canvas.toBlob(res, "image/png"));
       if (!blob) throw new Error("Could not create image.");
       const file = new File([blob], `${user}-blackbird.png`, { type: "image/png" });
