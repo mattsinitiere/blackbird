@@ -1,4 +1,6 @@
 import { useMemo } from "react";
+import TrainingPlans from "./TrainingPlans";
+import { buildProfile } from "@/lib/alterEgo";
 import { BackBar, Mini, Stat, PlayerBadge, pressProps } from "./ui";
 import { BarChart, LineChart } from "./Charts";
 import { computePractice } from "@/lib/practice";
@@ -51,8 +53,9 @@ export function practiceLabel(r) {
  * dashboard (weekly sessions, personal bests, trends, recent sessions).
  * Everything here comes from practice rows; nothing counts toward stats.
  */
-export default function Practice({ practice, me, onStart, back, playerColors, openGame, onAskAI = null }) {
+export default function Practice({ practice, me, onStart, back, playerColors, openGame, onAskAI = null, myRows = [], plans = null, onRefreshPlans, onDeletePlan, onLaunchPlan, onStartGame, liveGame = null }) {
   const p = useMemo(() => computePractice(practice, me), [practice, me]);
+  const alterEgoOk = useMemo(() => buildProfile(myRows, { me, window: "last10" }).ok, [myRows, me]);
   const weekly = useMemo(() => gamesPerWeek((practice || []).filter((r) => r.username === me)), [practice, me]);
   const pbTiles = [];
   for (const d of DRILLS) {
@@ -76,6 +79,18 @@ export default function Practice({ practice, me, onStart, back, playerColors, op
         <Stat label="This week" value={p.thisWeek} />
         <Stat label="Bot level" value={p.bots.level} />
       </div>
+
+      {plans && (
+        <TrainingPlans
+          state={plans}
+          unlocked={p.bots.ladder.filter((l) => l.unlocked).map((l) => l.bot.id)}
+          alterEgoOk={alterEgoOk}
+          onRefresh={onRefreshPlans}
+          onDelete={onDeletePlan}
+          onLaunch={onLaunchPlan}
+          liveGame={liveGame}
+        />
+      )}
 
       <div className="card mb-12">
         <h3 className="section-title">Bot Ladder</h3>
@@ -113,11 +128,6 @@ export default function Practice({ practice, me, onStart, back, playerColors, op
         </div>
       </div>
 
-      {onAskAI && (
-        <button type="button" className="btn btn-primary mb-12" style={{ width: "100%" }} onClick={() => onAskAI("Build me a practice plan for this week from my recent games, with drills I can start.")}>
-          Build Me a Practice Plan
-        </button>
-      )}
       <div className="card mb-12">
         <h3 className="section-title">Drills</h3>
         <div className="stack-8">
