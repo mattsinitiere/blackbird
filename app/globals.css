@@ -1046,34 +1046,81 @@ label.check input {
 }
 .load-mark {
   position: relative;
-  width: 132px;
-  height: 132px;
+  width: 176px;
+  height: 176px;
   display: flex;
   align-items: center;
   justify-content: center;
   animation: load-fade 0.5s ease both;
 }
+.load-glow {
+  position: absolute;
+  inset: 22px;
+  border-radius: 50%;
+  background: radial-gradient(circle, var(--accent-glow) 0%, transparent 68%);
+  opacity: 0.22;
+  animation: load-glow 2.6s ease-in-out infinite;
+}
+@keyframes load-glow {
+  0%,
+  100% {
+    transform: scale(0.92);
+    opacity: 0.16;
+  }
+  50% {
+    transform: scale(1.06);
+    opacity: 0.3;
+  }
+}
+.load-board,
 .load-orbit {
   position: absolute;
   inset: 0;
   width: 100%;
   height: 100%;
   overflow: visible;
-  animation: load-spin 1.3s cubic-bezier(0.55, 0.15, 0.45, 0.85) infinite;
 }
-.load-track {
+.load-ring {
   fill: none;
+  stroke: var(--accent-line);
+  stroke-width: 1.5;
+  stroke-dasharray: var(--c);
+  stroke-dashoffset: var(--c);
+  transform: rotate(-90deg);
+  transform-origin: 90px 90px;
+  animation: load-draw 0.9s cubic-bezier(0.65, 0, 0.35, 1) forwards;
+}
+.load-ring:first-child {
   stroke: var(--line);
   stroke-width: 3;
+}
+@keyframes load-draw {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+.load-wires line {
+  stroke: var(--accent-line);
+  stroke-width: 1;
+  opacity: 0;
+  animation: load-wires 0.6s 0.6s ease forwards;
+}
+@keyframes load-wires {
+  to {
+    opacity: 0.45;
+  }
+}
+.load-orbit {
+  animation: load-spin 1.3s cubic-bezier(0.55, 0.15, 0.45, 0.85) infinite;
 }
 /* a quarter-circle arc that fades in along its length toward the tip */
 .load-arc {
   fill: none;
   stroke-width: 4;
   stroke-linecap: round;
-  stroke-dasharray: 88 264;
+  stroke-dasharray: 132 396;
   transform: rotate(-90deg);
-  transform-origin: 60px 60px;
+  transform-origin: 90px 90px;
 }
 .load-tip {
   fill: var(--accent);
@@ -1081,7 +1128,48 @@ label.check input {
 .load-icon {
   position: relative;
   display: flex;
-  animation: load-breathe 2.6s ease-in-out infinite;
+  animation: load-pop 0.55s 0.15s cubic-bezier(0.34, 1.56, 0.64, 1) both, load-breathe 2.6s 0.7s ease-in-out infinite;
+}
+@keyframes load-pop {
+  from {
+    opacity: 0;
+    transform: scale(0.55);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+.load-bar {
+  position: relative;
+  width: 132px;
+  height: 3px;
+  margin-top: 18px;
+  border-radius: 99px;
+  overflow: hidden;
+  background: var(--line);
+  animation: load-up 0.5s 0.2s ease both;
+}
+.load-bar span {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 40%;
+  border-radius: 99px;
+  background: var(--accent);
+  animation: load-slide 1.2s cubic-bezier(0.45, 0, 0.55, 1) infinite;
+}
+@keyframes load-slide {
+  from {
+    left: -40%;
+  }
+  to {
+    left: 100%;
+  }
+}
+.load-phrase {
+  display: inline-block;
+  animation: load-up 0.35s ease both;
 }
 @keyframes load-breathe {
   0%,
@@ -1104,7 +1192,8 @@ label.check input {
   }
 }
 .load-status {
-  margin-top: 16px;
+  min-height: 1.4em;
+  margin-top: 12px;
   color: var(--muted);
   font-size: calc(13px * var(--fs-chrome));
   animation: load-up 0.5s 0.3s ease both;
@@ -1130,9 +1219,23 @@ label.check input {
   .load-mark,
   .load-orbit,
   .load-icon,
-  .load-status {
+  .load-status,
+  .load-phrase,
+  .load-glow,
+  .load-bar,
+  .load-wires line {
     animation: none;
     opacity: 1;
+  }
+  .load-ring {
+    animation: none;
+    stroke-dashoffset: 0;
+  }
+  .load-wires line {
+    opacity: 0.45;
+  }
+  .load-bar span {
+    animation-duration: 3s;
   }
 }
 
@@ -1722,6 +1825,7 @@ label.check input {
   /* fill what is left under the header and above the nav */
   height: calc(100svh - 205px - env(safe-area-inset-bottom, 0px));
   min-height: 420px;
+  /* inside .container-fill the flex layout sizes it instead */
   background: var(--surface);
   border: 1px solid var(--line);
   border-radius: var(--radius);
@@ -3122,10 +3226,12 @@ html:not([data-theme="dark"]) .app.is-profile {
   padding: 18px 18px 16px;
   border-radius: var(--radius);
   color: #fff;
-  background:
-    radial-gradient(120% 90% at 100% 0%, rgba(124, 108, 255, 0.45), transparent 60%),
-    linear-gradient(150deg, #2d2766 0%, #1d1a47 100%);
-  box-shadow: 0 10px 28px -16px rgba(29, 26, 71, 0.7);
+  /* the Blackbird navy (the light theme's --accent), in both themes */
+  background: linear-gradient(160deg, #26235c 0%, #1b1942 55%, #141233 100%);
+  box-shadow: 0 10px 28px -16px rgba(27, 25, 66, 0.7);
+}
+[data-theme="dark"] .welcome {
+  border: 1px solid rgba(255, 255, 255, 0.08);
 }
 .welcome::after {
   /* faint dartboard rings */
@@ -3150,11 +3256,9 @@ html:not([data-theme="dark"]) .app.is-profile {
 }
 .welcome-date {
   font-size: calc(12px * var(--fs));
-  font-weight: 600;
-  font-variant: small-caps;
-  text-transform: lowercase;
-  letter-spacing: 0.06em;
-  color: rgba(255, 255, 255, 0.72);
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  color: rgba(255, 255, 255, 0.7);
 }
 .welcome-hello {
   margin: 2px 0 0;
@@ -3246,7 +3350,7 @@ html:not([data-theme="dark"]) .app.is-profile {
   flex: none;
   background: #fff;
   border-color: #fff;
-  color: #1d1a47;
+  color: #1b1942;
   font-weight: 700;
 }
 .btn.play-again {
@@ -3672,4 +3776,42 @@ html:not([data-theme="dark"]) .app.is-profile {
 .chart-readout span {
   font-size: calc(12px * var(--fs));
   opacity: 0.8;
+}
+
+/* Matchup and Blackbird AI fill the screen down to the nav bar
+   (app/app/page.js FILL_VIEWS) */
+.scroll.scroll-fill {
+  display: flex;
+  flex-direction: column;
+}
+.container.container-fill {
+  width: 100%;
+  flex: 1 0 auto;
+  display: flex;
+  flex-direction: column;
+  padding-bottom: 12px;
+}
+.container-fill > .ai-chat {
+  height: auto;
+  flex: 1 1 0;
+  min-height: 360px;
+}
+.container-fill > .mu {
+  flex: 1 0 auto;
+  display: flex;
+  flex-direction: column;
+}
+/* tape rows take the spare height, up to a comfortable 56px each; the
+   Play button then sits on the bottom edge */
+.container-fill .mu-tape {
+  flex: 1 0 auto;
+  display: flex;
+  flex-direction: column;
+  max-height: calc(var(--rows, 7) * 56px * var(--fs-chrome) + 14px);
+}
+.container-fill .mu-tape .mu-row {
+  flex: 1 0 auto;
+}
+.container-fill .mu-play {
+  margin-top: auto;
 }

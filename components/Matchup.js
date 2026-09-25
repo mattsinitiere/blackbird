@@ -88,7 +88,7 @@ export default function Matchup({ usernames, me, elo, results, stats, playerColo
       </div>
 
       {tab === "tape" ? (
-        <section className="card mu-card" aria-label="Tale of the tape">
+        <section className="card mu-card mu-tape" aria-label="Tale of the tape" style={{ "--rows": tape.length + ((stats?.[a]?.lastFive?.length > 0 || stats?.[b]?.lastFive?.length > 0) ? 1 : 0) }}>
           {tape.map((r) => (
             <TapeRow key={r.key} row={r} colA={colorOf(a)} colB={colorOf(b)} />
           ))}

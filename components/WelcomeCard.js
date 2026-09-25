@@ -66,7 +66,8 @@ export default function WelcomeCard({ me, userId, elo, stats, results, practice,
   const mine = stats?.[me];
   const myElo = Math.round(elo?.[me] || BASE_ELO);
   const streak = currentStreak(mine?.lastFive);
-  const today = new Date().toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric" });
+  const now = new Date();
+  const today = `${now.getDate()} ${now.toLocaleDateString("en-US", { month: "short" }).toUpperCase()} ${now.getFullYear()}`;
   return (
     <section className="mb-12 welcome" aria-label="Welcome">
       <div className="welcome-top">

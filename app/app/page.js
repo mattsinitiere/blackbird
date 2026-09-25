@@ -51,6 +51,9 @@ import { rowsFromMatch } from "@/lib/gamestats";
 
 const PLAY_VIEWS = { x01: "playX01", cricket: "playCricket", baseball: "playBaseball", aroundTheClock: "playAroundTheClock", killer: "playKiller", shanghai: "playShanghai", halveit: "playHalveIt", gotcha: "playGotcha", tictactoe: "playTicTacToe", bobs27: "playBobs27", checkoutDrill: "playCheckoutDrill", scoringDrill: "playScoringDrill" };
 
+// views laid out to fill the screen down to the nav (content pinned to the bottom)
+const FILL_VIEWS = ["matchup", "ai"];
+
 export default function Page() {
   const [authReady, setAuthReady] = useState(false);
   const [session, setSession] = useState(null);
@@ -699,8 +702,8 @@ export default function Page() {
   return (
     <PlayerLookContext.Provider value={playerMeta}>
     <main className={`app shell${view === "profile" ? " is-profile" : ""}`}>
-      <div className="scroll">
-        <div className={`container${view === "profile" ? " container-profile" : ""}`}>
+      <div className={`scroll${FILL_VIEWS.includes(view) ? " scroll-fill" : ""}`}>
+        <div className={`container${view === "profile" ? " container-profile" : ""}${FILL_VIEWS.includes(view) ? " container-fill" : ""}`}>
         <header className="header">
           <button type="button" className="brand-home" aria-label="Blackbird home" onClick={() => setView("home")}>
             <Logo variant="lockup" height={40} />
