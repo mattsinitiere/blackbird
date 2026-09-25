@@ -50,6 +50,7 @@ export default function Profile({
   openGame = null,
   openProfile = null,
   onOpenFriends = null,
+  onAskAI = null,
 }) {
   const [tab, setTab] = useState("activity");
   const follow = { isFollowing, onFollow, onUnfollow };
@@ -195,6 +196,7 @@ export default function Profile({
             )}
             {tab === "stats" && (
               <ProfileStats
+                onAskAI={isMe ? onAskAI : null}
                 user={user}
                 player={player}
                 stats={pStats}

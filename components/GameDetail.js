@@ -114,7 +114,7 @@ function outcomeText(gameType, v) {
  * each, and the visit-by-visit timeline with each dart. Works for saved
  * games (rows from the database) and for the game just finished.
  */
-export default function GameDetail({ rows, playerColors, back, me = null }) {
+export default function GameDetail({ rows, playerColors, back, me = null, onAskAI = null }) {
   const match = useMemo(() => analyzeMatch(rows), [rows]);
   if (!match) return null;
   const { gameType, config, winner, players } = match;
@@ -149,6 +149,16 @@ export default function GameDetail({ rows, playerColors, back, me = null }) {
       </div>
 
       {me && match.gameId && names.includes(me) && <AIReport gameId={match.gameId} me={me} />}
+      {onAskAI && me && match.gameId && names.includes(me) && (
+        <button
+          type="button"
+          className="btn mb-12"
+          style={{ width: "100%" }}
+          onClick={() => onAskAI(`Talk me through my ${gameTitle(gameType, config)} game on ${fmtDate(match.completedAt)} (game id ${match.gameId}): what decided it, and what should I practise?`)}
+        >
+          Ask AI About This Game
+        </button>
+      )}
 
       <div className="report-grid mb-12">
         {names.map((u) => {

@@ -1,8 +1,11 @@
 import { useEffect, useState, useCallback, useRef } from "react";
-import { BackBar, PlayerBadge } from "./ui";
+import { BackBar, PlayerBadge, Modal } from "./ui";
+import TagEditor from "./TagEditor";
+import { PICKER_COLORS } from "@/lib/constants";
 import { supabase } from "@/lib/supabase";
 import { defaultPlayerColor } from "@/lib/constants";
-import { normalizeHandle, validateHandle } from "@/lib/profile";
+import { normalizeHandle, validateHandle, suggestHandle } from "@/lib/profile";
+import { validateNewAccount } from "@/lib/adminAccount";
 
 function DotsIcon() {
   return (
@@ -80,7 +83,8 @@ export default function Admin({ stats, addPlayer, back, refreshData, playerColor
   const [err, setErr] = useState("");
   const [ok, setOk] = useState("");
   const [busy, setBusy] = useState("");
-  const [newName, setNewName] = useState("");
+  const [adding, setAdding] = useState(false); // the Add New Player form
+  const [tagging, setTagging] = useState(null); // { username, tag, tagIcon }
   const [openMenu, setOpenMenu] = useState(null);
   const [editing, setEditing] = useState(null);
   const [renaming, setRenaming] = useState(null);
@@ -184,23 +188,36 @@ export default function Admin({ stats, addPlayer, back, refreshData, playerColor
     }
   };
 
-  const addNewPlayer = async () => {
-    const u = newName.trim();
-    if (!u) return;
+  const createAccount = async (form) => {
     setBusy("add");
     setErr("");
     try {
-      const okAdd = await addPlayer(u);
-      if (okAdd) {
-        flash(`Added ${u}.`);
-        setNewName("");
-        await load();
-        refreshData && refreshData();
-      } else {
-        setErr("That name is already a player.");
-      }
+      const r = await callAdmin({ action: "createAccount", ...form });
+      flash(`Created ${r.username}. They can sign in now.`);
+      setAdding(false);
+      await load();
+      refreshData && refreshData();
+      return null;
+    } catch (e) {
+      return e.message;
+    } finally {
+      setBusy("");
+    }
+  };
+
+  const saveTag = async () => {
+    if (!tagging) return;
+    setBusy("tag");
+    setErr("");
+    try {
+      await callAdmin({ action: "setTag", username: tagging.username, tag: tagging.tag || "", tagIcon: tagging.tagIcon || null });
+      flash(`Updated ${tagging.username}'s tag.`);
+      setTagging(null);
+      await load();
+      refreshData && refreshData();
     } catch (e) {
       setErr(e.message);
+      setTagging(null);
     } finally {
       setBusy("");
     }
@@ -306,7 +323,7 @@ export default function Admin({ stats, addPlayer, back, refreshData, playerColor
 
   return (
     <div className="fade">
-      <BackBar back={back} title="Admin panel" />
+      <BackBar back={back} title="Admin Panel" />
 
       {err && (
         <div className="card mb-12" style={{ borderColor: "var(--red)" }}>
@@ -325,27 +342,9 @@ export default function Admin({ stats, addPlayer, back, refreshData, playerColor
         </div>
       ) : (
         <>
-          <div className="card mb-12">
-            <div className="tag" style={{ marginBottom: 8 }}>Add new player</div>
-            <div className="row">
-              <input
-                className="input"
-                value={newName}
-                onChange={(e) => setNewName(e.target.value)}
-                onKeyDown={(e) => { if (e.key === "Enter") addNewPlayer(); }}
-                placeholder="Player name"
-                style={{ flex: 1 }}
-              />
-              <button
-                className="btn btn-primary"
-                style={{ flex: "none", minWidth: 88 }}
-                disabled={busy === "add" || !newName.trim()}
-                onClick={addNewPlayer}
-              >
-                {busy === "add" ? "Adding…" : "Add"}
-              </button>
-            </div>
-          </div>
+          <button type="button" className="btn btn-primary mb-12" style={{ width: "100%", padding: 14 }} onClick={() => setAdding(true)}>
+            Add New Player
+          </button>
 
           <div className="tag" style={{ marginBottom: 10 }}>
             People ({merged.length})
@@ -375,6 +374,7 @@ export default function Admin({ stats, addPlayer, back, refreshData, playerColor
               if (hasPlayer) {
                 menuItems.push({ label: "Rename", action: () => { setHandling(null); setRenaming(username); setRenameTo(username); } });
                 menuItems.push({ label: p.handle ? "Change handle" : "Set handle", action: () => { setRenaming(null); setHandling(username); setHandleTo(p.handle || ""); } });
+                menuItems.push({ label: "Edit tag", action: () => setTagging({ username, tag: p.tag || "", tagIcon: p.tagIcon || null }) });
                 menuItems.push({ label: p.hidden ? "Show on leaderboard" : "Hide from leaderboard", action: () => togglePlayerHidden(username, p.hidden) });
                 menuItems.push({ label: "Reset score", danger: true, action: () => resetScore(username, s.games) });
                 menuItems.push({ label: "Remove player", danger: true, action: () => removePlayer(username) });
@@ -590,6 +590,99 @@ export default function Admin({ stats, addPlayer, back, refreshData, playerColor
           </div>
         </>
       )}
+      {adding && <AddPlayerForm busy={busy === "add"} onCancel={() => setAdding(false)} onCreate={createAccount} />}
+      {tagging && (
+        <Modal>
+          <h2 className="admin-modal-title">Edit {tagging.username}&apos;s Tag</h2>
+          <TagEditor username={tagging.username} color={playerColors?.[tagging.username]} tag={tagging.tag} tagIcon={tagging.tagIcon} onChange={({ tag, tagIcon }) => setTagging((t) => ({ ...t, tag, tagIcon }))} idPrefix="admin-tag" />
+          <div className="row" style={{ marginTop: 16 }}>
+            <button type="button" className="btn" style={{ flex: 1 }} onClick={() => setTagging(null)}>
+              Cancel
+            </button>
+            <button type="button" className="btn btn-primary" style={{ flex: 1 }} onClick={saveTag} disabled={busy === "tag"}>
+              {busy === "tag" ? "Saving…" : "Save Tag"}
+            </button>
+          </div>
+        </Modal>
+      )}
     </div>
+  );
+}
+
+/**
+ * Add New Player: a full account (email + password sign-in, confirmed) and
+ * its player row, created together by /api/admin createAccount.
+ */
+function AddPlayerForm({ busy, onCancel, onCreate }) {
+  const [f, setF] = useState({ displayName: "", email: "", handle: "", password: "", color: "", tag: "", tagIcon: null });
+  const [handleEdited, setHandleEdited] = useState(false);
+  const [show, setShow] = useState(false);
+  const [error, setError] = useState("");
+  const set = (patch) => setF((x) => ({ ...x, ...patch }));
+  const submit = async (e) => {
+    e.preventDefault();
+    const v = validateNewAccount(f);
+    if (!v.ok) {
+      setError(v.error);
+      return;
+    }
+    setError("");
+    const problem = await onCreate(v.value);
+    if (problem) setError(problem);
+  };
+  return (
+    <Modal>
+      <form onSubmit={submit} className="admin-form">
+        <h2 className="admin-modal-title">Add New Player</h2>
+        <label>
+          <span>Display name</span>
+          <input className="input" value={f.displayName} autoComplete="off" onChange={(e) => set({ displayName: e.target.value, ...(handleEdited ? {} : { handle: e.target.value.trim() ? suggestHandle(e.target.value) : "" }) })} />
+        </label>
+        <label>
+          <span>Email</span>
+          <input className="input" type="email" inputMode="email" autoComplete="off" value={f.email} onChange={(e) => set({ email: e.target.value })} />
+        </label>
+        <label>
+          <span>@handle</span>
+          <input
+            className="input"
+            value={f.handle}
+            autoCapitalize="none"
+            autoCorrect="off"
+            onChange={(e) => {
+              setHandleEdited(true);
+              set({ handle: normalizeHandle(e.target.value) });
+            }}
+          />
+        </label>
+        <label>
+          <span>Password</span>
+          <div className="row">
+            <input className="input" type={show ? "text" : "password"} autoComplete="new-password" value={f.password} onChange={(e) => set({ password: e.target.value })} style={{ flex: 1 }} />
+            <button type="button" className="btn" style={{ flex: "none" }} onClick={() => setShow((s) => !s)}>
+              {show ? "Hide" : "Show"}
+            </button>
+          </div>
+        </label>
+        <div>
+          <span className="admin-form-label">Colour (optional)</span>
+          <div className="admin-swatches">
+            {PICKER_COLORS.map((c) => (
+              <button key={c} type="button" className={`admin-swatch${f.color === c ? " is-on" : ""}`} style={{ background: c }} aria-label={`Colour ${c}`} aria-pressed={f.color === c} onClick={() => set({ color: f.color === c ? "" : c })} />
+            ))}
+          </div>
+        </div>
+        <TagEditor username={f.displayName.trim() || "New player"} color={f.color || undefined} tag={f.tag} tagIcon={f.tagIcon} onChange={({ tag, tagIcon }) => set({ tag, tagIcon })} idPrefix="new-tag" />
+        {error && <p className="admin-form-error" role="alert">{error}</p>}
+        <div className="row" style={{ marginTop: 6 }}>
+          <button type="button" className="btn" style={{ flex: 1 }} onClick={onCancel}>
+            Cancel
+          </button>
+          <button type="submit" className="btn btn-primary" style={{ flex: 1 }} disabled={busy}>
+            {busy ? "Creating…" : "Create Account"}
+          </button>
+        </div>
+      </form>
+    </Modal>
   );
 }

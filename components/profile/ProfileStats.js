@@ -83,7 +83,7 @@ export function PracticeCard({ rows, me, onOpen, openGame, playerColors }) {
  * redesign, in the same order: player card export, headline tiles, trend
  * charts, career cards per game mode, streaks and form, then practice.
  */
-export default function ProfileStats({ user, player, stats, allStats = stats, elo, timeline, career, practiceRows, period = "all", bounds = {}, custom = {}, onPeriod, onCustom, onOpenPractice, openGame, playerColors, rivalryCard, empty }) {
+export default function ProfileStats({ onAskAI = null, user, player, stats, allStats = stats, elo, timeline, career, practiceRows, period = "all", bounds = {}, custom = {}, onPeriod, onCustom, onOpenPractice, openGame, playerColors, rivalryCard, empty }) {
   const label = periodLabel(period, bounds);
   // with an odd number of charts, Elo spans both desktop columns so the grid has no gap
   const eloWide = !!stats && (2 + (stats.x01?.games > 0 ? 1 : 0) + (stats.cricket?.games > 0 ? 1 : 0)) % 2 === 1;
@@ -104,6 +104,11 @@ export default function ProfileStats({ user, player, stats, allStats = stats, el
       )}
       {stats ? (
         <>
+          {onAskAI && (
+            <button type="button" className="btn mb-12" style={{ width: "100%" }} onClick={() => onAskAI(`Look at my stats for ${label.toLowerCase()}: what's going well, what's slipping, and what should I work on?`)}>
+              Ask AI About My Stats
+            </button>
+          )}
           <div className="between pf-stats-note">
             <span className="tag">{label} · ranked games only</span>
             <span className="tag">

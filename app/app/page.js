@@ -198,6 +198,18 @@ export default function Page() {
   // Play a Bot: its own screen; Back returns to wherever it was opened from
   const [botInitial, setBotInitial] = useState(null);
   const [botFrom, setBotFrom] = useState("setup");
+  // Blackbird AI opened from another screen with a question to ask
+  const [aiAsk, setAiAsk] = useState(null);
+  const askAI = (question) => {
+    setAiAsk({ id: Date.now(), question });
+    setView("ai");
+  };
+  // a practice plan the AI suggested: open New Game / Play a Bot filled in
+  const onAIAction = (a) => {
+    if (!a) return;
+    if (a.type === "bot") openBots({ bot: a.bot, gameType: a.gameType }, "ai");
+    else openSetup({ gameType: a.gameType, players: [myName].filter(Boolean), config: a.config || {} });
+  };
   const openBots = (initial = null, from = null) => {
     setBotInitial({ ...(initial || {}), key: Date.now() });
     setBotFrom(from || view);
@@ -799,7 +811,7 @@ export default function Page() {
           <BotSetup key={botInitial?.key || "bots"} me={myName} ladder={ladder} initial={botInitial} onStart={startGame} back={() => setView(botFrom)} />
         )}
         {view === "practice" && (
-          <Practice practice={practice} me={myName} onStart={(initial) => (initial?.bot ? openBots(initial, "practice") : openSetup(initial))} openGame={openGame} back={() => setView("home")} playerColors={playerColors} />
+          <Practice practice={practice} me={myName} onStart={(initial) => (initial?.bot ? openBots(initial, "practice") : openSetup(initial))} openGame={openGame} back={() => setView("home")} playerColors={playerColors} onAskAI={askAI} />
         )}
         {((ALL_PLAY_VIEWS.includes(view) && live) || view === "summary") && castAvailable() && (
           <div className="card pad-sm mb-12" style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
@@ -891,6 +903,7 @@ export default function Page() {
             }}
             playerColors={playerColors}
             isMe={profileUser === myName}
+            onAskAI={askAI}
             social={social}
             socialAvailable={follows !== null}
             followsYou={followers.has(profileUser)}
@@ -909,13 +922,13 @@ export default function Page() {
           <Records usernames={visibleUsernames} stats={stats} results={results} practice={practice} openGame={openGame} back={() => setView("leaderboard")} playerColors={playerColors} />
         )}
         {view === "game" && gameRows && (
-          <GameDetail rows={gameRows} playerColors={playerColors} back={() => setView(gameFrom)} me={myName} />
+          <GameDetail rows={gameRows} playerColors={playerColors} back={() => setView(gameFrom)} me={myName} onAskAI={askAI} />
         )}
         {view === "matchup" && (
-          <Matchup usernames={visibleUsernames} me={myName} elo={elo} results={results} stats={stats} playerColors={playerColors} openGame={openGame} openSetup={openSetup} />
+          <Matchup usernames={visibleUsernames} me={myName} elo={elo} results={results} stats={stats} playerColors={playerColors} openGame={openGame} openSetup={openSetup} onAskAI={askAI} />
         )}
         {view === "ai" && (
-          <BlackbirdAI me={myName} userId={session.user?.id} stats={stats} elo={elo} results={results} practice={practice} players={circlePlayers} social={social} playerColors={playerColors} />
+          <BlackbirdAI me={myName} userId={session.user?.id} stats={stats} elo={elo} results={results} practice={practice} players={circlePlayers} social={social} playerColors={playerColors} autoAsk={aiAsk} onAction={onAIAction} />
         )}
         {view === "friends" && (
           <Friends

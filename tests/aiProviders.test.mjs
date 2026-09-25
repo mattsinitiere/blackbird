@@ -47,3 +47,22 @@ test("an unsupported parameter is dropped and the call retried once", async () =
     globalThis.fetch = realFetch;
   }
 });
+
+test("streamed chunks become text deltas and whole tool calls", async () => {
+  const { openaiStreamCollector, readSSE } = await import("../lib/aiProviders.js");
+  const deltas = [];
+  const col = openaiStreamCollector((d) => deltas.push(d));
+  const chunks = [
+    { choices: [{ delta: { content: "You " } }] },
+    { choices: [{ delta: { content: "lead." } }] },
+    { choices: [{ delta: { tool_calls: [{ index: 0, id: "c1", function: { name: "get_", arguments: "{\"opp" } }] } }] },
+    { choices: [{ delta: { tool_calls: [{ index: 0, function: { name: "stats", arguments: "onent\":\"Chuck\"}" } }] } }] },
+  ];
+  const sse = chunks.map((c) => `data: ${JSON.stringify(c)}\n\n`).join("") + "data: [DONE]\n\n";
+  const body = new Response(sse).body;
+  await readSSE(body, (c) => col.push(c));
+  const r = col.result();
+  assert.deepEqual(deltas, ["You ", "lead."]);
+  assert.equal(r.text, "You lead.");
+  assert.deepEqual(r.toolCalls, [{ id: "c1", name: "get_stats", args: { opponent: "Chuck" } }]);
+});

@@ -1,6 +1,7 @@
 import { createClient } from "@supabase/supabase-js";
 import { extractCharts, resolveCharts } from "@/lib/aiChart";
-import { TOOL_DEFS, createToolRunner, describeMatch, weeklyData } from "@/lib/aiTools";
+import { TOOL_DEFS, createToolRunner, describeMatch, weeklyData, toolStatus } from "@/lib/aiTools";
+import { extractBlocks } from "@/lib/aiBlocks";
 import { runAgent } from "@/lib/aiAgent";
 import { providerConfig, makeStep } from "@/lib/aiProviders";
 import { resultFromRow } from "@/lib/practice";
@@ -32,6 +33,14 @@ const CHART_RULES =
   "Ids are the summary's series keys or ids returned by tools (s1, s2, h1). Add \"last\": N to keep the most recent N points. " +
   "For a small comparison you computed yourself, use \"points\" with numbers taken straight from the data. " +
   "Never put a chart block mid-sentence, never chart data that isn't there, and never say you can't draw: the app renders the charts.\n\n";
+
+const FOLLOWUP_RULES =
+  "FOLLOW-UPS: end every answer with a block of 2 or 3 short follow-up questions the player might tap next, written as they would ask them (under 60 characters, specific to what you just said):\n" +
+  "```followups\n[\"Compare that with last month\", \"How do I do against Chuck?\"]\n```\n\n" +
+  "PRACTICE: when you recommend practice, add up to 3 things they can start, as a block (only these kinds):\n" +
+  "```actions\n[{\"type\": \"drill\", \"gameType\": \"checkoutDrill\", \"config\": {\"count\": 20}, \"label\": \"Checkout Drill · 20 finishes\"}]\n```\n" +
+  "Kinds: checkoutDrill {count: 5|10|20}; scoringDrill {target: 20|19|18|25 (bull), turns: 5|10|20}; bobs27 {}; x01 solo {startScore: 301|501|701, doubleOut}; " +
+  "or a bot: {\"type\": \"bot\", \"bot\": \"Raven\", \"gameType\": \"x01\"|\"cricket\"} using a bot the player has unlocked (practice.bots.ladder). Keep labels under 40 characters.\n\n";
 
 const STYLE_RULES =
   "STYLE: be specific and cite the real numbers with sample sizes. Be encouraging but honest: say what is going well " +
@@ -78,6 +87,7 @@ function buildPersonalPrompt(summary, question, history, { tools = false } = {})
     "with fewer than about 10 chances in a period say the sample is small. Null means no data for that period.\n\n" +
     (tools ? TOOL_RULES : "") +
     CHART_RULES +
+    FOLLOWUP_RULES +
     "Summary series keys available: " + (seriesKeys.length ? seriesKeys.join(", ") : "(none)") + ".\n\n" +
     STYLE_RULES;
   const turns = (Array.isArray(history) ? history : [])
@@ -189,7 +199,32 @@ async function loadData(sUrl, sKey, token) {
   return { rows: (rows || []).map((r) => resultFromRow(r, BASE_ELO)), players: players || [] };
 }
 
+const DAILY_LIMIT = 50;
+
+/**
+ * Take one request from the user's daily allowance (ai_take_request in
+ * supabase/migration-ai-usage.sql). Returns the requests left, null when
+ * unlimited, or throws a 429-style error when it's used up.
+ */
+async function takeRequest(sUrl, sKey, token) {
+  const sb = createClient(sUrl, sKey, { global: { headers: { Authorization: `Bearer ${token}` } }, auth: { persistSession: false } });
+  const { data, error } = await sb.rpc("ai_take_request", { p_limit: DAILY_LIMIT });
+  if (error) {
+    const e = new Error("Couldn't check your AI allowance. Try again in a moment.");
+    e.status = 503;
+    throw e;
+  }
+  if (data === -1) {
+    const e = new Error(`You've used today's ${DAILY_LIMIT} AI requests. They reset at midnight (Central).`);
+    e.status = 429;
+    e.limit = true;
+    throw e;
+  }
+  return data; // number left, or null (unlimited)
+}
+
 function friendlyError(e) {
+  if (e?.limit || e?.status === 503) return { status: e.status, error: e.message };
   const msg = e?.message || "AI request failed";
   if (/_API_KEY is not set|Unknown AI_PROVIDER/.test(msg)) return { status: 503, error: "Blackbird AI isn't switched on yet. The site owner needs to add an AI provider key." };
   if (e?.quota) return { status: 429, error: "Blackbird AI has hit its free usage limit for now. Try again in a minute (or tomorrow if it keeps happening)." };
@@ -216,6 +251,17 @@ export async function POST(req) {
   }
   const { kind, summary, question, history, gameId, me: meName } = body || {};
 
+  let left = null;
+  try {
+    if ((kind === "custom" || kind === "me") && !(question || "").toString().trim()) {
+      return jsonRes({ error: "Type a question first." }, 400);
+    }
+    left = await takeRequest(sUrl, sKey, token);
+  } catch (e) {
+    const { status, error } = friendlyError(e);
+    return jsonRes({ error, limit: !!e?.limit }, status);
+  }
+
   try {
     // one game's match report
     if (kind === "game") {
@@ -233,7 +279,7 @@ export async function POST(req) {
         const cs = match.chartableSeries[0];
         resolved = resolveCharts([{ type: "line", title: cs.metric === "visitScores" ? "Score per visit" : cs.metric, series: cs.ids, names: cs.players }], runner.series);
       }
-      return jsonRes({ text: text || raw, charts: resolved, model });
+      return jsonRes({ text: text || raw, charts: resolved, model, left });
     }
 
     // the weekly report card
@@ -245,63 +291,86 @@ export async function POST(req) {
       if (!week) return jsonRes({ empty: true });
       const { text: raw, model } = await callAI(buildWeeklyPrompt(week));
       const { text, charts } = extractCharts(raw);
-      return jsonRes({ text: text || raw, charts: resolveCharts(charts, runner.series, runner.heatmaps), from: week.from, to: week.to, model });
+      return jsonRes({ text: text || raw, charts: resolveCharts(charts, runner.series, runner.heatmaps), from: week.from, to: week.to, model, left });
     }
 
     if (!summary) return jsonRes({ error: "Missing data" }, 400);
-    if ((kind === "custom" || kind === "me") && !(question || "").toString().trim()) {
-      return jsonRes({ error: "Type a question first." }, 400);
-    }
     if (kind !== "me") {
       const { text: raw, model } = await callAI(buildPrompt(kind, summary, question));
       if (!raw.trim()) return jsonRes({ error: "The model returned an empty response." }, 502);
       return jsonRes({ text: raw, model });
     }
 
-    // the personal coach: tools over the user's own visible rows, then up
-    // to three charts resolved against the app's numbers
-    const me = summary?.me?.name;
-    let data = null;
-    try {
-      data = me ? await loadData(sUrl, sKey, token) : null;
-    } catch {
-      data = null; // no tools this time; the summary still answers
-    }
-    let raw = "";
-    let model = "";
-    let store = { ...(summary.series || {}) };
-    let heatmaps = {};
-    if (data) {
-      const runner = createToolRunner({ rows: data.rows, players: data.players, me });
-      const prompt = buildPersonalPrompt(summary, question, history, { tools: true });
-      try {
-        const out = await runAgent({
-          system: prompt.system,
-          messages: [...prompt.turns, { role: "user", content: prompt.user }],
-          tools: TOOL_DEFS,
-          step: makeStep(providerConfig()),
-          runTool: (name, args) => runner.run(name, args),
-        });
-        raw = out.text;
-        model = out.model;
-        store = { ...store, ...runner.series };
-        heatmaps = runner.heatmaps;
-      } catch (e) {
-        if (e?.quota || /_API_KEY is not set|Unknown AI_PROVIDER/.test(e?.message || "")) throw e;
-        raw = ""; // tool calling failed: fall back to the plain summary path
-      }
-    }
-    if (!raw.trim()) {
-      const out = await callAI(buildPersonalPrompt(summary, question, history));
-      raw = out.text;
-      model = out.model;
-    }
-    if (!raw.trim()) return jsonRes({ error: "The model returned an empty response." }, 502);
-    const { text, charts } = extractCharts(raw);
-    const resolved = resolveCharts(charts, store, heatmaps);
-    return jsonRes({ text: text || raw, charts: resolved, chart: resolved[0] || null, model });
+    // the personal coach, streamed as newline-delimited JSON:
+    //   { type: "status", text }  a tool step ("Checking your record vs Chuck…")
+    //   { type: "delta", text }   answer text as it's written
+    //   { type: "reset" }         discard text streamed before a tool step
+    //   { type: "done", text, charts, followups, actions, left }
+    //   { type: "error", error }
+    return streamCoach({ sUrl, sKey, token, summary, question, history, left });
   } catch (e) {
     const { status, error } = friendlyError(e);
     return jsonRes({ error }, status);
   }
+}
+
+function streamCoach({ sUrl, sKey, token, summary, question, history, left }) {
+  const enc = new TextEncoder();
+  const stream = new ReadableStream({
+    async start(controller) {
+      const send = (obj) => controller.enqueue(enc.encode(JSON.stringify(obj) + "\n"));
+      try {
+        const me = summary?.me?.name;
+        let data = null;
+        try {
+          data = me ? await loadData(sUrl, sKey, token) : null;
+        } catch {
+          data = null; // no tools this time; the summary still answers
+        }
+        let raw = "";
+        let store = { ...(summary.series || {}) };
+        let heatmaps = {};
+        const onDelta = (t) => send({ type: "delta", text: t });
+        if (data) {
+          const runner = createToolRunner({ rows: data.rows, players: data.players, me });
+          const prompt = buildPersonalPrompt(summary, question, history, { tools: true });
+          try {
+            const out = await runAgent({
+              system: prompt.system,
+              messages: [...prompt.turns, { role: "user", content: prompt.user }],
+              tools: TOOL_DEFS,
+              step: makeStep(providerConfig()),
+              runTool: (name, args) => runner.run(name, args),
+              toolStatus,
+              onStatus: (t) => send({ type: "status", text: t }),
+              onDelta,
+              onReset: () => send({ type: "reset" }),
+            });
+            raw = out.text;
+            store = { ...store, ...runner.series };
+            heatmaps = runner.heatmaps;
+          } catch (e) {
+            if (e?.quota || /_API_KEY is not set|Unknown AI_PROVIDER/.test(e?.message || "")) throw e;
+            raw = ""; // tool calling failed: fall back to the plain summary path
+            send({ type: "reset" });
+          }
+        }
+        if (!raw.trim()) {
+          const out = await callAI(buildPersonalPrompt(summary, question, history));
+          raw = out.text;
+          if (raw) send({ type: "delta", text: raw });
+        }
+        if (!raw.trim()) {
+          send({ type: "error", error: "The model returned an empty response." });
+        } else {
+          const { text, charts, followups, actions } = extractBlocks(raw);
+          send({ type: "done", text: text || raw, charts: resolveCharts(charts, store, heatmaps), followups, actions, left });
+        }
+      } catch (e) {
+        send({ type: "error", error: friendlyError(e).error });
+      }
+      controller.close();
+    },
+  });
+  return new Response(stream, { headers: { "Content-Type": "application/x-ndjson; charset=utf-8", "Cache-Control": "no-cache, no-transform", "X-Accel-Buffering": "no" } });
 }

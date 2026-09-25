@@ -51,7 +51,7 @@ export function practiceLabel(r) {
  * dashboard (weekly sessions, personal bests, trends, recent sessions).
  * Everything here comes from practice rows; nothing counts toward stats.
  */
-export default function Practice({ practice, me, onStart, back, playerColors , openGame }) {
+export default function Practice({ practice, me, onStart, back, playerColors, openGame, onAskAI = null }) {
   const p = useMemo(() => computePractice(practice, me), [practice, me]);
   const weekly = useMemo(() => gamesPerWeek((practice || []).filter((r) => r.username === me)), [practice, me]);
   const pbTiles = [];
@@ -113,6 +113,11 @@ export default function Practice({ practice, me, onStart, back, playerColors , o
         </div>
       </div>
 
+      {onAskAI && (
+        <button type="button" className="btn btn-primary mb-12" style={{ width: "100%" }} onClick={() => onAskAI("Build me a practice plan for this week from my recent games, with drills I can start.")}>
+          Build Me a Practice Plan
+        </button>
+      )}
       <div className="card mb-12">
         <h3 className="section-title">Drills</h3>
         <div className="stack-8">

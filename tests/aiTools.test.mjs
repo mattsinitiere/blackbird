@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { createToolRunner, weeklyData, seriesFor } from "../lib/aiTools.js";
+import { createToolRunner, weeklyData, seriesFor, toolStatus } from "../lib/aiTools.js";
 import { runAgent, capResult } from "../lib/aiAgent.js";
 import { resolveCharts, extractCharts } from "../lib/aiChart.js";
 import { replayX01Visits } from "../lib/x01log.js";
@@ -145,4 +145,41 @@ test("charts: up to three, new types validate", () => {
   assert.deepEqual(stacked.labels, ["Jan", "Feb", "Mar"]);
   assert.deepEqual(stacked.datasets[1].points.map((p) => p.x), [2, 3]);
   assert.equal(resolveCharts([{ type: "stats", items: [] }], {}).length, 0);
+});
+
+test("blocks: follow-ups and actions are validated and snapped to real options", async () => {
+  const { extractBlocks, validateAction, visibleWhileStreaming } = await import("../lib/aiBlocks.js");
+  const reply = "Work on doubles.\n\n```followups\n[\"Compare with last month\", \"What about cricket?\", \"x\", \"y\"]\n```\n```actions\n[{\"type\":\"drill\",\"gameType\":\"checkoutDrill\",\"config\":{\"count\":17}},{\"type\":\"drill\",\"gameType\":\"fakeGame\"},{\"type\":\"bot\",\"bot\":\"Raven\",\"gameType\":\"cricket\"}]\n```";
+  const b = extractBlocks(reply);
+  assert.equal(b.text, "Work on doubles.");
+  assert.equal(b.followups.length, 3);
+  assert.equal(b.actions.length, 2);
+  assert.deepEqual(b.actions[0].config, { count: 20 });
+  assert.equal(b.actions[1].bot, "bot:raven");
+  assert.deepEqual(validateAction({ gameType: "scoringDrill", config: { target: "bull", turns: 7 } }).config, { target: 25, turns: 5 });
+  assert.equal(validateAction({ gameType: "x01", config: { startScore: 1001 } }).config.startScore, 701);
+  assert.equal(validateAction({ type: "bot", bot: "nobody" }), null);
+  assert.equal(visibleWhileStreaming("Nice work.\n\n```cha"), "Nice work.");
+});
+
+test("runAgent reports tool steps and streams text", async () => {
+  const r = runner();
+  const statuses = [];
+  const deltas = [];
+  let resets = 0;
+  const step = async ({ messages, onDelta }) => {
+    const last = messages[messages.length - 1];
+    if (last.role !== "tool") {
+      onDelta?.("Let me check. ");
+      return { text: "Let me check. ", toolCalls: [{ id: "1", name: "head_to_head", args: { opponent: "Chuck" } }] };
+    }
+    onDelta?.("You lead ");
+    onDelta?.("Chuck 1–1.");
+    return { text: "You lead Chuck 1–1.", toolCalls: [] };
+  };
+  const out = await runAgent({ system: "s", messages: [{ role: "user", content: "q" }], tools: [], step, runTool: (n, a) => r.run(n, a), toolStatus, onStatus: (s) => statuses.push(s), onDelta: (d) => deltas.push(d), onReset: () => resets++ });
+  assert.equal(out.text, "You lead Chuck 1–1.");
+  assert.deepEqual(statuses, ["Checking your record vs Chuck…"]);
+  assert.equal(resets, 1);
+  assert.equal(deltas.slice(-2).join(""), "You lead Chuck 1–1.");
 });

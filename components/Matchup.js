@@ -12,7 +12,7 @@ const shortDate = (d) => new Date(d).toLocaleDateString(undefined, { month: "sho
  * by default), the Elo prediction, then either the tale of the tape or the
  * full head-to-head record. Sized to fit one phone screen per tab.
  */
-export default function Matchup({ usernames, me, elo, results, stats, playerColors, openGame, openSetup }) {
+export default function Matchup({ usernames, me, elo, results, stats, playerColors, openGame, openSetup, onAskAI = null }) {
   const pool = usernames || [];
   const [pickA, setA] = useState(null);
   const [pickB, setB] = useState(null);
@@ -107,10 +107,19 @@ export default function Matchup({ usernames, me, elo, results, stats, playerColo
         <Rivalry rv={rv} a={a} b={b} colorOf={colorOf} openGame={openGame} />
       )}
 
-      {openSetup && (
-        <button type="button" className="btn btn-primary mu-play" onClick={() => openSetup({ players: [a, b] })}>
-          Play This Matchup
-        </button>
+      {(openSetup || onAskAI) && (
+        <div className="mu-play-row">
+          {onAskAI && (
+            <button type="button" className="btn mu-scout" onClick={() => onAskAI(a === me ? `Scout my matchup against ${b}: who's favoured, what decides it, and what should I focus on?` : `Preview ${a} vs ${b}: who's favoured and what decides it?`)}>
+              Scout with AI
+            </button>
+          )}
+          {openSetup && (
+            <button type="button" className="btn btn-primary mu-play" onClick={() => openSetup({ players: [a, b] })}>
+              Play This Matchup
+            </button>
+          )}
+        </div>
       )}
 
       {picking && (

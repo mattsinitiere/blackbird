@@ -1,5 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
 import { normalizeHandle, validateHandle } from "@/lib/profile";
+import { validateNewAccount, createAccount, validateTagEdit } from "@/lib/adminAccount";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -120,6 +121,8 @@ export async function POST(req) {
           createdAt: p.created_at,
           authId: p.auth_id || null,
           handle: p.handle || null,
+          tag: p.tag || null,
+          tagIcon: p.tag_icon || null,
         })),
       });
     }
@@ -245,6 +248,27 @@ export async function POST(req) {
       const { error } = await admin.from("players").update({ handle }).eq("username", username);
       if (error) throw error;
       return json({ ok: true, handle });
+    }
+
+    if (action === "createAccount") {
+      // a full account: sign-in (email + password, already confirmed) and
+      // its player row, created together
+      const v = validateNewAccount(body);
+      if (!v.ok) return json({ error: v.error }, 400);
+      const r = await createAccount(admin, v.value);
+      if (!r.ok) return json({ error: r.error }, 400);
+      return json({ ok: true, username: r.username });
+    }
+
+    if (action === "setTag") {
+      // the database still reserves the developer's gold icons for them
+      const { username } = body;
+      if (!username) return json({ error: "Missing player." }, 400);
+      const v = validateTagEdit(body);
+      if (!v.ok) return json({ error: v.error }, 400);
+      const { error } = await admin.from("players").update(v.value).eq("username", username);
+      if (error) return json({ error: /reserved for the developer/i.test(error.message) ? "Those gold icons are reserved for the developer." : error.message }, 400);
+      return json({ ok: true });
     }
 
     if (action === "linkPlayer") {
