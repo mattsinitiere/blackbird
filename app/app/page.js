@@ -654,7 +654,7 @@ export default function Page() {
             me={session.user?.user_metadata?.display_name || ""}
             ladder={ladder}
             onStart={startGame}
-            back={() => setView(setupInitial ? "practice" : "home")}
+            back={setupInitial ? () => setView("practice") : null}
           />
         )}
         {view === "practice" && (
@@ -713,7 +713,7 @@ export default function Page() {
           />
         )}
         {view === "leaderboard" && (
-          <Leaderboard usernames={visibleUsernames} stats={stats} elo={elo} openProfile={openProfile} openRecords={() => setView("records")} openFriends={openFriends} back={() => setView("home")} playerColors={playerColors} />
+          <Leaderboard usernames={visibleUsernames} stats={stats} elo={elo} openProfile={openProfile} openRecords={() => setView("records")} openFriends={openFriends} back={null} playerColors={playerColors} />
         )}
         {view === "profile" && profileUser && (
           <Profile
@@ -751,7 +751,7 @@ export default function Page() {
             isFollowing={following === null ? null : following.has(profileUser)}
             onFollow={() => follow(profileUser)}
             onUnfollow={() => unfollow(profileUser)}
-            back={() => setView(profileFrom)}
+            back={profileUser === myName ? null : () => setView(profileFrom)}
           />
         )}
         {view === "records" && (
@@ -761,7 +761,7 @@ export default function Page() {
           <GameDetail rows={gameRows} playerColors={playerColors} back={() => setView(gameFrom)} />
         )}
         {view === "matchup" && (
-          <Matchup usernames={visibleUsernames} elo={elo} results={results} stats={stats} back={() => setView("home")} playerColors={playerColors} />
+          <Matchup usernames={visibleUsernames} elo={elo} results={results} stats={stats} back={null} playerColors={playerColors} />
         )}
         {view === "ai" && (
           <BlackbirdAI me={myName} userId={session.user?.id} stats={stats} elo={elo} results={results} practice={practice} players={circlePlayers} social={social} playerColors={playerColors} />

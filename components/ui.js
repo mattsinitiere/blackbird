@@ -219,9 +219,16 @@ export function PlayerBadge({ username, color, size = 24, showName = true, tag, 
   );
 }
 
+/**
+ * Page heading with an optional back button. Screens reached from the
+ * bottom nav pass no `back` and get just the title; drill-in screens keep
+ * the button (in-app views don't move with the browser's back gesture).
+ */
 export function BackBar({ back, title }) {
+  if (!back && !title) return null;
   return (
-    <div className="row" style={{ alignItems: "center", marginBottom: title ? 16 : 8 }}>
+    <div className="row" style={{ alignItems: "center", marginBottom: title ? 16 : 8, minHeight: 40 }}>
+      {back && (
       <button
         className="btn"
         style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: 40, height: 40, padding: 0, flex: "none" }}
@@ -232,6 +239,7 @@ export function BackBar({ back, title }) {
           <path d="M15 18l-6-6 6-6" />
         </svg>
       </button>
+      )}
       {title && (
         <div className="display" style={{ fontSize: "calc(19px * var(--fs))" }}>
           {title}
