@@ -1065,7 +1065,7 @@ export default function Page() {
           <Matchup usernames={visibleUsernames} me={myName} elo={elo} results={results} stats={stats} playerColors={playerColors} openGame={openGame} openSetup={openSetup} onAskAI={askAI} />
         )}
         {view === "ai" && (
-          <BlackbirdAI me={myName} userId={session.user?.id} stats={stats} elo={elo} results={results} practice={practice} players={circlePlayers} social={social} playerColors={playerColors} autoAsk={aiAsk} onAction={onAIAction} />
+          <BlackbirdAI me={myName} userId={session.user?.id} stats={stats} elo={elo} results={results} practice={practice} players={circlePlayers} social={social} playerColors={playerColors} autoAsk={aiAsk} onAutoAsked={(id) => setAiAsk((a) => (a?.id === id ? null : a))} onAction={onAIAction} />
         )}
         {aiPlan && (planState.plans !== undefined || planState.error) && (
           <MerlinCreate

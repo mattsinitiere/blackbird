@@ -165,7 +165,7 @@ function BirdAvatar() {
  * The conversation is kept per account in localStorage so it survives a
  * reload.
  */
-export default function BlackbirdAI({ me, userId, stats, elo, results, practice, players, social, playerColors, autoAsk = null, onAction = null }) {
+export default function BlackbirdAI({ me, userId, stats, elo, results, practice, players, social, playerColors, autoAsk = null, onAutoAsked = null, onAction = null }) {
   const storageKey = `bb-ai-chat-${userId || "anon"}`;
   const [messages, setMessages] = useState([]);
   const [loaded, setLoaded] = useState(false);
@@ -326,11 +326,22 @@ export default function BlackbirdAI({ me, userId, stats, elo, results, practice,
   };
   const stop = () => abortRef.current?.abort();
 
-  // opened from elsewhere with a question ("Scout This Matchup", ...)
+  // opened from elsewhere with a question ("Scout This Matchup", ...): sent
+  // once. The page clears the request once it's sent, and the id is also
+  // remembered for the tab's session, so leaving the chat and coming back
+  // (which remounts this component) never asks it again.
   const askedRef = useRef(null);
   useEffect(() => {
     if (!loaded || !autoAsk?.question || askedRef.current === autoAsk.id || busy) return;
     askedRef.current = autoAsk.id;
+    const seenKey = "bb-ai-asked";
+    let seen = null;
+    try {
+      seen = window.sessionStorage.getItem(seenKey);
+      window.sessionStorage.setItem(seenKey, String(autoAsk.id));
+    } catch {}
+    onAutoAsked?.(autoAsk.id);
+    if (seen === String(autoAsk.id)) return;
     send(autoAsk.question);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loaded, autoAsk]);
