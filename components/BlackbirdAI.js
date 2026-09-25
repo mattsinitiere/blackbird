@@ -22,6 +22,16 @@ function weekKey(now = new Date()) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
+/** Compose: a square with a pencil, the usual "new chat" mark. */
+function NewChatIcon() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M12 4H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-6" />
+      <path d="M17.6 2.9a2.1 2.1 0 0 1 3 3L12 14.5l-4 1 1-4 8.6-8.6z" />
+    </svg>
+  );
+}
+
 function SendIcon() {
   return (
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -171,8 +181,8 @@ export default function BlackbirdAI({ me, userId, stats, elo, results, practice,
           <div className="tag" style={{ textTransform: "none", letterSpacing: 0, marginTop: 2 }}>Your games, your stats, your coach.</div>
         </div>
         {messages.length > 0 && (
-          <button className="btn btn-sm" onClick={() => setMessages([])} disabled={busy}>
-            New chat
+          <button className="btn ai-new-chat" onClick={() => setMessages([])} disabled={busy} aria-label="New chat" title="New chat">
+            <NewChatIcon />
           </button>
         )}
       </div>
