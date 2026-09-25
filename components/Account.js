@@ -139,7 +139,7 @@ export default function Account({ user, players, results, addPlayer, setPlayerHi
         const r = await updatePlayerProfile(myPlayer.username, patch);
         if (!r.ok) throw new Error(r.reason || "Couldn't save.");
       }
-      setNote({ ok: true, text: "Saved." });
+      setNote({ ok: true, text: "Saved" });
     } catch (e) {
       setNote({ ok: false, text: e.message || "Couldn't save." });
     } finally {
@@ -475,7 +475,14 @@ export default function Account({ user, players, results, addPlayer, setPlayerHi
       )}
 
       {note && !dirty && (
-        <p className={`set-note${note.ok ? " is-ok" : ""}`} role="status">{note.text}</p>
+        <p className={`set-note${note.ok ? " is-ok" : ""}`} role="status">
+          {note.ok && (
+            <svg className="set-note-check" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <path d="M5 12.5l4.5 4.5L19 7.5" />
+            </svg>
+          )}
+          {note.text}
+        </p>
       )}
 
       {dirty && (

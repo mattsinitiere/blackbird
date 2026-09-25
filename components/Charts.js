@@ -1,5 +1,6 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { ORDER, RINGS } from "@/lib/board";
+import { withUnit, axisUnit } from "@/lib/aiChart";
 
 const fmtShortDate = (iso) => {
   if (!iso) return "";
@@ -63,11 +64,24 @@ function useScrub(count, W, indexAt) {
   return { sel: sel != null && sel < count ? sel : null, wrap, svg, handlers };
 }
 
-/** The floating readout above a selected point. */
+/**
+ * The floating readout above a selected point, centred on it and nudged
+ * inward only as far as it takes to stay inside the chart.
+ */
 function Readout({ pct, value, sub }) {
-  const edge = pct < 16 ? "is-left" : pct > 84 ? "is-right" : "";
+  const ref = useRef(null);
+  const [left, setLeft] = useState(null);
+  useLayoutEffect(() => {
+    const el = ref.current;
+    const box = el?.parentElement;
+    if (!el || !box) return;
+    const w = el.offsetWidth;
+    const W = box.clientWidth;
+    const x = (pct / 100) * W;
+    setLeft(Math.max(w / 2, Math.min(W - w / 2, x)));
+  }, [pct, value, sub]);
   return (
-    <div className={`chart-readout ${edge}`} style={{ left: `${pct}%` }} role="status" aria-live="polite">
+    <div ref={ref} className="chart-readout" style={{ left: left == null ? `${pct}%` : `${left}px` }} role="status" aria-live="polite">
       <b>{value}</b>
       {sub && <span>{sub}</span>}
     </div>
@@ -155,7 +169,7 @@ export function LineChart({ data, color = "var(--accent)", unit = "", decimals =
 
   return (
     <div className="chart-wrap" ref={wrap}>
-    {cur && <Readout pct={(sx(cur.x) / W) * 100} value={`${fmt(cur.y)}${unit}`} sub={cur.label || fmtShortDate(cur.date)} />}
+    {cur && <Readout pct={(sx(cur.x) / W) * 100} value={withUnit(fmt(cur.y), unit, cur.y)} sub={cur.label || fmtShortDate(cur.date)} />}
     <svg
       ref={svg}
       viewBox={`0 0 ${W} ${H}`}
@@ -186,7 +200,7 @@ export function LineChart({ data, color = "var(--accent)", unit = "", decimals =
           />
           <text x={padL - 8} y={sy(t) + 4} textAnchor="end" fontSize={13 * textScale} fill="var(--ink-soft)">
             {fmt(t)}
-            {unit}
+            {axisUnit(unit)}
           </text>
         </g>
       ))}
@@ -377,7 +391,7 @@ export function MultiLineChart({ labels = [], datasets = [], unit = "", decimals
   return (
     <div className="chart-wrap" ref={wrap}>
       {x != null && at.length > 0 && (
-        <Readout pct={(sx(x) / W) * 100} value={at.map((v) => `${v.d.name}: ${fmtNum(v.p.y, decimals)}${unit}`).join(" · ")} sub={labels[x - 1] || fmtShortDate(at[0].p.date)} />
+        <Readout pct={(sx(x) / W) * 100} value={at.map((v) => `${v.d.name}: ${withUnit(fmtNum(v.p.y, decimals), unit, v.p.y)}`).join(" · ")} sub={labels[x - 1] || fmtShortDate(at[0].p.date)} />
       )}
       <svg ref={svg} viewBox={`0 0 ${W} ${H}`} width="100%" role="img" tabIndex={0} aria-label="Comparison chart. Tap a point to read the values." className="chart-svg" style={{ display: "block" }} {...handlers}>
         {ticks.map((t, i) => (
@@ -385,7 +399,7 @@ export function MultiLineChart({ labels = [], datasets = [], unit = "", decimals
             <line x1={padL} x2={W - padR} y1={sy(t)} y2={sy(t)} stroke="var(--line)" strokeWidth="1" />
             <text x={padL - 8} y={sy(t) + 4} textAnchor="end" fontSize={13 * textScale} fill="var(--ink-soft)">
               {fmtNum(t, decimals)}
-              {unit}
+              {axisUnit(unit)}
             </text>
           </g>
         ))}
@@ -436,7 +450,7 @@ export function GroupedBarChart({ labels = [], datasets = [], stacked = false, u
   const at = sel != null ? datasets.map((d) => ({ d, y: val(d, sel) })) : [];
   return (
     <div className="chart-wrap" ref={wrap}>
-      {sel != null && <Readout pct={((padL + sel * slot + slot / 2) / W) * 100} value={at.map((v) => `${v.d.name}: ${fmtNum(v.y, decimals)}${unit}`).join(" · ")} sub={labels[sel]} />}
+      {sel != null && <Readout pct={((padL + sel * slot + slot / 2) / W) * 100} value={at.map((v) => `${v.d.name}: ${withUnit(fmtNum(v.y, decimals), unit, v.y)}`).join(" · ")} sub={labels[sel]} />}
       <svg ref={svg} viewBox={`0 0 ${W} ${H}`} width="100%" role="img" tabIndex={0} aria-label="Bar chart. Tap a bar to read the values." className="chart-svg" style={{ display: "block" }} {...handlers}>
         {[maxY, 0].map((t, i) => (
           <g key={i}>
@@ -503,7 +517,7 @@ export function DonutChart({ slices = [], unit = "", decimals = 0 }) {
           <path key={a.i} d={a.d} fill={a.color} fillRule="evenodd" opacity={sel != null && sel !== a.i ? 0.35 : 1} onClick={() => setSel(sel === a.i ? null : a.i)} style={{ cursor: "pointer" }} />
         ))}
         <text x="100" y="98" textAnchor="middle" fontSize="22" fontWeight="700" fill="var(--ink)">
-          {cur ? `${fmtNum(cur.y, decimals)}${unit}` : fmtNum(total, decimals)}
+          {cur ? withUnit(fmtNum(cur.y, decimals), unit, cur.y, true) : fmtNum(total, decimals)}
         </text>
         <text x="100" y="118" textAnchor="middle" fontSize="11" fill="var(--muted)">
           {cur ? `${Math.round((cur.y / total) * 100)}% · ${String(cur.label).slice(0, 14)}` : "Total"}
@@ -515,7 +529,7 @@ export function DonutChart({ slices = [], unit = "", decimals = 0 }) {
             <button type="button" onClick={() => setSel(sel === a.i ? null : a.i)} aria-pressed={sel === a.i}>
               <i style={{ background: a.color }} />
               <span>{a.s.label}</span>
-              <b>{fmtNum(a.s.y, decimals)}{unit}</b>
+              <b>{withUnit(fmtNum(a.s.y, decimals), unit, a.s.y)}</b>
             </button>
           </li>
         ))}

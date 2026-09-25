@@ -1,5 +1,14 @@
 import { useState, useMemo } from "react";
-import { PlayerBadge, pressProps, UndoIcon } from "./ui";
+import { PlayerBadge, pressProps, UndoIcon, PlayIcon } from "./ui";
+
+/** A solid play triangle for the main Start a Game button. */
+function StartIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+      <path d="M7 4.8v14.4a1 1 0 0 0 1.5.86l11.2-7.2a1 1 0 0 0 0-1.72L8.5 3.94A1 1 0 0 0 7 4.8z" />
+    </svg>
+  );
+}
 import { BarChart } from "./Charts";
 import WelcomeCard from "./WelcomeCard";
 import { BASE_ELO } from "@/lib/constants";
@@ -118,18 +127,19 @@ export default function Home({ setView, openSetup, stats, elo, players, results,
         playerColors={playerColors}
         onRematch={(opponent) => (openSetup ? openSetup({ players: [me, opponent] }) : setView("setup"))}
       />
-      <button
-        className="btn btn-primary"
-        style={{ width: "100%", fontSize: "calc(16px * var(--fs))", padding: 16 }}
-        onClick={() => (openSetup ? openSetup(null) : setView("setup"))}
-      >
-        Start a Game
-      </button>
-      {lastGame && onPlayAgain && (
-        <button className="btn play-again" onClick={() => onPlayAgain(lastGame)}>
-          <UndoIcon /> <span className="play-again-text">Play Again: {playAgainLabel(lastGame)}</span>
+      <div className="home-actions">
+        <button className="btn btn-primary home-action" onClick={() => (openSetup ? openSetup(null) : setView("setup"))}>
+          <StartIcon /> Start a Game
         </button>
-      )}
+        {lastGame && onPlayAgain && (
+          <button className="btn home-action is-again" onClick={() => onPlayAgain(lastGame)}>
+            <UndoIcon /> <span className="play-again-text">Play Again: {playAgainLabel(lastGame)}</span>
+          </button>
+        )}
+        <button className="btn home-action is-practice" onClick={() => setView("practice")}>
+          <PlayIcon size={18} /> Practice &amp; Bots
+        </button>
+      </div>
       {pendingCount > 0 && (
         <div className="sync-note" role="status">
           <span>
@@ -142,13 +152,6 @@ export default function Home({ setView, openSetup, stats, elo, players, results,
           )}
         </div>
       )}
-      <button
-        className="btn mb-12"
-        style={{ width: "100%", marginTop: 8, fontSize: "calc(15px * var(--fs))", padding: 13 }}
-        onClick={() => setView("practice")}
-      >
-        Practice &amp; Bots
-      </button>
 
       <div className="card mb-12">
         <h3 className="section-title">Your Games · Last 3 Months</h3>

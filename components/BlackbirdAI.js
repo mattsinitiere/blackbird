@@ -4,6 +4,7 @@ import { buildMySummary } from "@/lib/aiSummary";
 import AIChart, { chartsOf } from "./AIChart";
 import AIText from "./AIText";
 import { visibleWhileStreaming } from "@/lib/aiBlocks";
+import { computeAchievements } from "@/lib/achievements";
 import { PlayerBadge } from "./ui";
 
 const SUGGESTIONS = [
@@ -13,6 +14,7 @@ const SUGGESTIONS = [
   "Break down my wins by game mode",
   "How is my checkout percentage trending?",
   "What should I practice this week?",
+  "Which achievements am I closest to?",
 ];
 
 const DAY_MS = 86400000;
@@ -59,7 +61,6 @@ const BRAIN_LEVELS = [
   { id: 2, label: "Balanced", hint: "The everyday default", tag: "Thinking" },
   { id: 3, label: "Deep Thinking", hint: "Takes it further", tag: "Thinking deeply" },
 ];
-const BRAIN_KEY = "bb-ai-brain";
 
 /** A brain outline; more folds (and a larger size) for a higher level. */
 function BrainIcon({ level = 2, size }) {
@@ -181,18 +182,10 @@ export default function BlackbirdAI({ me, userId, stats, elo, results, practice,
       const raw = window.localStorage.getItem(storageKey);
       if (raw) setMessages(JSON.parse(raw).slice(-40).map((m) => (m.streaming ? { ...m, streaming: false, steps: undefined } : m)));
     } catch {}
-    try {
-      const b = parseInt(window.localStorage.getItem(BRAIN_KEY), 10);
-      if (b >= 1 && b <= 3) setBrain(b);
-    } catch {}
     setLoaded(true);
   }, [storageKey]);
-  const pickBrain = (b) => {
-    setBrain(b);
-    try {
-      window.localStorage.setItem(BRAIN_KEY, String(b));
-    } catch {}
-  };
+  // every visit starts at Balanced; a pick lasts while the tab is open
+  const pickBrain = (b) => setBrain(b);
   useEffect(() => {
     if (!loaded) return;
     try {
@@ -208,6 +201,14 @@ export default function BlackbirdAI({ me, userId, stats, elo, results, practice,
 
   const summary = useMemo(() => buildMySummary({ me, stats, elo, results, practice, players, social }), [me, stats, elo, results, practice, players, social]);
   const hasData = (summary.me.games || 0) + summary.practice.sessions > 0;
+  // the player's badges, for the medals the AI can show in a reply
+  const badges = useMemo(() => {
+    try {
+      return computeAchievements({ me, results, practice, social });
+    } catch {
+      return [];
+    }
+  }, [me, results, practice, social]);
 
   // this week's report card: generated once a week (per phone), only when
   // there are ranked games in the last 7 days
@@ -378,7 +379,7 @@ export default function BlackbirdAI({ me, userId, stats, elo, results, practice,
               <>
                 <AIText text={weekly.text} />
                 {(weekly.charts || []).map((c, i) => (
-                  <AIChart key={i} chart={c} />
+                  <AIChart key={i} chart={c} badges={badges} me={me} colors={playerColors} />
                 ))}
               </>
             )}
@@ -439,7 +440,7 @@ export default function BlackbirdAI({ me, userId, stats, elo, results, practice,
                 {live && shown && <span className="ai-caret" aria-hidden="true" />}
                 {m.stopped && <div className="ai-stopped">Stopped</div>}
                 {chartsOf(m).map((c, i) => (
-                  <AIChart key={i} chart={c} />
+                  <AIChart key={i} chart={c} badges={badges} me={me} colors={playerColors} />
                 ))}
                 {!live && (m.actions || []).length > 0 && (
                   <div className="ai-actions">

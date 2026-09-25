@@ -122,7 +122,8 @@ test("head to head and recent games carry no raw dart logs", () => {
     assert.equal(g.darts, undefined);
     assert.equal(g._rp, undefined);
   }
-  assert.ok(JSON.stringify(s).length < 12000);
+  // budget guard; the compact badge catalogue (achievements.all) adds ~1.3 KB
+  assert.ok(JSON.stringify(s).length < 14000);
 });
 
 test("a player with no games gets an empty but valid summary", () => {
