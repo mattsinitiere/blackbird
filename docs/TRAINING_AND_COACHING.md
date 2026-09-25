@@ -7,7 +7,9 @@ Ego's calibration details see docs/ALTER_EGO.md.
 ## Setup
 
 Apply these migrations in order in the Supabase SQL editor. Each one is
-additive and safe to run twice. **None has been applied to production yet.**
+additive and safe to run twice. **All were applied to production on
+2026-09-25**, together with `supabase/migration-search-paths.sql` (pins
+`search_path` on the trigger functions, per the Supabase security linter).
 
 1. `supabase/migration-scoped-data.sql`
    - indexes for the new query patterns;

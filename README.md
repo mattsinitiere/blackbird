@@ -409,7 +409,8 @@ Push this repo to GitHub. Every later `git push` to `main` redeploys Vercel.
    `migration-contours-cover.sql`, `migration-dev-tag-icons.sql`,
    `migration-player-events.sql`, `migration-ai-usage.sql`,
    `migration-realtime.sql`, `migration-scoped-data.sql`,
-   `migration-ai-log.sql`, `migration-training-plans.sql`, and
+   `migration-ai-log.sql`, `migration-training-plans.sql`,
+   `migration-search-paths.sql`, and
    **`migration-lock-writes.sql` last**. The last one is the write
    lock-down: members may change only their own player row (never Elo or
    name), only the admin may change anyone's, and games are saved by
