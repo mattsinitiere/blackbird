@@ -3,7 +3,7 @@
 import { useState, useEffect, useMemo, useCallback, useRef, useLayoutEffect } from "react";
 import { useRouter } from "next/navigation";
 import { supabase, isConfigured } from "@/lib/supabase";
-import { getPlayers, addPlayer as dbAddPlayer, linkPlayerAuth as dbLinkPlayerAuth, setPlayerHidden as dbSetPlayerHidden, setPlayerColor as dbSetPlayerColor, updatePlayerProfile as dbUpdatePlayerProfile, getGameResults, recordGame, getFollows, getGameRowsForSync, getEloFor, followPlayer as dbFollowPlayer, unfollowPlayer as dbUnfollowPlayer } from "@/lib/db";
+import { getPlayers, addPlayer as dbAddPlayer, linkPlayerAuth as dbLinkPlayerAuth, setPlayerHidden as dbSetPlayerHidden, setPlayerColor as dbSetPlayerColor, updatePlayerProfile as dbUpdatePlayerProfile, getGameResults, recordGame, getFollows, getGameRowsForSync, getEloFor, getMyEvents, recordEvents, followPlayer as dbFollowPlayer, unfollowPlayer as dbUnfollowPlayer } from "@/lib/db";
 import { followingUsernames, followerUsernames, circlePlayers as circleOf, followsForSocial } from "@/lib/follows";
 import { normalizeHandle, validateHandle } from "@/lib/profile";
 import { PROFILE_PARAM, resolveProfileParam } from "@/lib/profileLink";
@@ -18,6 +18,7 @@ import { computeAchievements, diffUnlocked, seenKey, readSeen, writeSeen } from 
 import { botColors, isBot } from "@/lib/bots";
 import { rematchGame } from "@/lib/games";
 import { readPending, enqueuePending, flushPending } from "@/lib/pendingGames";
+import { activityFromEvents, profileEventsToRecord, todayKey } from "@/lib/playerEvents";
 import { Logo, CastIcon, PlayerBadge, Modal, pressProps, PlayerLookContext, HomeIcon, PlayIcon, StatsIcon, MatchupIcon, SparkleIcon } from "@/components/ui";
 import Home from "@/components/Home";
 import Setup from "@/components/Setup";
@@ -391,7 +392,42 @@ export default function Page() {
   // who I follow (null = follows not installed: everyone) and who follows me
   const following = useMemo(() => (follows === null ? null : followingUsernames(follows, players, myAuthId)), [follows, players, myAuthId]);
   const followers = useMemo(() => followerUsernames(follows, players, myPlayerRow?.id), [follows, players, myPlayerRow]);
-  const social = useMemo(() => followsForSocial(follows, players, { myAuthId, myPlayerId: myPlayerRow?.id }), [follows, players, myAuthId, myPlayerRow]);
+  // my own activity (days the app was opened, first profile customisations)
+  // for the Dedication and Profile badges; rides along with `social`, which
+  // is only ever passed for yourself
+  const [events, setEvents] = useState([]);
+  const activity = useMemo(() => activityFromEvents(events), [events]);
+  const social = useMemo(() => ({ ...followsForSocial(follows, players, { myAuthId, myPlayerId: myPlayerRow?.id }), activity }), [follows, players, myAuthId, myPlayerRow, activity]);
+  // log today's visit once, then load the log
+  useEffect(() => {
+    if (!myAuthId) return;
+    let active = true;
+    (async () => {
+      try {
+        await recordEvents([{ kind: "visit", day: todayKey() }]);
+      } catch {}
+      const ev = await getMyEvents().catch(() => []);
+      if (active) setEvents(ev);
+    })();
+    return () => {
+      active = false;
+    };
+  }, [myAuthId]);
+  // profile parts set but not logged yet (first customisation, or set
+  // before this was tracked): log them today
+  const profileSig = myPlayerRow ? [myPlayerRow.color, myPlayerRow.cover, myPlayerRow.bio, myPlayerRow.location, myPlayerRow.tag, myPlayerRow.tagIcon, myPlayerRow.handle].join("|") : "";
+  useEffect(() => {
+    if (!myAuthId || !myPlayerRow || !events.length) return;
+    const todo = profileEventsToRecord(myPlayerRow, activity);
+    if (!todo.length) return;
+    (async () => {
+      try {
+        await recordEvents(todo.map((detail) => ({ kind: "profile", detail, day: todayKey() })));
+        setEvents(await getMyEvents());
+      } catch {}
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [myAuthId, profileSig, events.length]);
   // my circle: me plus the players I follow. The database only returns
   // their result rows, so every screen below is friends-only by construction
   const circlePlayers = useMemo(() => circleOf(players, following, myPlayerRow?.username || (session?.user?.user_metadata?.display_name || "").trim()), [players, following, myPlayerRow, session]);

@@ -75,13 +75,14 @@ test("selfOnly badges are omitted without social data", () => {
 test("diffUnlocked returns exactly the badges the appended game earns", () => {
   const before = computeAchievements({ me: "Ann", results: results.slice(0, 5), practice: [] });
   const after = computeAchievements({ me: "Ann", results, practice: [] });
-  assert.deepEqual(diffUnlocked(before, after).map((b) => b.id).sort(), ["all_rounder", "streak_3"]);
+  assert.deepEqual(diffUnlocked(before, after).map((b) => b.id).sort(), ["all_rounder", "redemption", "streak_3", "weekend_warrior"]); // L L L then W W W, Sat + Sun
 });
 
 test("nextUp orders locked badges by progress", () => {
   const b = computeAchievements({ me: "Ann", results, practice, social });
   const ids = nextUp(b, 3).map((x) => x.id);
-  assert.equal(ids[0], "explorer"); // 4/6 beats games_10 at 6/10
+  assert.equal(ids[0], "high_five"); // a 4-mark round is 4/5
+  assert.equal(ids[1], "explorer"); // 4/6 beats games_10 at 6/10
   assert.ok(ids.length === 3);
 });
 
@@ -127,4 +128,30 @@ test("finishing badges count legs won in a lost best-of match", () => {
   assert.equal(b.bull_finish.unlocked, true);
   assert.equal(b.short_leg.unlocked, true);
   assert.equal(b.first_win.unlocked, false);
+});
+
+test("new badges: login streaks, profile, fun and game modes", async () => {
+  const { dayStreakBadge } = await import("../lib/achievements.js");
+  const now = new Date(2026, 8, 25, 12);
+  const days = ["2026-09-18", "2026-09-19", "2026-09-20", "2026-09-22", "2026-09-23", "2026-09-24", "2026-09-25"];
+  const s7 = dayStreakBadge(days, 7, now);
+  assert.equal(s7.earnedAt, null);
+  assert.deepEqual(s7.progress, { value: 4, target: 7, kind: "streak", best: 4 });
+  assert.equal(dayStreakBadge(days, 3, now).earnedAt, "2026-09-20");
+  // a gap of more than a day ends the current run
+  assert.equal(dayStreakBadge(["2026-09-20", "2026-09-21"], 3, now).progress.value, 0);
+  const soc = { following: [], followers: [], activity: { visitDays: days, profile: { color: "2026-09-01T00:00:00Z", bio: "2026-09-02T00:00:00Z" } } };
+  const b = Object.fromEntries(computeAchievements({ me: "Ann", results, practice, social: soc, now }).map((x) => [x.id, x]));
+  assert.equal(b.days_3.unlocked, true);
+  assert.equal(b.fresh_paint.unlocked, true);
+  assert.equal(b.cover_story.unlocked, false);
+  assert.deepEqual(b.fully_loaded.progress, { value: 2, target: 6, kind: "count" });
+  assert.equal(b.warm_up.earnedAt, at(1));
+  assert.equal(b.high_five.unlocked, false); // best cricket round was 4 marks
+  assert.equal(b.high_five.progress.value, 4);
+  // without the player's own activity the self-only badges are hidden
+  const other = computeAchievements({ me: "Ann", results, practice }).map((x) => x.id);
+  assert.ok(!other.includes("days_7") && !other.includes("fresh_paint"));
+  // Elo progress counts from the 1000 start, so it doesn't top "next up"
+  assert.equal(b.elo_1200.progress.base, 1000);
 });
