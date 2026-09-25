@@ -380,7 +380,7 @@ route with the service-role key.
 | `AI_MODEL` | server | optional model override; blank = `gpt-6-luna` for `openai` |
 | `AI_REASONING_EFFORT` | server | fixed OpenAI reasoning effort: `none` (default), `minimal`, `low`, `medium`, `high`; never set by the client |
 | `AI_PRICE_INPUT_PER_1M` / `AI_PRICE_OUTPUT_PER_1M` | server | optional USD per 1M tokens, for the cost estimate in Admin → Analytics |
-| `SUPABASE_SERVICE_ROLE_KEY` | server | Admin panel, invite sign-up (`/api/signup`) and saving training plans (`/api/plans`) |
+| `SUPABASE_SERVICE_ROLE_KEY` | server | Saving games and Elo (`/api/record-game`; without it no game saves), Admin panel, invite sign-up (`/api/signup`) and saving training plans (`/api/plans`) |
 | `ADMIN_EMAIL` | server | account allowed to use the Admin panel |
 | `SIGNUP_INVITE_CODE` | server | the shared code the public Sign Up page asks for; unset = sign-up closed |
 | `SITE_URL` | server | optional absolute origin for emailed links, canonical URL and sitemap (defaults to the Vercel production host) |
@@ -405,6 +405,17 @@ Push this repo to GitHub. Every later `git push` to `main` redeploys Vercel.
    login show up once someone follows them. Until it is run the app
    behaves as before: everyone sees everyone and the Friends screen says
    so.
+   Then, in this order: `migration-tag-icons-covers.sql`,
+   `migration-contours-cover.sql`, `migration-dev-tag-icons.sql`,
+   `migration-player-events.sql`, `migration-ai-usage.sql`,
+   `migration-realtime.sql`, `migration-scoped-data.sql`,
+   `migration-ai-log.sql`, `migration-training-plans.sql`, and
+   **`migration-lock-writes.sql` last**. The last one is the write
+   lock-down: members may change only their own player row (never Elo or
+   name), only the admin may change anyone's, and games are saved by
+   `/api/record-game` with the service role, so deploy the app before
+   running it. Until it runs, members can't add or edit players on a fresh
+   install. `tests/sql/run.sh` applies the same list in the same order.
 4. **Settings → API** → copy **Project URL** and the **anon public** key.
 5. **Authentication → Providers → Email**: enabled, with "Confirm email"
    **ON**. New players arrive through an invite email, and accepting it
@@ -458,8 +469,8 @@ npm test                     # scoring-core + parser + conformance suite
 ## 5. Deploy to Vercel
 1. https://vercel.com → **Add New → Project** → import your repo.
 2. Add the environment variables from the table above (Settings →
-   Environment Variables). `SUPABASE_SERVICE_ROLE_KEY` powers the Admin
-   panel and invite sign-up; `SIGNUP_INVITE_CODE` is the code you hand out.
+   Environment Variables). `SUPABASE_SERVICE_ROLE_KEY` powers saving
+   games (`/api/record-game`), the Admin panel and invite sign-up; `SIGNUP_INVITE_CODE` is the code you hand out.
 3. **Deploy.** You get `https://….vercel.app`. Every `git push` redeploys.
 4. Supabase → **Authentication → URL Configuration** → Site URL and the
    redirect URLs from step 2.8 above, using your Vercel or custom domain.
