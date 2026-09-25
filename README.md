@@ -377,8 +377,10 @@ route with the service-role key.
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | client | Supabase anon key (public by design; RLS protects data) |
 | `AI_PROVIDER` | server | `openai` (default), `gemini`, `groq`, or `anthropic` — powers the Blackbird AI tab via `/api/insights` |
 | `GEMINI_API_KEY` / `GROQ_API_KEY` / `OPENAI_API_KEY` / `ANTHROPIC_API_KEY` | server | key for the chosen provider |
-| `AI_MODEL` | server | optional model override |
-| `SUPABASE_SERVICE_ROLE_KEY` | server | Admin panel and invite sign-up (`/api/signup`) |
+| `AI_MODEL` | server | optional model override; blank = `gpt-6-luna` for `openai` |
+| `AI_REASONING_EFFORT` | server | fixed OpenAI reasoning effort: `none` (default), `minimal`, `low`, `medium`, `high`; never set by the client |
+| `AI_PRICE_INPUT_PER_1M` / `AI_PRICE_OUTPUT_PER_1M` | server | optional USD per 1M tokens, for the cost estimate in Admin → Analytics |
+| `SUPABASE_SERVICE_ROLE_KEY` | server | Admin panel, invite sign-up (`/api/signup`) and saving training plans (`/api/plans`) |
 | `ADMIN_EMAIL` | server | account allowed to use the Admin panel |
 | `SIGNUP_INVITE_CODE` | server | the shared code the public Sign Up page asks for; unset = sign-up closed |
 | `SITE_URL` | server | optional absolute origin for emailed links, canonical URL and sitemap (defaults to the Vercel production host) |

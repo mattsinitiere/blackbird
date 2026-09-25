@@ -1,6 +1,8 @@
 import { createClient } from "@supabase/supabase-js";
 import { normalizeHandle, validateHandle } from "@/lib/profile";
 import { validateNewAccount, createAccount, validateTagEdit } from "@/lib/adminAccount";
+import { buildAnalytics, rangeFor } from "@/lib/adminAnalytics";
+import { paginate, supabasePager } from "@/lib/data/paginate";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -55,6 +57,60 @@ export async function POST(req) {
   const action = body?.action;
 
   try {
+    if (action === "analytics") {
+      const range = rangeFor(body?.range);
+      const since = range.from ? range.from.toISOString() : null;
+      const sinceDay = since ? since.slice(0, 10) : null;
+      // every auth user, page by page (sign-ups)
+      const users = [];
+      for (let page = 1; page <= 50; page++) {
+        const { data: lu, error: le } = await admin.auth.admin.listUsers({ page, perPage: 1000 });
+        if (le) throw le;
+        const batch = lu?.users || [];
+        users.push(...batch.map((u) => ({ id: u.id, createdAt: u.created_at, lastSignInAt: u.last_sign_in_at || null })));
+        if (batch.length < 1000) break;
+      }
+      const opt = async (q) => {
+        const { data, error } = await q;
+        return error ? null : data || [];
+      };
+      const [players, events, aiLog, aiUsage, plans, completions] = await Promise.all([
+        opt(admin.from("players").select("username, auth_id").limit(10000)),
+        opt((since ? admin.from("player_events").select("auth_id, kind, day").gte("day", sinceDay) : admin.from("player_events").select("auth_id, kind, day")).limit(50000)),
+        opt((since ? admin.from("ai_request_log").select("auth_id, kind, model, effort, input_tokens, output_tokens, tool_calls, duration_ms, status, fallback, via, created_at").gte("created_at", since) : admin.from("ai_request_log").select("auth_id, kind, model, effort, input_tokens, output_tokens, tool_calls, duration_ms, status, fallback, via, created_at")).limit(50000)),
+        opt((sinceDay ? admin.from("ai_usage").select("auth_id, day, count").gte("day", sinceDay) : admin.from("ai_usage").select("auth_id, day, count")).limit(50000)),
+        opt(admin.from("training_plans").select("auth_id, source, created_at").limit(10000)),
+        opt((since ? admin.from("plan_completions").select("completed_at").gte("completed_at", since) : admin.from("plan_completions").select("completed_at")).limit(50000)),
+      ]);
+      // games: keyset pages over the period, light columns only
+      const page = await paginate(
+        supabasePager(() => {
+          const q = admin.from("game_results").select("id, game_id, username, game_type, result, opponents, completed_at");
+          return since ? q.gte("completed_at", since) : q;
+        })
+      );
+      const prices = {
+        input: Number.isFinite(parseFloat(process.env.AI_PRICE_INPUT_PER_1M)) ? parseFloat(process.env.AI_PRICE_INPUT_PER_1M) : null,
+        output: Number.isFinite(parseFloat(process.env.AI_PRICE_OUTPUT_PER_1M)) ? parseFloat(process.env.AI_PRICE_OUTPUT_PER_1M) : null,
+      };
+      const out = buildAnalytics(
+        {
+          users,
+          players: (players || []).map((p) => ({ username: p.username, authId: p.auth_id })),
+          events: events || [],
+          games: page.rows,
+          aiLog,
+          aiUsage: aiUsage || [],
+          plans,
+          completions,
+          prices,
+        },
+        range.id
+      );
+      out.coverage = { games: { status: page.status, reason: page.reason, rows: page.rows.length }, aiLog: aiLog !== null, plans: plans !== null };
+      return json(out);
+    }
+
     if (action === "list") {
       const { data: list, error: le } = await admin.auth.admin.listUsers({ page: 1, perPage: 1000 });
       if (le) throw le;

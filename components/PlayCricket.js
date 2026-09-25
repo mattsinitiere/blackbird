@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import { CricketHint } from "./StrategyHint";
 import { X01_TARGETS, CRICKET_VALUE } from "@/lib/constants";
 import { markSymbol } from "@/lib/darts";
 import DartBoard from "./DartBoard";
@@ -11,7 +12,7 @@ import { createRecorder, ensureRecorder, stamp, recordVisit, finishRecorder } fr
 
 const numOf = (t) => (t === "B" ? 25 : Number(t));
 
-export default function PlayCricket({ game, resume, onProgress, onFinish, onQuit, castActive, playerColors }) {
+export default function PlayCricket({ game, resume, onProgress, onFinish, onQuit, castActive, playerColors, hints = null }) {
   const { players } = game;
   const variant = game.config?.variant || "standard";
 
@@ -231,6 +232,7 @@ export default function PlayCricket({ game, resume, onProgress, onFinish, onQuit
         </button>
       </div>
 
+      {!bot && <CricketHint variant={variant} me={cur} players={players} state={state} prefs={hints?.prefs} />}
       {!castActive && (
       <div className="card pad-sm mb-12" style={{ overflowX: "auto" }}>
         <table className="cricket-table">

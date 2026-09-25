@@ -4,13 +4,14 @@ import { Modal, PlayerBadge, UndoIcon } from "./ui";
 import DartBoard from "./DartBoard";
 import Celebration from "./Celebration";
 import { dartValue, dartLabel } from "@/lib/darts";
-import { getCheckoutPath, isCheckoutRange } from "@/lib/checkouts";
 import { botFor, playerLabel } from "@/lib/bots";
 import { pickX01Target, botThrow } from "@/lib/botStrategy";
+import { ALTER_EGO_ID, botFromConfig, throwForAlterEgo } from "@/lib/alterEgo";
+import { X01Hint } from "./StrategyHint";
 import { useBotTurn } from "@/lib/useBotTurn";
 import { createRecorder, ensureRecorder, stamp, recordVisit, finishRecorder, stripDarts } from "@/lib/recorder";
 
-export default function PlayX01({ game, resume, onProgress, onFinish, onQuit, castActive, playerColors }) {
+export default function PlayX01({ game, resume, onProgress, onFinish, onQuit, castActive, playerColors, hints = null, me = null }) {
   const { players, config } = game;
   const start = config.startScore;
   const legs = config.legs || 1;
@@ -192,20 +193,22 @@ export default function PlayX01({ game, resume, onProgress, onFinish, onQuit, ca
   };
 
   // a bot at the oche throws by itself through addDart, one dart at a time
-  const bot = botFor(cur);
+  // Alter Ego's profile was frozen into the game config when it started
+  // (lib/alterEgo.js); it's never recomputed mid-game or on resume
+  const bot = cur === ALTER_EGO_ID ? botFromConfig(config.alterEgo) : botFor(cur);
   useBotTurn({
     active: !!bot && !doneRef.current,
     key: `${turn}:${turnDarts.length}:${legHistory.length}`,
     throwOne: () => {
       const target = pickX01Target({ remaining, doubleOut: !!config.doubleOut, checkout: bot.checkout });
-      const land = botThrow(bot, target);
+      const land = bot.id === ALTER_EGO_ID ? throwForAlterEgo(bot, target, remaining, !!config.doubleOut) : botThrow(bot, target);
       addDart({ n: land.n, mult: land.mult });
     },
   });
   const botLock = bot ? { opacity: 0.5, pointerEvents: "none" } : undefined;
 
   const avg = (u) => (s.darts[u] ? ((s.points[u] / s.darts[u]) * 3).toFixed(1) : "0.0");
-  const checkoutHint = config.doubleOut && isCheckoutRange(remaining) && turnDarts.length < 3 ? getCheckoutPath(remaining) : null;
+
 
   return (
     <div className="fade">
@@ -267,12 +270,8 @@ export default function PlayX01({ game, resume, onProgress, onFinish, onQuit, ca
       </div>
       )}
 
-      {checkoutHint && (
-        <div className="card pad-sm mb-12" style={{ borderColor: "var(--accent)", background: "var(--accent-soft)" }}>
-          <span className="tag" style={{ color: "var(--accent)", letterSpacing: 0, textTransform: "none" }}>
-            Checkout: {checkoutHint}
-          </span>
-        </div>
+      {!bot && !doneRef.current && turnDarts.length < 3 && (
+        <X01Hint remaining={remaining} dartsLeft={3 - turnDarts.length} doubleOut={!!config.doubleOut} prefs={hints?.prefs} evidence={cur === me ? hints?.evidence : null} />
       )}
 
       <div className="card">

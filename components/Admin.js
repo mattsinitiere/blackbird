@@ -1,4 +1,6 @@
 import { useEffect, useState, useCallback, useRef } from "react";
+import { callAdmin } from "@/lib/adminClient";
+import AdminAnalytics from "./AdminAnalytics";
 import { BackBar, PlayerBadge, Modal } from "./ui";
 import TagEditor from "./TagEditor";
 import { PICKER_COLORS } from "@/lib/constants";
@@ -17,22 +19,6 @@ function DotsIcon() {
   );
 }
 
-async function callAdmin(payload) {
-  const {
-    data: { session },
-  } = await supabase.auth.getSession();
-  const res = await fetch("/api/admin", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${session?.access_token || ""}`,
-    },
-    body: JSON.stringify(payload),
-  });
-  const json = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(json.error || "Request failed.");
-  return json;
-}
 
 function fmtDate(iso) {
   if (!iso) return "—";
@@ -78,6 +64,7 @@ function DropdownMenu({ items, onClose }) {
 }
 
 export default function Admin({ stats, addPlayer, back, refreshData, playerColors }) {
+  const [tab, setTab] = useState("users");
   const [data, setData] = useState(null);
   const [edits, setEdits] = useState({});
   const [err, setErr] = useState("");
@@ -324,6 +311,20 @@ export default function Admin({ stats, addPlayer, back, refreshData, playerColor
   return (
     <div className="fade">
       <BackBar back={back} title="Admin Panel" />
+
+      <div className="seg mb-12" role="tablist" aria-label="Admin sections">
+        <button type="button" role="tab" aria-selected={tab === "users"} className="seg-btn" onClick={() => setTab("users")}>
+          Users
+        </button>
+        <button type="button" role="tab" aria-selected={tab === "analytics"} className="seg-btn" onClick={() => setTab("analytics")}>
+          Analytics
+        </button>
+      </div>
+
+      {tab === "analytics" ? (
+        <AdminAnalytics />
+      ) : (
+        <>
 
       {err && (
         <div className="card mb-12" style={{ borderColor: "var(--red)" }}>
@@ -604,6 +605,8 @@ export default function Admin({ stats, addPlayer, back, refreshData, playerColor
             </button>
           </div>
         </Modal>
+      )}
+        </>
       )}
     </div>
   );

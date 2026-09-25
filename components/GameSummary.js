@@ -4,7 +4,7 @@ import { feedback } from "@/lib/feedback";
 import MatchChart from "./MatchChart";
 import BadgeMedal from "./BadgeMedal";
 import BotAvatar from "./BotAvatar";
-import { botFor } from "@/lib/bots";
+import { playerLabel, botFor } from "@/lib/bots";
 
 // games whose win buzz has already played this session (coming back from
 // the match report remounts this screen)
@@ -28,7 +28,7 @@ function EloDelta({ elo, size = 12 }) {
  * End-of-game screen. Pure presentation of a summary from lib/summary.js;
  * the shell owns saving, rematch and navigation.
  */
-export default function GameSummary({ match = null, summary, saveState, saveError, onRetrySave, onRematch, onNewGame, onDone, onOpenReport, playerColors, newBadges = [], bot = null, onChooseBot, onPlayBot, onPracticeHub }) {
+export default function GameSummary({ match = null, summary, saveState, saveError, onRetrySave, onRematch, onNewGame, onDone, onOpenReport, playerColors, newBadges = [], bot = null, onChooseBot, onPlayBot, onPracticeHub, planStep = null }) {
   // a haptic / sound for the win, once per game (Settings → Accessibility)
   const gameKey = `${summary?.completedAt || ""}|${summary?.winner || ""}`;
   useEffect(() => {
@@ -149,6 +149,8 @@ export default function GameSummary({ match = null, summary, saveState, saveErro
         </button>
       )}
 
+      {planStep && <PlanStep step={planStep} />}
+
       {bot ? (
         <BotActions bot={bot} onRematch={onRematch} onChooseBot={onChooseBot} onPlayBot={onPlayBot} onPracticeHub={onPracticeHub} />
       ) : (
@@ -197,7 +199,7 @@ function BotActions({ bot, onRematch, onChooseBot, onPlayBot, onPracticeHub }) {
         style={{ width: "100%", fontSize: "calc(16px * var(--fs))", padding: 16, display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 8 }}
         onClick={onRematch}
       >
-        <UndoIcon /> Rematch {b ? b.name : "Bot"}
+        <UndoIcon /> Rematch {b ? b.name : playerLabel(bot.id)}
       </button>
       <div className="row" style={{ marginTop: 10 }}>
         {onChooseBot && <button className="btn" style={{ flex: 1 }} onClick={onChooseBot}>Choose Opponent</button>}
@@ -232,5 +234,31 @@ function SaveLine({ ranked, saveState, saveError, onRetry }) {
         <button className="btn" style={{ padding: "6px 12px", flex: "none" }} onClick={onRetry}>{saveState === "queued" ? "Sync Now" : "Retry"}</button>
       )}
     </div>
+  );
+}
+
+/**
+ * After a game that was part of a training plan: where the session stands
+ * and the next drill. Counts come from saved progress (lib/trainingPlans.js).
+ */
+function PlanStep({ step }) {
+  return (
+    <section className="card mb-12 plan-step" aria-label="Training plan">
+      <div className="plan-step-kicker">Training Plan · {step.planTitle}</div>
+      <div className="plan-step-title">{step.headline}</div>
+      {step.note && <p className="plan-step-note">{step.note}</p>}
+      <div className="plan-modal-actions">
+        {step.onViewPlan && (
+          <button type="button" className="btn" onClick={step.onViewPlan}>
+            View Plan
+          </button>
+        )}
+        {step.onNext && (
+          <button type="button" className="btn btn-primary" onClick={step.onNext}>
+            {step.nextLabel}
+          </button>
+        )}
+      </div>
+    </section>
   );
 }

@@ -22,27 +22,55 @@ test("unsupportedParam reads the parameter out of OpenAI's error", () => {
   assert.equal(unsupportedParam("Something else"), null);
 });
 
-test("providerConfig reads the optional reasoning effort", () => {
-  const c = providerConfig({ AI_PROVIDER: "openai", AI_MODEL: "gpt-6-luna", OPENAI_API_KEY: "k", AI_REASONING_EFFORT: "Medium" });
-  assert.equal(c.effort, "medium");
-  assert.equal(providerConfig({ AI_PROVIDER: "openai", OPENAI_API_KEY: "k", AI_REASONING_EFFORT: "turbo" }).effort, null);
+test("providerConfig defaults to Luna with an explicit fixed effort of none", () => {
+  const c = providerConfig({ OPENAI_API_KEY: "k" });
+  assert.equal(c.provider, "openai");
+  assert.equal(c.model, "gpt-6-luna");
+  assert.equal(c.effort, "none");
+  assert.equal(providerConfig({ AI_PROVIDER: "openai", AI_MODEL: "gpt-6-luna", OPENAI_API_KEY: "k", AI_REASONING_EFFORT: "Medium" }).effort, "medium");
+  // blank AI_MODEL still means Luna, never another model
+  assert.equal(providerConfig({ AI_MODEL: "  ", OPENAI_API_KEY: "k" }).model, "gpt-6-luna");
 });
 
-test("an unsupported parameter is dropped and the call retried once", async () => {
-  const bodies = [];
+test("an invalid effort or provider fails clearly instead of being guessed", () => {
+  assert.throws(() => providerConfig({ OPENAI_API_KEY: "k", AI_REASONING_EFFORT: "turbo" }), (e) => e.config === true && /AI_REASONING_EFFORT/.test(e.message));
+  assert.throws(() => providerConfig({ AI_PROVIDER: "sol", OPENAI_API_KEY: "k" }), (e) => e.config === true);
+  assert.throws(() => providerConfig({ AI_PROVIDER: "openai" }), /OPENAI_API_KEY is not set/);
+});
+
+test("reasoning_effort none is always sent with tools on the Chat Completions path", () => {
+  const body = openaiBody(providerConfig({ OPENAI_API_KEY: "k" }), msgs);
+  assert.equal(body.model, "gpt-6-luna");
+  assert.equal(body.reasoning_effort, "none");
+  assert.equal(body.tools.length, 1);
+  assert.equal(body.tool_choice, "auto");
+  // even a hand-built config without effort gets the explicit default
+  assert.equal(openaiBody({ provider: "openai", model: "gpt-6-luna" }, msgs).reasoning_effort, "none");
+});
+
+test("a rejected reasoning_effort or tools parameter fails loudly; nothing is silently stripped", async () => {
+  for (const param of ["reasoning_effort", "tools", "max_completion_tokens"]) {
+    const bodies = [];
+    const realFetch = globalThis.fetch;
+    globalThis.fetch = async (url, init) => {
+      bodies.push(JSON.parse(init.body));
+      return { ok: false, status: 400, json: async () => ({ error: { message: `Unsupported parameter: '${param}' is not supported with this model.` } }) };
+    };
+    try {
+      await assert.rejects(makeStep({ provider: "openai", model: "gpt-6-luna", key: "k", effort: "none" })(msgs), (e) => e.config === true && e.message.includes(param));
+      assert.equal(bodies.length, 1, "no retry without the parameter");
+    } finally {
+      globalThis.fetch = realFetch;
+    }
+  }
+});
+
+test("usage is reported from the provider response", async () => {
   const realFetch = globalThis.fetch;
-  globalThis.fetch = async (url, init) => {
-    const body = JSON.parse(init.body);
-    bodies.push(body);
-    if (bodies.length === 1) return { ok: false, status: 400, json: async () => ({ error: { message: "Unsupported parameter: 'reasoning_effort' is not supported with this model." } }) };
-    return { ok: true, status: 200, json: async () => ({ choices: [{ message: { content: "Hello", tool_calls: [{ id: "c1", function: { name: "t", arguments: "{\"a\":1}" } }] } }] }) };
-  };
+  globalThis.fetch = async () => ({ ok: true, status: 200, json: async () => ({ choices: [{ message: { content: "Hi" } }], usage: { prompt_tokens: 120, completion_tokens: 30 } }) });
   try {
-    const out = await makeStep({ provider: "openai", model: "m", key: "k", effort: "low" })(msgs);
-    assert.equal(out.text, "Hello");
-    assert.deepEqual(out.toolCalls, [{ id: "c1", name: "t", args: { a: 1 } }]);
-    assert.equal(bodies.length, 2);
-    assert.equal("reasoning_effort" in bodies[1], false);
+    const out = await makeStep({ provider: "openai", model: "gpt-6-luna", key: "k", effort: "none" })(msgs);
+    assert.deepEqual(out.usage, { input: 120, output: 30 });
   } finally {
     globalThis.fetch = realFetch;
   }

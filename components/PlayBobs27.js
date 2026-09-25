@@ -82,7 +82,8 @@ export default function PlayBobs27({ game, resume, onProgress, onFinish, onQuit,
   };
 
   const addDart = (raw) => {
-    const next = [...turnDarts, stamp(raw, game.startedAt)];
+    // the drill defines the target: this round's double
+    const next = [...turnDarts, { ...stamp(raw, game.startedAt), a: { n: target.n, mult: 2 } }];
     if (next.length === 3) return commit(next);
     setTurnDarts(next);
   };

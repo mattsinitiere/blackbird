@@ -3,7 +3,12 @@
 import { useState, useEffect, useMemo, useCallback, useRef, useLayoutEffect } from "react";
 import { useRouter } from "next/navigation";
 import { supabase, isConfigured } from "@/lib/supabase";
-import { getPlayers, addPlayer as dbAddPlayer, linkPlayerAuth as dbLinkPlayerAuth, setPlayerHidden as dbSetPlayerHidden, setPlayerColor as dbSetPlayerColor, updatePlayerProfile as dbUpdatePlayerProfile, getGameResults, recordGame, getFollows, getGameRowsForSync, getEloFor, getMyEvents, recordEvents, followPlayer as dbFollowPlayer, unfollowPlayer as dbUnfollowPlayer } from "@/lib/db";
+import { getPlayers, addPlayer as dbAddPlayer, linkPlayerAuth as dbLinkPlayerAuth, setPlayerHidden as dbSetPlayerHidden, setPlayerColor as dbSetPlayerColor, updatePlayerProfile as dbUpdatePlayerProfile, getGameResults, recordGame, getFollows, getGameRowsForSync, getEloFor, getMyEvents, recordEvents, followPlayer as dbFollowPlayer, unfollowPlayer as dbUnfollowPlayer, getPlans, deletePlan as dbDeletePlan, recordPlanCompletion } from "@/lib/db";
+import { planGame } from "@/lib/planLaunch";
+import { planProgress, itemLabel } from "@/lib/trainingPlans";
+import { merlinState } from "@/lib/merlin";
+import { hintPrefs } from "@/lib/strategy/prefs";
+import { doubleRates } from "@/lib/strategy/evidence";
 import { followingUsernames, followerUsernames, circlePlayers as circleOf, followsForSocial } from "@/lib/follows";
 import { normalizeHandle, validateHandle } from "@/lib/profile";
 import { PROFILE_PARAM, resolveProfileParam } from "@/lib/profileLink";
@@ -294,6 +299,18 @@ export default function Page() {
     router.replace(signingOutRef.current ? "/" : `/login?next=${encodeURIComponent(`/app${search}`)}`);
   }, [authReady, session, router]);
 
+  // training plans (lib/trainingPlans.js): { plans: [] | null (not set up), completions, loading, error }
+  const [planState, setPlanState] = useState({ plans: undefined, completions: [], loading: true, error: "" });
+  const [planNotice, setPlanNotice] = useState("");
+  const loadPlans = useCallback(async () => {
+    try {
+      const r = await getPlans();
+      setPlanState({ ...r, loading: false, error: "" });
+    } catch (e) {
+      setPlanState((st) => ({ ...st, loading: false, error: "Couldn't load your training plans." }));
+    }
+  }, []);
+
   const refresh = useCallback(async () => {
     try {
       const [p, r, f] = await Promise.all([getPlayers(), getGameResults(), getFollows()]);
@@ -312,8 +329,9 @@ export default function Page() {
     if (session) {
       setDataReady(false);
       refresh();
+      loadPlans();
     }
-  }, [session, refresh]);
+  }, [session, refresh, loadPlans]);
 
   useEffect(() => {
     if (!session) return;
@@ -506,6 +524,16 @@ export default function Page() {
   }, [players, session]);
 
   const userId = session?.user?.id || null;
+  // a saved plan game counts toward its plan; written only after the result
+  // row exists, keyed by game id, so retries and syncs never double-count
+  const completePlanItem = useCallback(async (match) => {
+    const link = match?.config?.plan;
+    if (!link?.id || !match.gameId) return;
+    const r = await recordPlanCompletion({ planId: link.id, session: link.s, item: link.i, gameId: match.gameId });
+    if (!r.ok) setPlanNotice(r.reason === "gone" ? "This plan was deleted, so the game was saved as ordinary practice." : "Your game is saved, but its plan progress couldn't be recorded yet.");
+    await loadPlans();
+  }, [loadPlans]);
+
   const saveMatch = useCallback(async (match, eloAfter, ranked) => {
     setSaveState("saving");
     setSaveError("");
@@ -524,13 +552,14 @@ export default function Page() {
       });
       await refresh();
       setSaveState("saved");
+      await completePlanItem(match);
     } catch (e) {
       // keep it on this phone and send it later, instead of losing the game
       setPendingCount(enqueuePending(userId, { match, ranked }));
       setSaveState("queued");
       setSaveError(typeof navigator !== "undefined" && navigator.onLine === false ? "" : e?.message || "");
     }
-  }, [refresh, elo, userId]);
+  }, [refresh, elo, userId, completePlanItem]);
 
   // send games that couldn't be saved: on open, when the connection
   // returns, and when the app comes back to the foreground
@@ -538,7 +567,11 @@ export default function Page() {
   const flushQueue = useCallback(async () => {
     if (!userId || !readPending(userId).length) return;
     if (typeof navigator !== "undefined" && navigator.onLine === false) return;
-    const { saved, left } = await flushPending(userId, { existingRows: getGameRowsForSync, currentElo: getEloFor, record: recordGame });
+    const record = async (args) => {
+      await recordGame(args);
+      await completePlanItem({ gameId: args.gameId, config: args.config });
+    };
+    const { saved, left } = await flushPending(userId, { existingRows: getGameRowsForSync, currentElo: getEloFor, record });
     setPendingCount(left);
     if (saved.length) {
       if (saved.includes(finishedIdRef.current)) {
@@ -547,7 +580,7 @@ export default function Page() {
       }
       await refresh();
     }
-  }, [userId, refresh]);
+  }, [userId, refresh, completePlanItem]);
   useEffect(() => {
     if (!userId) return;
     setPendingCount(readPending(userId).length);
@@ -636,6 +669,82 @@ export default function Page() {
     setFinished(null);
     setView(PLAY_VIEWS[game.gameType] || "playX01");
   }, [persistLive]);
+
+  // my own rows (Alter Ego profiles, plan playability)
+  const myRows = useMemo(() => [...results, ...practice].filter((r) => r.username === myName), [results, practice, myName]);
+
+  // start (or resume on this device) the next item of a plan session
+  const launchPlanItem = useCallback((plan, session, item) => {
+    const def = plan?.definition;
+    if (!def?.sessions?.[session]) return;
+    const i = item ?? 0;
+    const link = live?.config?.plan;
+    if (link?.id === plan.id && link.s === session) {
+      setView(PLAY_VIEWS[live.gameType] || "playX01");
+      return;
+    }
+    const out = planGame({ planId: plan.id, session, item: i, total: def.sessions[session].items.length, planItem: def.sessions[session].items[i], me: myName, rows: myRows });
+    if (out.error) {
+      setNotice(out.error);
+      return;
+    }
+    setPlanNotice("");
+    startGame(out.game);
+  }, [live, myName, myRows, startGame]);
+
+  // strategy hints: the user's hint settings plus doubles evidence from
+  // drills with known targets (computed once from saved rows, not per dart)
+  const hintCtx = useMemo(() => {
+    const prefs = hintPrefs(session?.user?.user_metadata || {});
+    return { prefs, evidence: prefs.mode === "personalized" ? doubleRates(myRows, { me: myName }) : null };
+  }, [session, myRows, myName]);
+
+  // Merlin's Home card: deterministic, from saved plans, progress and results
+  const merlinCard = useMemo(
+    () => merlinState({ plans: planState.plans, completions: planState.completions, liveGame: live, rows: myRows, me: myName }),
+    [planState, live, myRows, myName]
+  );
+  const onMerlinAction = useCallback((a) => {
+    if (a.kind === "resume" && live) setView(PLAY_VIEWS[live.gameType] || "playX01");
+    else if (a.kind === "startPlan") {
+      const plan = (planState.plans || []).find((p) => p.id === a.planId);
+      if (plan) launchPlanItem(plan, a.session, a.item);
+    } else if (a.kind === "askAI") askAI("What should I work on next? Use my recent games and my training plan progress.");
+    else setView("practice");
+  }, [live, planState, launchPlanItem, askAI]);
+
+  // after a plan game: the next drill in that session, or the plan
+  const planStep = useMemo(() => {
+    const link = finished?.match?.config?.plan;
+    if (!link?.id) return null;
+    const plan = (planState.plans || []).find((p) => p.id === link.id);
+    if (!plan) return { planTitle: "Deleted plan", headline: "Saved as practice", note: planNotice || "This plan no longer exists, so the game counts as ordinary practice." };
+    const def = plan.definition;
+    const done = [...(planState.completions || []).filter((c) => c.plan_id === plan.id)];
+    // count this game as soon as it's saved (the completion row follows it)
+    if (saveState === "saved" && !done.some((c) => c.session_idx === link.s && c.item_idx === link.i)) done.push({ session_idx: link.s, item_idx: link.i });
+    const pr = planProgress(def, done);
+    const sess = pr.sessions[link.s];
+    const nextInSession = sess ? sess.items.findIndex((x) => !x) : -1;
+    const note = planNotice || (saveState === "queued" ? "Progress will be recorded when this game syncs." : saveState === "saving" ? "Saving…" : null);
+    if (sess && !sess.complete && nextInSession >= 0) {
+      const it = def.sessions[link.s].items[nextInSession];
+      return {
+        planTitle: def.title,
+        headline: `${def.sessions[link.s].title}: ${sess.done} of ${sess.total} done`,
+        note,
+        nextLabel: `Next: ${it.label || itemLabel(it)}`,
+        onNext: () => launchPlanItem(plan, link.s, nextInSession),
+        onViewPlan: () => setView("practice"),
+      };
+    }
+    return {
+      planTitle: def.title,
+      headline: pr.completed ? "Plan complete" : `${def.sessions[link.s]?.title || "Session"} complete · ${pr.completeSessions} of ${pr.totalSessions} sessions`,
+      note,
+      onViewPlan: () => setView("practice"),
+    };
+  }, [finished, planState, planNotice, saveState, launchPlanItem]);
 
   useLayoutEffect(() => {
     if (scrollRef.current) scrollRef.current.scrollTop = 0;
@@ -792,7 +901,7 @@ export default function Page() {
         )}
 
         {view === "home" && (
-          <Home setView={setView} openSetup={openSetup} stats={stats} elo={elo} players={circlePlayers} results={results} me={myName} openProfile={openProfile} playerColors={playerColors} practice={practice} social={social} following={following ? [...following] : []} userId={session.user?.id} onPlayAgain={(g) => startGame(rematchGame(g))} pendingCount={pendingCount} onSyncNow={flushQueue} />
+          <Home setView={setView} openSetup={openSetup} stats={stats} elo={elo} players={circlePlayers} results={results} me={myName} openProfile={openProfile} playerColors={playerColors} practice={practice} social={social} following={following ? [...following] : []} userId={session.user?.id} onPlayAgain={(g) => startGame(rematchGame(g))} pendingCount={pendingCount} onSyncNow={flushQueue} merlin={merlinCard} onMerlinAction={onMerlinAction} />
         )}
         {view === "setup" && (
           <Setup
@@ -811,7 +920,25 @@ export default function Page() {
           <BotSetup key={botInitial?.key || "bots"} me={myName} ladder={ladder} initial={botInitial} onStart={startGame} back={() => setView(botFrom)} />
         )}
         {view === "practice" && (
-          <Practice practice={practice} me={myName} onStart={(initial) => (initial?.bot ? openBots(initial, "practice") : openSetup(initial))} openGame={openGame} back={() => setView("home")} playerColors={playerColors} onAskAI={askAI} />
+          <Practice
+            practice={practice}
+            me={myName}
+            onStart={(initial) => (initial?.bot ? openBots(initial, "practice") : openSetup(initial))}
+            openGame={openGame}
+            back={() => setView("home")}
+            playerColors={playerColors}
+            onAskAI={askAI}
+            myRows={myRows}
+            plans={planState}
+            onRefreshPlans={loadPlans}
+            onDeletePlan={async (id) => {
+              await dbDeletePlan(id);
+              await loadPlans();
+            }}
+            onLaunchPlan={launchPlanItem}
+            onStartGame={startGame}
+            liveGame={live}
+          />
         )}
         {((ALL_PLAY_VIEWS.includes(view) && live) || view === "summary") && castAvailable() && (
           <div className="card pad-sm mb-12" style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
@@ -838,8 +965,8 @@ export default function Page() {
             )}
           </div>
         )}
-        {view === "playX01" && live && <PlayX01 game={live} resume={liveProgress.current} onProgress={saveProgress} onFinish={finishMatch} onQuit={askQuit} castActive={!!castCode} playerColors={playerColors} />}
-        {view === "playCricket" && live && <PlayCricket game={live} resume={liveProgress.current} onProgress={saveProgress} onFinish={finishMatch} onQuit={askQuit} castActive={!!castCode} playerColors={playerColors} />}
+        {view === "playX01" && live && <PlayX01 game={live} resume={liveProgress.current} onProgress={saveProgress} onFinish={finishMatch} onQuit={askQuit} castActive={!!castCode} playerColors={playerColors} hints={hintCtx} me={myName} />}
+        {view === "playCricket" && live && <PlayCricket game={live} resume={liveProgress.current} onProgress={saveProgress} onFinish={finishMatch} onQuit={askQuit} castActive={!!castCode} playerColors={playerColors} hints={hintCtx} />}
         {view === "playBaseball" && live && <PlayBaseball game={live} resume={liveProgress.current} onProgress={saveProgress} onFinish={finishMatch} onQuit={askQuit} castActive={!!castCode} playerColors={playerColors} />}
         {view === "playAroundTheClock" && live && <PlayAroundTheClock game={live} resume={liveProgress.current} onProgress={saveProgress} onFinish={finishMatch} onQuit={askQuit} castActive={!!castCode} playerColors={playerColors} />}
         {view === "playKiller" && live && <PlayKiller game={live} resume={liveProgress.current} onProgress={saveProgress} onFinish={finishMatch} onQuit={askQuit} castActive={!!castCode} playerColors={playerColors} />}
@@ -871,6 +998,7 @@ export default function Page() {
             onChooseBot={() => openBots({ bot: finished.botId, gameType: finished.match?.gameType }, "practice")}
             onPlayBot={(id) => openBots({ bot: id, gameType: finished.match?.gameType }, "practice")}
             onPracticeHub={() => setView("practice")}
+            planStep={planStep}
             onDone={() => setView(finished.summary.ranked ? "leaderboard" : "home")}
             playerColors={playerColors}
           />
