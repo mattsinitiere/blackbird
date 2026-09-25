@@ -6,6 +6,7 @@ import { supabase, isConfigured } from "@/lib/supabase";
 import { getPlayers, addPlayer as dbAddPlayer, linkPlayerAuth as dbLinkPlayerAuth, setPlayerHidden as dbSetPlayerHidden, setPlayerColor as dbSetPlayerColor, updatePlayerProfile as dbUpdatePlayerProfile, getGameResults, recordGame, getFollows, getGameRowsForSync, getEloFor, getMyEvents, recordEvents, followPlayer as dbFollowPlayer, unfollowPlayer as dbUnfollowPlayer, getPlans, deletePlan as dbDeletePlan, recordPlanCompletion } from "@/lib/db";
 import { planGame } from "@/lib/planLaunch";
 import { planProgress, itemLabel } from "@/lib/trainingPlans";
+import { merlinState } from "@/lib/merlin";
 import { followingUsernames, followerUsernames, circlePlayers as circleOf, followsForSocial } from "@/lib/follows";
 import { normalizeHandle, validateHandle } from "@/lib/profile";
 import { PROFILE_PARAM, resolveProfileParam } from "@/lib/profileLink";
@@ -689,6 +690,20 @@ export default function Page() {
     startGame(out.game);
   }, [live, myName, myRows, startGame]);
 
+  // Merlin's Home card: deterministic, from saved plans, progress and results
+  const merlinCard = useMemo(
+    () => merlinState({ plans: planState.plans, completions: planState.completions, liveGame: live, rows: myRows, me: myName }),
+    [planState, live, myRows, myName]
+  );
+  const onMerlinAction = useCallback((a) => {
+    if (a.kind === "resume" && live) setView(PLAY_VIEWS[live.gameType] || "playX01");
+    else if (a.kind === "startPlan") {
+      const plan = (planState.plans || []).find((p) => p.id === a.planId);
+      if (plan) launchPlanItem(plan, a.session, a.item);
+    } else if (a.kind === "askAI") askAI("What should I work on next? Use my recent games and my training plan progress.");
+    else setView("practice");
+  }, [live, planState, launchPlanItem, askAI]);
+
   // after a plan game: the next drill in that session, or the plan
   const planStep = useMemo(() => {
     const link = finished?.match?.config?.plan;
@@ -877,7 +892,7 @@ export default function Page() {
         )}
 
         {view === "home" && (
-          <Home setView={setView} openSetup={openSetup} stats={stats} elo={elo} players={circlePlayers} results={results} me={myName} openProfile={openProfile} playerColors={playerColors} practice={practice} social={social} following={following ? [...following] : []} userId={session.user?.id} onPlayAgain={(g) => startGame(rematchGame(g))} pendingCount={pendingCount} onSyncNow={flushQueue} />
+          <Home setView={setView} openSetup={openSetup} stats={stats} elo={elo} players={circlePlayers} results={results} me={myName} openProfile={openProfile} playerColors={playerColors} practice={practice} social={social} following={following ? [...following] : []} userId={session.user?.id} onPlayAgain={(g) => startGame(rematchGame(g))} pendingCount={pendingCount} onSyncNow={flushQueue} merlin={merlinCard} onMerlinAction={onMerlinAction} />
         )}
         {view === "setup" && (
           <Setup

@@ -4855,3 +4855,67 @@ html:not([data-theme="dark"]) .app.is-profile {
   font-size: calc(13px * var(--fs));
   color: var(--ink-soft);
 }
+
+/* ---------- Merlin (components/MerlinCard.js) ---------- */
+.merlin {
+  border-left: 3px solid var(--accent);
+}
+.merlin-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.merlin-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: var(--accent-soft);
+  color: var(--accent);
+  flex: none;
+}
+.merlin-id {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.15;
+}
+.merlin-name {
+  font-weight: 700;
+  font-size: calc(14px * var(--fs));
+}
+.merlin-tag {
+  font-size: calc(12px * var(--fs));
+  color: var(--muted);
+}
+.merlin-headline {
+  margin: 10px 0 4px;
+  font-family: var(--font-display-stack);
+  font-size: calc(18px * var(--fs));
+}
+.merlin-body {
+  margin: 0;
+  font-size: calc(14px * var(--fs));
+  line-height: 1.45;
+  color: var(--ink-soft);
+}
+.merlin-note {
+  margin: 6px 0 0;
+  font-size: calc(12px * var(--fs));
+  color: var(--muted);
+}
+.merlin-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+  flex-wrap: wrap;
+}
+.merlin-actions .btn {
+  flex: 1 1 140px;
+  min-height: 44px;
+  font-weight: 700;
+}
+.merlin.is-loading .merlin-headline {
+  color: var(--muted);
+}
