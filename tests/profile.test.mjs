@@ -46,5 +46,5 @@ test("tags: normalise, validate, icons, format", () => {
   assert.equal(tagLabel({ tag: "BB", tagIcon: "crown" }), "Crown BB");
   assert.equal(tagLabel({ tag: "BB" }), "BB");
   assert.equal(tagLabel({}), "");
-  assert.equal(TAG_ICONS.length, 12);
+  assert.equal(TAG_ICONS.length, 24);
 });

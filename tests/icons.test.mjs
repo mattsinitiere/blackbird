@@ -35,3 +35,15 @@ test("every bot has its own portrait", async () => {
   const { BOTS } = await import("../lib/bots.js");
   for (const b of BOTS) assert.ok(src.includes(`"${b.id}": () =>`), `${b.id} has no portrait`);
 });
+
+test("the migration's allowed tag icons and covers match the app's lists", async () => {
+  const fs = await import("node:fs");
+  const sql = fs.readFileSync(new URL("../supabase/migration-tag-icons-covers.sql", import.meta.url), "utf8");
+  const { COVERS } = await import("../lib/covers.js");
+  const list = (constraint) => {
+    const m = sql.match(new RegExp(`${constraint}[\\s\\S]*?in \\(([\\s\\S]*?)\\)\\)`));
+    return [...m[1].matchAll(/'([a-z]+)'/g)].map((x) => x[1]).sort();
+  };
+  assert.deepEqual(list("players_tag_icon_set"), TAG_ICONS.map((t) => t.id).sort());
+  assert.deepEqual(list("players_cover_set"), COVERS.map((c) => c.id).sort());
+});

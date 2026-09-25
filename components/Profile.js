@@ -144,7 +144,7 @@ export default function Profile({
       <div className="pf-layout">
         <div className="pf-main">
           <section className="card pf-head" aria-label={`${user}'s profile`}>
-            <ProfileCover />
+            <ProfileCover cover={player?.cover} />
             <ProfileIdentity
               user={user}
               player={player}

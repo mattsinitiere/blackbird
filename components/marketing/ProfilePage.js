@@ -11,7 +11,7 @@ import { updatePlayerProfile, setPlayerColor, isHandleAvailable } from "@/lib/db
 import { normalizeHandle, validateHandle, suggestHandle, validateTag, BIO_MAX, LOCATION_MAX } from "@/lib/profile";
 import TagEditor from "@/components/TagEditor";
 import BadgeMedal from "@/components/BadgeMedal";
-import { PLAYER_COLORS, defaultPlayerColor } from "@/lib/constants";
+import { PICKER_COLORS, defaultPlayerColor } from "@/lib/constants";
 import { PlayerBadge, TagPill } from "@/components/ui";
 
 function announce() {
@@ -93,7 +93,7 @@ function ProfileForm({ user, player, color, onSaved, session }) {
   const [msg, setMsg] = useState("");
   const [good, setGood] = useState(false);
   const [colorBusy, setColorBusy] = useState(false);
-  const [custom, setCustom] = useState(PLAYER_COLORS.includes(color) ? "" : color);
+  const [custom, setCustom] = useState(PICKER_COLORS.includes(color) ? "" : color);
   const [tag, setTag] = useState(player.tag || "");
   const [tagIcon, setTagIcon] = useState(player.tagIcon || null);
   const tagCheck = validateTag(tag);
@@ -151,7 +151,7 @@ function ProfileForm({ user, player, color, onSaved, session }) {
     setMsg("");
     try {
       await setPlayerColor(player.username, hex);
-      setCustom(PLAYER_COLORS.includes(hex) ? "" : hex);
+      setCustom(PICKER_COLORS.includes(hex) ? "" : hex);
       announce();
       onSaved && onSaved();
     } catch (e) {
@@ -270,7 +270,7 @@ function ProfileForm({ user, player, color, onSaved, session }) {
 
         <div className="tag" style={{ margin: "16px 0 8px" }}>Player colour</div>
         <div className="mk-profile-colors" role="group" aria-label="Player colour">
-          {PLAYER_COLORS.map((hex) => (
+          {PICKER_COLORS.map((hex) => (
             <button
               key={hex}
               type="button"

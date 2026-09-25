@@ -356,14 +356,17 @@ export function StatsIcon(props) {
   );
 }
 
-/** Two players facing off. */
+/** Two darts crossed: head to head. */
 export function MatchupIcon(props) {
   return (
     <NavSvg {...props}>
-      <circle cx="7" cy="8" r="3" />
-      <circle cx="17" cy="8" r="3" />
-      <path d="M2 20a5 5 0 0 1 10 0" />
-      <path d="M12 20a5 5 0 0 1 10 0" />
+      {/* two darts crossed like swords: head to head */}
+      <path d="M21 3l-3.2.9-5.3 5.3 2.3 2.3 5.3-5.3L21 3z" />
+      <path d="M12.7 11.3L5.5 18.5" />
+      <path d="M5.5 18.5L2.5 19l.6-3.1 2.4 2.6z" />
+      <path d="M3 3l3.2.9 5.3 5.3-2.3 2.3-5.3-5.3L3 3z" />
+      <path d="M11.3 11.3l7.2 7.2" />
+      <path d="M18.5 18.5l3 .5-.6-3.1-2.4 2.6z" />
     </NavSvg>
   );
 }

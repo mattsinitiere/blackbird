@@ -1,4 +1,6 @@
+import { useState } from "react";
 import { CATEGORIES } from "@/lib/achievements";
+import BadgeDetail from "./BadgeDetail";
 import BadgeMedal from "./BadgeMedal";
 
 function fmtDate(iso) {
@@ -16,6 +18,7 @@ function fmtDate(iso) {
  * something. "New" marks badges the owner has not seen yet.
  */
 export default function AchievementsCard({ badges, isMe, seen }) {
+  const [open, setOpen] = useState(null);
   if (!badges || !badges.length) return null;
   const unlocked = badges.filter((b) => b.unlocked).length;
   return (
@@ -35,7 +38,7 @@ export default function AchievementsCard({ badges, isMe, seen }) {
                 const isNew = isMe && b.unlocked && seen && !seen.has(b.id);
                 const pct = b.progress && b.progress.target ? Math.round((b.progress.value / b.progress.target) * 100) : 0;
                 return (
-                  <div key={b.id} className={`badge-tile${b.unlocked ? "" : " locked"}`} title={b.description}>
+                  <button type="button" key={b.id} className={`badge-tile${b.unlocked ? "" : " locked"}`} onClick={() => setOpen(b)} aria-label={`${b.title}: ${b.unlocked ? "unlocked" : "locked"}. Details`}>
                     {isNew && <span className="badge-new">New</span>}
                     <BadgeMedal badge={b} locked={!b.unlocked} size={46} className="badge-icon" />
                     <div className="badge-title">{b.title}</div>
@@ -53,13 +56,14 @@ export default function AchievementsCard({ badges, isMe, seen }) {
                     ) : (
                       <div className="badge-meta">{b.description}</div>
                     )}
-                  </div>
+                  </button>
                 );
               })}
             </div>
           </div>
         );
       })}
+      {open && <BadgeDetail badge={open} onClose={() => setOpen(null)} />}
     </div>
   );
 }

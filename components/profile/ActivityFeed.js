@@ -3,6 +3,7 @@ import { PlayerBadge } from "../ui";
 import { playerLabel } from "@/lib/bots";
 import { ActionLink } from "./icons";
 import BadgeMedal from "../BadgeMedal";
+import BadgeDetail from "../BadgeDetail";
 
 const PAGE = 10;
 
@@ -106,6 +107,7 @@ function MatchCard({ m, user, playerColors, openGame }) {
 
 /** One card for the achievements unlocked on the same day. */
 function AchievementPost({ group, user, playerColors, seen, isMe }) {
+  const [open, setOpen] = useState(null);
   const first = group[0];
   const many = group.length > 1;
   return (
@@ -121,7 +123,7 @@ function AchievementPost({ group, user, playerColors, seen, isMe }) {
       </header>
       <ul className="pf-badge-list">
         {group.map((a) => (
-          <li key={a.key} className="pf-badge-row">
+          <li key={a.key} className="pf-badge-row" role="button" tabIndex={0} onClick={() => setOpen(a.badge)} onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && (e.preventDefault(), setOpen(a.badge))} aria-label={`${a.badge.title}. Details`}>
             <BadgeMedal badge={a.badge} size={48} className="pf-badge-icon" />
             <div style={{ minWidth: 0, flex: 1 }}>
               <div className="pf-post-title" style={{ margin: 0 }}>{a.badge.title}</div>
@@ -131,6 +133,7 @@ function AchievementPost({ group, user, playerColors, seen, isMe }) {
           </li>
         ))}
       </ul>
+      {open && <BadgeDetail badge={open} onClose={() => setOpen(null)} />}
     </article>
   );
 }

@@ -89,7 +89,12 @@ function useDragReorder(selected, setSelected) {
 
 export default function Setup({ players, onStart, back, me, playerColors, initial = null, onOpenFriends = null, onOpenBots = null }) {
   const meName = (me || "").trim();
-  const [selected, setSelected] = useState(meName ? [meName] : []);
+  // a rematch from Home arrives with its players already chosen
+  const [selected, setSelected] = useState(() => {
+    const names = new Set(players.map((p) => p.username));
+    const wanted = (initial?.players || []).filter((u) => names.has(u));
+    return wanted.length ? wanted : meName ? [meName] : [];
+  });
   const [gameType, setGameType] = useState(initial?.gameType || "x01");
   const [startScore, setStartScore] = useState(501);
   const [doubleOut, setDoubleOut] = useState(true);

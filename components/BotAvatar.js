@@ -2,121 +2,113 @@ import { useId } from "react";
 import { botFor } from "@/lib/bots";
 
 /**
- * Bot portraits: each bot is a bird character that matches its name, drawn
- * as flat vector shapes on a disc tinted from the bot's colour, with a
- * ring in that colour. Profile view facing right; the same bust silhouette
- * and eye for every bird so the set reads as one family. Pure SVG, no
- * images, so it stays sharp from a 20px scoreboard chip to a 96px hero.
+ * Bot portraits in the same language as the achievement medals: a disc in
+ * the bot's colour with a soft sheen and inner ring, and the bird drawn as
+ * white line art (round caps, one stroke weight) facing right. Each bird
+ * keeps one or two signature details, and a few carry a colour accent:
+ * Rook's learner plate, Falcon's and Kestrel's eye-rings, Magpie's glint,
+ * Blackbird's gold beak and crown. Pure SVG, sharp at any size.
  */
 
-// shared bust silhouette: shoulders at the bottom, head top-centre, facing right
-const BUST = "M10 66C10 52 13 42 20 35C24 25 31 20 39 20C47 20 52 26 52 33C52 39 49 44 47 48C51 53 54 59 54 66Z";
-const Eye = ({ x = 42, y = 30, r = 3, ring = null, lid = false, look = 0.9 }) => (
-  <g>
-    {ring && <circle cx={x} cy={y} r={r + 1.6} fill={ring} />}
-    <circle cx={x} cy={y} r={r} fill="#fff" />
-    <circle cx={x + look} cy={y} r={r * 0.55} fill="#111" />
-    <circle cx={x + look + 0.6} cy={y - 0.8} r={r * 0.18} fill="#fff" />
-    {lid && <path d={`M${x - r - 0.5} ${y - 0.6}h${2 * r + 1}`} stroke="#111" strokeWidth="1.8" strokeLinecap="round" />}
-  </g>
-);
+const W = "#ffffff";
+// shared bust outline: shoulders open at the bottom, head top-centre
+const BUST = "M15 54C15 43 18 35 23.5 30.5C26.5 23.5 32 19.5 38 19.5C44.5 19.5 48.5 24 48.5 29.5C48.5 34 46.5 37.5 45 40C47.5 43.5 49 48 49 54";
+const BEAK = "M48 26.8L55.5 29.8L48 32.8";
+const eye = (x = 40.5, y = 27.5, r = 2.1) => <circle cx={x} cy={y} r={r} fill={W} stroke="none" />;
 
 const BIRDS = {
-  // L1: a young rook, pale bare face, a little lost, learner plate on
+  // L1: bare pale face patch and a learner plate
   "bot:rook": () => (
     <>
-      <path d={BUST} fill="#34373e" />
-      <ellipse cx="48" cy="33" rx="6" ry="5.5" fill="#d8d2c8" />
-      <path d="M50 29L62 33.5L50 37Z" fill="#bdb6ab" />
-      <Eye x={41} y={29} r={3.2} look={-0.6} />
-      <rect x="15" y="47" width="12" height="12" rx="2" fill="#fff" stroke="#d63a3a" strokeWidth="1.2" />
-      <path d="M19 50v6.2h5" fill="none" stroke="#d63a3a" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+      <path d={BUST} />
+      <path d={BEAK} />
+      <circle cx="46" cy="29.8" r="4.6" />
+      {eye(39.5, 27, 2.1)}
+      <rect x="18" y="38" width="10" height="10" rx="2" fill="#fff" stroke="#e03a3a" strokeWidth="1.6" />
+      <path d="M21.3 40.6v5h4" stroke="#e03a3a" strokeWidth="2" />
     </>
   ),
-  // L2: round brown pub sparrow with a black bib and pale cheek
+  // L2: capped head, cheek patch, little bib
   "bot:sparrow": () => (
     <>
-      <path d={BUST} fill="#a8774b" />
-      <path d="M22 33C25 24 32 20 39 20C45 20 49 23 51 27C44 25 36 27 30 33Z" fill="#7a5433" />
-      <ellipse cx="39" cy="37" rx="7" ry="5" fill="#efe3cf" />
-      <path d="M47 39C50 42 49 47 46 49C44 46 44 42 47 39Z" fill="#2b2522" />
-      <path d="M50 30L58 33.5L50 37Z" fill="#3b302a" />
-      <Eye x={43} y={30} r={2.8} />
+      <path d={BUST} />
+      <path d={BEAK} />
+      <path d="M25 30C29 24.5 34.5 22 41 22.3" />
+      <ellipse cx="36.5" cy="32.5" rx="4.2" ry="3" />
+      <path d="M45 35.5c2 2 2 5 .2 7" />
+      {eye()}
     </>
   ),
-  // L3: blue jay, crest up, black necklace
+  // L3: swept crest and a necklace
   "bot:jay": () => (
     <>
-      <path d={BUST} fill="#3f7fe0" />
-      <path d="M22 32L11 17L25 24L22 11L32 21L35 13L40 22Z" fill="#3f7fe0" />
-      <path d="M36 32C40 29 47 29 52 33C51 39 49 43 46 47C41 45 37 39 36 32Z" fill="#f3f6fb" />
-      <path d="M33 49C39 53 45 52 48 46" fill="none" stroke="#141414" strokeWidth="2.6" strokeLinecap="round" />
-      <path d="M50 30L59 33.5L50 37Z" fill="#161616" />
-      <Eye x={43} y={30} r={2.8} />
-      <path d="M16 56l6-3M17 61l7-3" stroke="#fff" strokeWidth="2" strokeLinecap="round" />
+      <path d={BUST} />
+      <path d={BEAK} />
+      <path d="M26 27.5L17 17l9.5 4.2-1.2-9.2 7.6 7.8 3.2-6.8 2.3 7" />
+      <path d="M27 47.5c5 2 10.5 1.5 14.5-2.5" />
+      {eye()}
     </>
   ),
-  // L4: magpie, black and white with a green-blue sheen, eyeing a glint
+  // L4: white belly edge and the glint it's after
   "bot:magpie": () => (
     <>
-      <path d={BUST} fill="#141619" />
-      <path d="M10 66C10 56 12 49 16 44C22 47 28 53 31 66Z" fill="#f7f7f5" />
-      <path d="M24 31C29 23 37 20 45 22" fill="none" stroke="#2dd4bf" strokeOpacity="0.75" strokeWidth="2.4" strokeLinecap="round" />
-      <path d="M50 30L60 33L50 36.5Z" fill="#0b0b0b" />
-      <Eye x={42} y={29} r={2.7} look={1.3} />
-      <path d="M55 19l1.2 3 3 1.2-3 1.2-1.2 3-1.2-3-3-1.2 3-1.2z" fill="#fbbf24" />
+      <path d={BUST} />
+      <path d={BEAK} />
+      <path d="M15.5 44c6.5 1 11.5 5 13.5 10" />
+      <path d="M26 29c4-5 9-7.5 14.5-7.2" strokeOpacity="0.55" />
+      {eye(40.5, 27.5, 2.1)}
+      <path d="M53 14.5l1.1 2.8 2.8 1.1-2.8 1.1-1.1 2.8-1.1-2.8-2.8-1.1 2.8-1.1z" fill="#fbbf24" stroke="none" />
     </>
   ),
-  // L5: raven, heavy beak, shaggy throat, unbothered sideways look
+  // L5: heavy beak, throat hackles, half-lidded side-eye
   "bot:raven": () => (
     <>
-      <path d={BUST} fill="#15121c" />
-      <path d="M26 30C31 23 38 21 46 23" fill="none" stroke="#8b5cf6" strokeOpacity="0.6" strokeWidth="2.2" strokeLinecap="round" />
-      <path d="M49 27C57 27 63 31 61 35.5L49 38Z" fill="#26232b" />
-      <path d="M38 45l2.5 6 2-4.5 2.5 5.5 1.5-5.5 2.5 3" fill="none" stroke="#15121c" strokeWidth="3" strokeLinejoin="round" />
-      <Eye x={41} y={29} r={2.8} lid look={1.4} />
+      <path d={BUST} />
+      <path d="M47.5 25.2c6.5-.4 10 2.2 9.3 5.8L48 33.5" />
+      <path d="M36 40.5l1.8 4.2 1.6-3.4 2 4.4 1.3-4.2" />
+      {eye(40, 27.5, 2.1)}
+      <path d="M37.2 26.2h5.6" strokeWidth="1.8" />
     </>
   ),
-  // L6: peregrine falcon, dark moustache stripe, yellow eye-ring and cere
+  // L6: moustache stripe and a yellow eye-ring
   "bot:falcon": () => (
     <>
-      <path d={BUST} fill="#4a5568" />
-      <path d="M34 38C38 34 45 34 50 38C49 44 47 48 45 50C39 49 35 44 34 38Z" fill="#f4ecdd" />
-      <path d="M40 33C41 39 40 44 36 48" fill="none" stroke="#1f2430" strokeWidth="4.5" strokeLinecap="round" />
-      <path d="M49 28C56 28 59 32 58 37L54 34.5L49 37Z" fill="#2c313b" />
-      <path d="M48.5 28.5l3 0.2-.6 3.2-2.6.3z" fill="#facc15" />
-      <Eye x={42} y={29} r={2.8} ring="#facc15" />
-      <path d="M40 46l1.5 1.5M44 45l1.5 1.5M42 49l1.5 1.5" stroke="#4a5568" strokeWidth="1.4" strokeLinecap="round" />
+      <path d={BUST} />
+      <path d="M47.5 25.8c4.8-.3 7.3 2.5 6.8 6.4l-3-2-3.8 2.4" />
+      <path d="M38.5 30.5c.8 4-.2 8-3.2 11" strokeWidth="3.4" />
+      <circle cx="40.5" cy="27" r="3.6" stroke="#facc15" strokeWidth="1.8" />
+      {eye(40.5, 27, 1.6)}
     </>
   ),
-  // L7: kestrel, blue-grey head, rufous body, spotted chest, locked-on stare
+  // L7: cheek stripe, spotted chest, gold eye-ring
   "bot:kestrel": () => (
     <>
-      <path d={BUST} fill="#c4552d" />
-      <path d="M20 35C24 25 31 20 39 20C47 20 52 26 52 33C52 37 51 40 49 43C42 40 30 38 20 35Z" fill="#7185a8" />
-      <path d="M33 42C38 40 45 41 49 44C48 50 45 55 40 58C35 55 33 49 33 42Z" fill="#f2dcc0" />
-      <circle cx="38" cy="48" r="1.2" fill="#3a2418" /><circle cx="42" cy="52" r="1.2" fill="#3a2418" /><circle cx="44" cy="47" r="1.2" fill="#3a2418" />
-      <path d="M41 33.5C41.5 37 40.5 40 38.5 42" fill="none" stroke="#26303f" strokeWidth="2.4" strokeLinecap="round" />
-      <path d="M49 28.5C56 28.5 58 32 57 36.5L53.5 34L49 36.5Z" fill="#2a2d33" />
-      <path d="M38 25.5l7-1.2" stroke="#26303f" strokeWidth="1.8" strokeLinecap="round" />
-      <Eye x={42} y={29.5} r={3} ring="#f7d24a" look={1.2} />
+      <path d={BUST} />
+      <path d="M47.5 26c4.5-.3 7 2.4 6.5 6.1l-2.8-1.9-3.7 2.3" />
+      <path d="M38.8 31c.4 3-.6 5.6-2.2 7.4" />
+      <circle cx="33" cy="45" r="1.2" fill={W} stroke="none" />
+      <circle cx="37.5" cy="48.5" r="1.2" fill={W} stroke="none" />
+      <circle cx="40.5" cy="43.5" r="1.2" fill={W} stroke="none" />
+      <path d="M36 23.8l7.2-1.1" strokeWidth="1.8" />
+      <circle cx="41" cy="27.5" r="3.7" stroke="#f7d24a" strokeWidth="1.8" />
+      {eye(41, 27.5, 1.7)}
     </>
   ),
-  // L8: the Blackbird, glossy black, golden beak and eye-ring, crowned
+  // L8: gold beak, gold eye-ring, crowned
   "bot:blackbird": () => (
     <>
-      <path d={BUST} fill="#0c0c10" />
-      <path d="M25 30C30 23 37 21 45 22" fill="none" stroke="#6366f1" strokeOpacity="0.55" strokeWidth="2.2" strokeLinecap="round" />
-      <path d="M50 29.5L61 33.5L50 37Z" fill="#f5b316" />
-      <Eye x={42} y={29.5} r={2.7} ring="#f5b316" />
-      <path d="M27 20.5l2.4-8.5 5 5.5 4.6-7.5 4.6 7.5 5-5.5 2.4 8.5c-7-2.2-16.8-2.2-24 0z" fill="#f5b316" stroke="#b7800a" strokeWidth="1" strokeLinejoin="round" />
+      <path d={BUST} />
+      <path d="M48 26.8L56 29.8L48 32.8Z" fill="#f5b316" stroke="#f5b316" />
+      <circle cx="40.5" cy="27.5" r="3.5" stroke="#f5b316" strokeWidth="1.8" />
+      {eye(40.5, 27.5, 1.6)}
+      <path d="M28.5 19.2l1.8-7 4.2 4.4 3.8-6.2 3.8 6.2 4.2-4.4 1.8 7c-6.3-1.6-13.3-1.6-19.6 0z" fill="#f5b316" stroke="#f5b316" strokeWidth="1.2" />
     </>
   ),
 };
 
-function tint(hex, amt) {
+function shade(hex, amt) {
   const n = parseInt(hex.slice(1), 16);
-  const f = (c) => Math.round(c + (255 - c) * amt);
+  const f = (c) => Math.max(0, Math.min(255, Math.round(c + (amt < 0 ? c : 255 - c) * amt)));
   return `rgb(${f((n >> 16) & 255)}, ${f((n >> 8) & 255)}, ${f(n & 255)})`;
 }
 
@@ -125,11 +117,11 @@ function luminance(hex) {
   return (((n >> 16) & 255) * 299 + ((n >> 8) & 255) * 587 + (n & 255) * 114) / 1000;
 }
 
-// the top bot wears gold; very dark bot colours get a lighter ring so the
+// the top bot wears gold; very dark bot colours get a lighter rim so the
 // disc edge still shows on the dark theme
 function ringFor(b, color) {
   if (b?.id === "bot:blackbird") return "#e0a414";
-  return luminance(color) < 60 ? tint(color, 0.4) : color;
+  return luminance(color) < 60 ? shade(color, 0.45) : shade(color, -0.35);
 }
 
 export function hasPortrait(id) {
@@ -156,13 +148,20 @@ export default function BotAvatar({ bot, size = 32, sizeCss, locked = false, tit
       style={{ flex: "none", display: "block", width: dim, height: dim }}
     >
       <defs>
-        <clipPath id={`ba-${uid}`}>
-          <circle cx="32" cy="32" r="29" />
+        <linearGradient id={`bg-${uid}`} x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stopColor={shade(color, 0.18)} />
+          <stop offset="1" stopColor={shade(color, -0.3)} />
+        </linearGradient>
+        <clipPath id={`bc-${uid}`}>
+          <circle cx="32" cy="32" r="27" />
         </clipPath>
       </defs>
-      <circle cx="32" cy="32" r="30" fill={tint(color, 0.78)} />
-      <g clipPath={`url(#ba-${uid})`}>{Bird ? <Bird /> : <path d={BUST} fill={color} />}</g>
-      <circle cx="32" cy="32" r="30" fill="none" stroke={ringFor(b, color)} strokeWidth="3.2" />
+      <circle cx="32" cy="32" r="30" fill={`url(#bg-${uid})`} stroke={ringFor(b, color)} strokeWidth="3" />
+      <path d="M9 26a23.5 23.5 0 0 1 46 0" fill="none" stroke="#fff" strokeOpacity="0.22" strokeWidth="2.4" strokeLinecap="round" />
+      <circle cx="32" cy="32" r="27" fill="none" stroke="#fff" strokeOpacity="0.25" strokeWidth="1" />
+      <g clipPath={`url(#bc-${uid})`} fill="none" stroke={W} strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+        {Bird ? <Bird /> : <path d={BUST} />}
+      </g>
     </svg>
   );
 }

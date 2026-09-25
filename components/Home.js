@@ -1,6 +1,7 @@
 import { useState, useMemo } from "react";
 import { PlayerBadge, pressProps } from "./ui";
 import { BarChart } from "./Charts";
+import WelcomeCard from "./WelcomeCard";
 import { BASE_ELO } from "@/lib/constants";
 import { gamesPerWeek } from "@/lib/stats";
 
@@ -86,7 +87,7 @@ function HighlightIcon({ type }) {
   return <svg {...props}><circle cx="9" cy="9" r="7" /><path d="M6 6l6 6M12 6l-6 6" /></svg>;
 }
 
-export default function Home({ setView, openSetup, stats, elo, players, results, me, openProfile, playerColors }) {
+export default function Home({ setView, openSetup, stats, elo, players, results, me, openProfile, playerColors, practice = [], social = null, following = [], userId = null }) {
   const visible = players.filter((p) => !p.hidden);
   // the signed-in player's own ranked games, one bar per week
   const weekly = useMemo(() => gamesPerWeek((results || []).filter((r) => r.username === me)), [results, me]);
@@ -103,6 +104,17 @@ export default function Home({ setView, openSetup, stats, elo, players, results,
 
   return (
     <div className="fade">
+      <WelcomeCard
+        me={me}
+        userId={userId}
+        stats={stats}
+        results={results}
+        practice={practice}
+        social={social}
+        following={following}
+        playerColors={playerColors}
+        onRematch={(opponent) => (openSetup ? openSetup({ players: [me, opponent] }) : setView("setup"))}
+      />
       <button
         className="btn btn-primary"
         style={{ width: "100%", fontSize: "calc(16px * var(--fs))", padding: 16 }}

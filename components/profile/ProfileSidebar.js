@@ -1,7 +1,9 @@
 import { PlayerBadge, pressProps } from "../ui";
 import { LineChart } from "../Charts";
 import { ChevronIcon, ActionLink } from "./icons";
+import { useState } from "react";
 import BadgeMedal from "../BadgeMedal";
+import BadgeDetail from "../BadgeDetail";
 
 function SideCard({ title, meta, children, action }) {
   const id = `pf-side-${title.replace(/\W+/g, "-").toLowerCase()}`;
@@ -24,6 +26,7 @@ const LinkButton = ActionLink;
  * and each section says so.
  */
 export default function ProfileSidebar({ user, isMe, stats, elo, timeline, badges, circle, circleNote, playerColors, openProfile, onOpenFriends, setTab, unavailable }) {
+  const [openBadge, setOpenBadge] = useState(null);
   const unlocked = (badges || []).filter((b) => b.unlocked).sort((a, b) => new Date(b.earnedAt) - new Date(a.earnedAt));
   const avg = stats?.x01?.darts > 0 ? stats.x01.threeDartAvg.toFixed(1) : "—";
   return (
@@ -68,9 +71,11 @@ export default function ProfileSidebar({ user, isMe, stats, elo, timeline, badge
         {unlocked.length ? (
           <ul className="pf-trophies">
             {unlocked.slice(0, 6).map((b) => (
-              <li key={b.id} title={b.description}>
-                <BadgeMedal badge={b} size={40} className="pf-trophy-icon" />
-                <span className="pf-trophy-name">{b.title}</span>
+              <li key={b.id}>
+                <button type="button" className="pf-trophy" onClick={() => setOpenBadge(b)} aria-label={`${b.title}. Details`}>
+                  <BadgeMedal badge={b} size={40} className="pf-trophy-icon" />
+                  <span className="pf-trophy-name">{b.title}</span>
+                </button>
               </li>
             ))}
           </ul>
@@ -107,6 +112,7 @@ export default function ProfileSidebar({ user, isMe, stats, elo, timeline, badge
           <p className="pf-empty">{circleNote}</p>
         )}
       </SideCard>
+      {openBadge && <BadgeDetail badge={openBadge} onClose={() => setOpenBadge(null)} />}
     </>
   );
 }

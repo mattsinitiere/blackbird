@@ -38,8 +38,10 @@ export default function TagEditor({ username, color, tag, tagIcon, onChange, idP
           className={`chip tag-icon-chip${!tagIcon ? " on" : ""}`}
           onClick={() => onChange({ tag, tagIcon: null })}
           aria-pressed={!tagIcon}
+          aria-label="No icon"
+          title="No icon"
         >
-          None
+          <Icon id="none" size="1.1em" />
         </button>
         {TAG_ICONS.map((i) => (
           <button

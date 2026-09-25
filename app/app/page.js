@@ -663,7 +663,7 @@ export default function Page() {
         )}
 
         {view === "home" && (
-          <Home setView={setView} openSetup={openSetup} stats={stats} elo={elo} players={circlePlayers} results={results} me={myName} openProfile={openProfile} playerColors={playerColors} />
+          <Home setView={setView} openSetup={openSetup} stats={stats} elo={elo} players={circlePlayers} results={results} me={myName} openProfile={openProfile} playerColors={playerColors} practice={practice} social={social} following={following ? [...following] : []} userId={session.user?.id} />
         )}
         {view === "setup" && (
           <Setup
@@ -675,7 +675,7 @@ export default function Page() {
             me={session.user?.user_metadata?.display_name || ""}
             onOpenBots={(gameType) => openBots({ gameType }, "setup")}
             onStart={startGame}
-            back={setupInitial ? () => setView("practice") : null}
+            back={setupInitial?.players ? () => setView("home") : setupInitial ? () => setView("practice") : null}
           />
         )}
         {view === "bots" && (
@@ -741,7 +741,7 @@ export default function Page() {
           />
         )}
         {view === "leaderboard" && (
-          <Leaderboard usernames={visibleUsernames} stats={stats} elo={elo} openProfile={openProfile} openRecords={() => setView("records")} openFriends={openFriends} back={null} playerColors={playerColors} />
+          <Leaderboard usernames={visibleUsernames} stats={stats} elo={elo} openProfile={openProfile} openRecords={() => setView("records")} back={null} playerColors={playerColors} />
         )}
         {view === "profile" && profileUser && (
           <Profile

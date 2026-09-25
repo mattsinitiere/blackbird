@@ -16,7 +16,8 @@ create table if not exists players (
   bio text,
   location text,
   tag text,                                -- name tag, 2-5 upper-case letters/digits
-  tag_icon text                            -- name tag icon id (see lib/profile.js TAG_ICONS)
+  tag_icon text,                           -- name tag icon id (see lib/profile.js TAG_ICONS)
+  cover text                               -- profile cover id (see lib/covers.js), null = playon
 );
 alter table players drop constraint if exists players_tag_format;
 alter table players add constraint players_tag_format
@@ -24,8 +25,12 @@ alter table players add constraint players_tag_format
 alter table players drop constraint if exists players_tag_icon_set;
 alter table players add constraint players_tag_icon_set
   check (tag_icon is null or tag_icon in (
-    'crown','flame','bolt','star','target','skull','bird','clover','diamond','anchor','ghost','rocket'
+    'crown','flame','bolt','star','target','skull','bird','clover','diamond','anchor','ghost','rocket',
+    'dart','trophy','medal','shield','heart','dice','compass','moon','sun','pint','paw','horseshoe'
   ));
+alter table players drop constraint if exists players_cover_set;
+alter table players add constraint players_cover_set
+  check (cover is null or cover in ('playon','dartboard','flight','scoreboard','night'));
 
 -- Matches: one row per completed game.
 create table if not exists matches (
