@@ -4456,15 +4456,6 @@ html:not([data-theme="dark"]) .app.is-profile {
     animation: none;
   }
 }
-.ai-brain-tag {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  margin-bottom: 6px;
-  font-size: calc(12px * var(--fs));
-  font-weight: 600;
-  color: var(--accent);
-}
 
 /* Blackbird AI widgets: achievement medals and a head-to-head card */
 .ai-badges {
@@ -4525,5 +4516,20 @@ html:not([data-theme="dark"]) .app.is-profile {
   justify-content: center;
   gap: 10px;
   font-size: calc(12px * var(--fs));
+  color: var(--muted);
+}
+
+/* Blackbird AI: what an answer was based on */
+.ai-note {
+  margin-top: 8px;
+  font-size: calc(12px * var(--fs));
+  color: var(--muted);
+}
+.ai-brain-menu-head {
+  padding: 4px 10px 6px;
+  font-size: calc(11px * var(--fs));
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
   color: var(--muted);
 }

@@ -1,24 +1,22 @@
-import { createClient } from "@supabase/supabase-js";
 import { extractCharts, resolveCharts } from "@/lib/aiChart";
 import { TOOL_DEFS, createToolRunner, describeMatch, weeklyData, toolStatus } from "@/lib/aiTools";
 import { extractBlocks } from "@/lib/aiBlocks";
 import { isIdentityQuestion, IDENTITY_REPLY, scrubIdentity } from "@/lib/aiText";
 import { runAgent } from "@/lib/aiAgent";
 import { providerConfig, makeStep } from "@/lib/aiProviders";
-import { resultFromRow } from "@/lib/practice";
-import { BASE_ELO } from "@/lib/constants";
+import { authenticate, takeRequest, callAI, friendlyError, jsonRes } from "@/lib/aiServer";
+import { logAIRequest } from "@/lib/aiLog";
+import { normalizeStyle, styleLine } from "@/lib/answerStyle";
+import { fetchResults, fetchGame } from "@/lib/data/queries";
+import { coverageNote } from "@/lib/data/coverage";
+import { createScopedToolRunner } from "@/lib/data/scopedTools";
+import { buildServerSummary, loadPlayers, myPlayerFrom } from "@/lib/data/serverData";
 
 // Runs on the server only. The AI key lives in a non-public env var and is
 // never sent to the browser.
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-function jsonRes(obj, status = 200) {
-  return new Response(JSON.stringify(obj), {
-    status,
-    headers: { "Content-Type": "application/json" },
-  });
-}
 
 // The personal Blackbird AI tab: the signed-in player's own games, form,
 // records, trends, practice and rivalries, with follow-up questions in
@@ -64,6 +62,10 @@ const STYLE_RULES =
   "Format dates naturally like 'Tuesday, October 9th' and never as raw ISO timestamps. " +
   "If the data cannot answer the question, say so plainly and suggest what to log next.";
 
+const COVERAGE_RULES =
+  "COVERAGE: `coverage` (in the data and on every tool result) says which games a number is based on: rows retrieved, distinct games, oldest and newest, how many had dart logs, and whether the read was complete, a sample or partial. " +
+  "When it is a sample or partial, or covers a date window, say so (for example 'based on your last 15 games' or 'from March to September'); never call a limited set the player's whole career, and never guess numbers it doesn't contain.\n\n";
+
 const TOOL_RULES =
   "TOOLS: you can call tools to dig deeper than the summary: query_games (filter games), get_stats (totals for any mode or date range), " +
   "head_to_head (record vs one opponent), analyze_game (dart by dart for one game), get_series (a metric over time, returns a chartable id), " +
@@ -74,7 +76,7 @@ const TOOL_RULES =
 // The personal Blackbird AI tab: the signed-in player's own games, form,
 // records, trends, practice and rivalries, with follow-up questions in
 // context, tools for deeper questions, and up to three charts.
-function buildPersonalPrompt(summary, question, history, { tools = false } = {}) {
+function buildPersonalPrompt(summary, question, history, { tools = false, style = "balanced" } = {}) {
   const name = summary?.me?.name || "the player";
   const seriesKeys = Object.keys(summary?.series || {});
   const system =
@@ -104,8 +106,10 @@ function buildPersonalPrompt(summary, question, history, { tools = false } = {})
     WIDGET_RULES +
     FOLLOWUP_RULES +
     IDENTITY_RULES +
+    COVERAGE_RULES +
     "Summary series keys available: " + (seriesKeys.length ? seriesKeys.join(", ") : "(none)") + ".\n\n" +
-    STYLE_RULES;
+    STYLE_RULES +
+    (styleLine(style) ? `\n\n${styleLine(style)}` : "");
   const turns = (Array.isArray(history) ? history : [])
     .filter((m) => m && (m.role === "user" || m.role === "assistant") && typeof m.content === "string")
     .slice(-10)
@@ -163,135 +167,58 @@ function buildWeeklyPrompt(week) {
   return { system, user: `WEEK:\n${JSON.stringify(week)}` };
 }
 
-function buildPrompt(kind, summary, question) {
-  const system =
-    "You are Blackbird AI, a sharp darts analyst for a darts player and the people they follow. " +
-    IDENTITY_RULES +
-    "Use ONLY the JSON data provided; never invent stats or names. " +
-    "The data may include aggregate player stats AND individual game results " +
-    "(with per-game stats like highestTurn, checkout, runs, mpr, dartsThrown, dates, opponents). " +
-    "When answering questions about specific games, records, or events, reference " +
-    "the individual game results and their dates. " +
-    "Write plain prose (no markdown headers or bullet symbols), specific and " +
-    "citing the real numbers. Be as thorough as the question needs: a few sentences " +
-    "for simple asks, and a full, well-organized answer (up to ~500 words) for " +
-    "complex or multi-part questions. Finish your thought — do not stop mid-sentence. " +
-    "When mentioning dates or times, always format them in a natural, readable way " +
-    "like 'Tuesday, October 9th, 2026 at 10:00 PM'. Never output raw ISO timestamps " +
-    "or date strings like '2026-10-09T22:00:00.000Z'.";
-
-  let task;
-  if (kind === "custom") {
-    const q = (question || "").toString().slice(0, 600).trim();
-    task =
-      `Answer this question about the league, using ONLY the data below. ` +
-      `If the data can't answer it, say so plainly rather than guessing.\n\nQUESTION: ${q}`;
-  } else if (kind === "player") {
-    task =
-      "Profile this player: strengths, weaknesses, current form, and one concrete thing to work on.";
-  } else if (kind === "matchup") {
-    task =
-      "Preview this head-to-head: who is favoured and why, the key stat that decides it, and one X-factor.";
-  } else {
-    task =
-      "Give a league overview: who is hot, the biggest surprise, the tightest rivalry, and a fun award or two.";
-  }
-
-  return { system, user: `${task}\n\nDATA:\n${JSON.stringify(summary)}` };
-}
-
-/** One plain model call (no tools). */
-async function callAI({ system, user, turns = [] }) {
-  const cfg = providerConfig();
-  const out = await makeStep(cfg)({ system, messages: [...turns, { role: "user", content: user }], tools: null, final: true });
-  return { text: out.text || "", model: out.model };
-}
-
-/** Every game_results row the signed-in user may read, through their own token (RLS applies). */
-async function loadData(sUrl, sKey, token) {
-  const sb = createClient(sUrl, sKey, { global: { headers: { Authorization: `Bearer ${token}` } }, auth: { persistSession: false } });
-  const [{ data: rows, error }, { data: players }] = await Promise.all([
-    sb.from("game_results").select("*").order("completed_at", { ascending: true }),
-    sb.from("players").select("username, handle"),
-  ]);
-  if (error) throw error;
-  return { rows: (rows || []).map((r) => resultFromRow(r, BASE_ELO)), players: players || [] };
-}
-
-const DAILY_LIMIT = 50;
-
-/**
- * Take one request from the user's daily allowance (ai_take_request in
- * supabase/migration-ai-usage.sql). Returns the requests left, null when
- * unlimited, or throws a 429-style error when it's used up.
- */
-async function takeRequest(sUrl, sKey, token) {
-  const sb = createClient(sUrl, sKey, { global: { headers: { Authorization: `Bearer ${token}` } }, auth: { persistSession: false } });
-  const { data, error } = await sb.rpc("ai_take_request", { p_limit: DAILY_LIMIT });
-  if (error) {
-    const e = new Error("Couldn't check your AI allowance. Try again in a moment.");
-    e.status = 503;
-    throw e;
-  }
-  if (data === -1) {
-    const e = new Error(`You've used today's ${DAILY_LIMIT} AI requests. They reset at midnight (Central).`);
-    e.status = 429;
-    e.limit = true;
-    throw e;
-  }
-  return data; // number left, or null (unlimited)
-}
-
-function friendlyError(e) {
-  if (e?.limit || e?.status === 503) return { status: e.status, error: e.message };
-  const msg = e?.message || "AI request failed";
-  if (/_API_KEY is not set|Unknown AI_PROVIDER/.test(msg)) return { status: 503, error: "Blackbird AI isn't switched on yet. The site owner needs to add an AI provider key." };
-  if (e?.quota) return { status: 429, error: "Blackbird AI has hit its free usage limit for now. Try again in a minute (or tomorrow if it keeps happening)." };
-  return { status: 500, error: msg };
-}
+const ALLOWED_KINDS = new Set(["me", "game", "weekly"]);
 
 export async function POST(req) {
-  // --- auth: require a valid Supabase session token ---
-  const auth = req.headers.get("authorization") || "";
-  const token = auth.startsWith("Bearer ") ? auth.slice(7) : null;
-  const sUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const sKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-  if (!token || !sUrl || !sKey) return jsonRes({ error: "Unauthorized" }, 401);
-  const sb = createClient(sUrl, sKey);
-  const { data: userData, error: authErr } = await sb.auth.getUser(token);
-  if (authErr || !userData?.user) return jsonRes({ error: "Unauthorized" }, 401);
+  const started = Date.now();
+  // --- who: from the session token only; names in the body are ignored ---
+  const who = await authenticate(req);
+  if (!who) return jsonRes({ error: "Unauthorized" }, 401);
+  const { user, sb } = who;
 
-  // --- generate ---
   let body;
   try {
     body = await req.json();
   } catch {
     return jsonRes({ error: "Bad request" }, 400);
   }
-  const { kind, summary, question, history, gameId, me: meName } = body || {};
+  // whitelist: model, effort, budgets and summaries from a client are never read
+  const kind = body?.kind;
+  const question = typeof body?.question === "string" ? body.question.slice(0, 600) : "";
+  const history = Array.isArray(body?.history) ? body.history.slice(-8) : [];
+  const gameId = typeof body?.gameId === "string" ? body.gameId.slice(0, 64) : null;
+  const style = normalizeStyle(body?.style);
+  if (!ALLOWED_KINDS.has(kind)) return jsonRes({ error: "Unknown request" }, 400);
+  if (kind === "me" && !question.trim()) return jsonRes({ error: "Type a question first." }, 400);
+
+  // "what model are you?" gets the house answer: no model call, no allowance used
+  if (kind === "me" && isIdentityQuestion(question)) return identityStream();
 
   let left = null;
   try {
-    if ((kind === "custom" || kind === "me") && !(question || "").toString().trim()) {
-      return jsonRes({ error: "Type a question first." }, 400);
-    }
-    left = await takeRequest(sUrl, sKey, token);
+    left = await takeRequest(sb);
   } catch (e) {
     const { status, error } = friendlyError(e);
+    logAIRequest(sb, { kind: kind === "me" ? "chat" : kind, status: e?.limit ? "limit" : "error", durationMs: Date.now() - started });
     return jsonRes({ error, limit: !!e?.limit }, status);
   }
 
+  if (kind === "me") return streamCoach({ sb, user, question, history, style, left, started });
+
+  const logKind = kind;
   try {
-    // one game's match report
+    const players = await loadPlayers(sb);
+    const me = myPlayerFrom(players, user.id).username;
+
+    // one game's match report: exactly that game's rows
     if (kind === "game") {
-      if (!gameId || !meName) return jsonRes({ error: "Missing game" }, 400);
-      const { rows, players } = await loadData(sUrl, sKey, token);
-      const gameRows = rows.filter((r) => r.gameId === gameId);
+      if (!gameId) return jsonRes({ error: "Missing game" }, 400);
+      const { rows: gameRows } = await fetchGame(sb, gameId);
       if (!gameRows.length) return jsonRes({ error: "That game isn't available." }, 404);
-      const runner = createToolRunner({ rows, players, me: meName });
+      const runner = createToolRunner({ rows: gameRows, players, me });
       const match = describeMatch(gameRows, runner.register);
-      const { text: rawText, model } = await callAI(buildGamePrompt(match, meName));
-      const raw = scrubIdentity(rawText);
+      const out = await callAI(buildGamePrompt(match, me));
+      const raw = scrubIdentity(out.text);
       const { text, charts } = extractCharts(raw);
       let resolved = resolveCharts(charts, runner.series, runner.heatmaps);
       // no usable chart from the model: draw the first series the game has
@@ -299,117 +226,116 @@ export async function POST(req) {
         const cs = match.chartableSeries[0];
         resolved = resolveCharts([{ type: "line", title: cs.metric === "visitScores" ? "Score per visit" : cs.metric, series: cs.ids, names: cs.players }], runner.series);
       }
-      return jsonRes({ text: text || raw, charts: resolved, model, left });
+      logAIRequest(sb, { kind: logKind, model: out.model, effort: out.effort, usage: out.usage, steps: 1, durationMs: Date.now() - started, status: raw.trim() ? "ok" : "empty", fallback: out.fallback });
+      return jsonRes({ text: text || raw, charts: resolved, model: out.model, left });
     }
 
-    // the weekly report card
-    if (kind === "weekly") {
-      if (!meName) return jsonRes({ error: "Missing player" }, 400);
-      const { rows, players } = await loadData(sUrl, sKey, token);
-      const runner = createToolRunner({ rows, players, me: meName });
-      const week = weeklyData({ rows, me: meName, register: runner.register });
-      if (!week) return jsonRes({ empty: true });
-      const { text: rawText, model } = await callAI(buildWeeklyPrompt(week));
-      const raw = scrubIdentity(rawText);
-      const { text, charts } = extractCharts(raw);
-      return jsonRes({ text: text || raw, charts: resolveCharts(charts, runner.series, runner.heatmaps), from: week.from, to: week.to, model, left });
-    }
-
-    if (!summary) return jsonRes({ error: "Missing data" }, 400);
-    if (kind !== "me") {
-      const { text: raw, model } = await callAI(buildPrompt(kind, summary, question));
-      if (!raw.trim()) return jsonRes({ error: "The model returned an empty response." }, 502);
-      return jsonRes({ text: scrubIdentity(raw), model });
-    }
-
-    // the personal coach, streamed as newline-delimited JSON:
-    //   { type: "status", text }  a tool step ("Checking your record vs Chuck…")
-    //   { type: "delta", text }   answer text as it's written
-    //   { type: "reset" }         discard text streamed before a tool step
-    //   { type: "done", text, charts, followups, actions, left }
-    //   { type: "error", error }
-    return streamCoach({ sUrl, sKey, token, summary, question, history, left });
+    // the weekly report card: the player's own rows from the last two weeks
+    const since = new Date(Date.now() - 15 * 86400000);
+    const { rows, coverage } = await fetchResults(sb, { username: me, from: since, includePractice: false }, { requested: "last 14 days" });
+    const runner = createToolRunner({ rows, players, me });
+    const week = weeklyData({ rows, me, register: runner.register });
+    if (!week) return jsonRes({ empty: true });
+    week.coverage = coverage;
+    const out = await callAI(buildWeeklyPrompt(week));
+    const raw = scrubIdentity(out.text);
+    const { text, charts } = extractCharts(raw);
+    logAIRequest(sb, { kind: logKind, model: out.model, effort: out.effort, usage: out.usage, steps: 1, durationMs: Date.now() - started, status: raw.trim() ? "ok" : "empty", fallback: out.fallback });
+    return jsonRes({ text: text || raw, charts: resolveCharts(charts, runner.series, runner.heatmaps), from: week.from, to: week.to, model: out.model, left });
   } catch (e) {
+    if (e?.config) console.error("[insights] configuration error:", e.message);
+    logAIRequest(sb, { kind: logKind, status: "error", durationMs: Date.now() - started });
     const { status, error } = friendlyError(e);
     return jsonRes({ error }, status);
   }
 }
 
-function streamCoach({ sUrl, sKey, token, summary, question, history, left }) {
+const NDJSON_HEADERS = { "Content-Type": "application/x-ndjson; charset=utf-8", "Cache-Control": "no-cache, no-transform", "X-Accel-Buffering": "no" };
+
+function identityStream() {
+  const line = JSON.stringify({ type: "done", text: IDENTITY_REPLY, charts: [], followups: ["How's my form lately?", "Which achievements am I closest to?"], actions: [], left: null, via: "identity" }) + "\n";
+  return new Response(line, { headers: NDJSON_HEADERS });
+}
+
+/**
+ * The personal coach, streamed as newline-delimited JSON:
+ *   { type: "status", text }  a real step ("Reading your games…", a tool call)
+ *   { type: "delta", text }   answer text as it's written
+ *   { type: "reset" }         discard text streamed before a tool step
+ *   { type: "done", text, charts, followups, actions, left, via, coverage }
+ *   { type: "error", error }
+ * via: "tools" (full analysis with tools) or "plain" (the tool loop failed
+ * and the answer came from the headline summary only; the chat says so).
+ */
+function streamCoach({ sb, user, question, history, style, left, started }) {
   const enc = new TextEncoder();
   const stream = new ReadableStream({
     async start(controller) {
       const send = (obj) => controller.enqueue(enc.encode(JSON.stringify(obj) + "\n"));
       let via = "plain";
+      const log = { kind: "chat", status: "ok", toolCalls: 0, steps: 0, usage: null, fallback: null, model: null, effort: null };
       try {
-        // "what model are you?" gets the house answer, no model involved
-        if (isIdentityQuestion(question)) {
-          send({ type: "done", text: IDENTITY_REPLY, charts: [], followups: ["How's my form lately?", "Which achievements am I closest to?"], actions: [], left, via: "identity" });
-          controller.close();
-          return;
-        }
-        const me = summary?.me?.name;
         send({ type: "status", text: "Reading your games…" });
-        let data = null;
-        try {
-          data = me ? await loadData(sUrl, sKey, token) : null;
-        } catch (e) {
-          console.error("[insights] loading games failed:", e?.message || e);
-          data = null; // no tools this time; the summary still answers
-        }
+        // the summary is built here from the caller's own rows (not sent by the browser)
+        const { me, players, summary, coverage } = await buildServerSummary(sb, { userId: user.id });
         let raw = "";
         let store = { ...(summary.series || {}) };
         let heatmaps = {};
         const onDelta = (t) => send({ type: "delta", text: scrubIdentity(t) });
-        if (data) {
-          const runner = createToolRunner({ rows: data.rows, players: data.players, me });
-          const prompt = buildPersonalPrompt(summary, question, history, { tools: true });
-          send({ type: "status", text: "Thinking…" });
-          try {
-            const out = await runAgent({
-              system: prompt.system,
-              messages: [...prompt.turns, { role: "user", content: prompt.user }],
-              tools: TOOL_DEFS,
-              step: makeStep(providerConfig()),
-              runTool: (name, args) => runner.run(name, args),
-              toolStatus,
-              onStatus: (t) => send({ type: "status", text: t }),
-              onDelta,
-              onReset: () => send({ type: "reset" }),
-            });
-            raw = out.text;
-            store = { ...store, ...runner.series };
-            heatmaps = runner.heatmaps;
-            if (raw.trim()) via = "tools";
-          } catch (e) {
-            if (e?.quota || /_API_KEY is not set|Unknown AI_PROVIDER/.test(e?.message || "")) throw e;
-            console.error("[insights] tool loop failed:", e?.message || e);
-            raw = ""; // tool calling failed: fall back to the plain summary path
-            send({ type: "reset" });
-          }
-        } else {
-          console.error("[insights] no game data for tools; answering from the summary");
-        }
-        if (!raw.trim()) {
-          if (!data) send({ type: "status", text: "Thinking…" });
-          const out = await callAI(buildPersonalPrompt(summary, question, history));
+        const cfg = providerConfig();
+        log.effort = cfg.effort;
+        const runner = createScopedToolRunner({ fetch: (f, o) => fetchResults(sb, f, o), players, me });
+        const prompt = buildPersonalPrompt(summary, question, history, { tools: true, style });
+        try {
+          const out = await runAgent({
+            system: prompt.system,
+            messages: [...prompt.turns, { role: "user", content: prompt.user }],
+            tools: TOOL_DEFS,
+            step: makeStep(cfg),
+            runTool: (name, args) => runner.run(name, args),
+            toolStatus,
+            onStatus: (t) => send({ type: "status", text: t }),
+            onDelta,
+            onReset: () => send({ type: "reset" }),
+          });
           raw = out.text;
-          if (raw) send({ type: "delta", text: raw });
+          store = { ...store, ...runner.series };
+          heatmaps = runner.heatmaps;
+          Object.assign(log, { toolCalls: out.calls.length, steps: out.steps, usage: out.usage, fallback: out.fallback, model: out.model });
+          if (raw.trim()) via = "tools";
+        } catch (e) {
+          // configuration problems and quota must surface, not hide behind a weaker answer
+          if (e?.quota || e?.config) throw e;
+          console.error("[insights] tool loop failed:", e?.message || e);
+          raw = "";
+          send({ type: "reset" });
         }
         if (!raw.trim()) {
+          const out = await callAI(buildPersonalPrompt(summary, question, history, { style }));
+          raw = out.text;
+          Object.assign(log, { steps: log.steps + 1, usage: out.usage, model: out.model, fallback: "summary-only" });
+          if (raw) send({ type: "delta", text: scrubIdentity(raw) });
+        }
+        if (!raw.trim()) {
+          log.status = "empty";
           send({ type: "error", error: "The model returned an empty response." });
         } else {
           raw = scrubIdentity(raw);
           const { text, charts, followups, actions } = extractBlocks(raw);
           const ctx = { badgeIds: new Set((summary?.achievements?.all || []).map((e) => String(e).split("|")[0])), headToHead: summary?.headToHead || [] };
-          send({ type: "done", text: text || raw, charts: resolveCharts(charts, store, heatmaps, ctx), followups, actions, left, via });
+          send({ type: "done", text: text || raw, charts: resolveCharts(charts, store, heatmaps, ctx), followups, actions, left, via, coverage: coverageNote(coverage) });
         }
       } catch (e) {
-        console.error("[insights] coach failed:", e?.message || e);
+        log.status = "error";
+        if (e?.config) console.error("[insights] configuration error:", e.message);
+        else console.error("[insights] coach failed:", e?.message || e);
         send({ type: "error", error: friendlyError(e).error });
       }
+      log.durationMs = Date.now() - started;
+      log.via = via;
+      logAIRequest(sb, log);
       controller.close();
     },
   });
-  return new Response(stream, { headers: { "Content-Type": "application/x-ndjson; charset=utf-8", "Cache-Control": "no-cache, no-transform", "X-Accel-Buffering": "no" } });
+  return new Response(stream, { headers: NDJSON_HEADERS });
 }

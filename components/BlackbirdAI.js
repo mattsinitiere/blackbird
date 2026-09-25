@@ -5,6 +5,7 @@ import AIChart, { chartsOf } from "./AIChart";
 import AIText from "./AIText";
 import { visibleWhileStreaming } from "@/lib/aiBlocks";
 import { computeAchievements } from "@/lib/achievements";
+import { ANSWER_STYLES, DEFAULT_STYLE } from "@/lib/answerStyle";
 import { PlayerBadge } from "./ui";
 
 const SUGGESTIONS = [
@@ -53,25 +54,21 @@ function SendIcon() {
 }
 
 /**
- * The thinking-level picker is cosmetic: it isn't sent to the server and
- * doesn't change the model, its effort, its cost or the daily count.
+ * Answer Style (lib/answerStyle.js): how long the reply is. Presentation
+ * only. Every style runs the same model with the same fixed reasoning
+ * effort, token ceilings and tool budget.
  */
-const BRAIN_LEVELS = [
-  { id: 1, label: "Less Thinking", hint: "Quick answers", tag: "Quick answer" },
-  { id: 2, label: "Balanced", hint: "The everyday default", tag: "Thinking" },
-  { id: 3, label: "Deep Thinking", hint: "Takes it further", tag: "Thinking deeply" },
-];
+const STYLE_LINES = { brief: 1, balanced: 2, detailed: 3 };
 
-/** A brain outline; more folds (and a larger size) for a higher level. */
-function BrainIcon({ level = 2, size }) {
-  const px = size || [16, 19, 22][level - 1];
+/** Text lines: one for Brief, two for Balanced, three for Detailed. */
+function StyleIcon({ style = "balanced", size = 18 }) {
+  const n = STYLE_LINES[style] || 2;
+  const ys = n === 1 ? [12] : n === 2 ? [9, 15] : [7, 12, 17];
   return (
-    <svg width={px} height={px} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <path d="M12 5.2a3 3 0 0 0-5.4-1.6A3 3 0 0 0 3.7 7.8a3.1 3.1 0 0 0 .4 5.2A3.3 3.3 0 0 0 7.3 18a2.9 2.9 0 0 0 4.7 1.4" />
-      <path d="M12 5.2a3 3 0 0 1 5.4-1.6 3 3 0 0 1 2.9 4.2 3.1 3.1 0 0 1-.4 5.2 3.3 3.3 0 0 1-3.2 5 2.9 2.9 0 0 1-4.7 1.4" />
-      <path d="M12 5.2v14.2" />
-      {level >= 2 && <path d="M7.6 9.2c1.3 0 2.4.8 2.4 2.1M16.4 9.2c-1.3 0-2.4.8-2.4 2.1" />}
-      {level >= 3 && <path d="M6.8 14.6c1.4.2 2.6-.4 3.2-1.5M17.2 14.6c-1.4.2-2.6-.4-3.2-1.5M9.3 5.8c.1.9.8 1.6 1.8 1.8M14.7 5.8c-.1.9-.8 1.6-1.8 1.8" />}
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
+      {ys.map((y, i) => (
+        <path key={y} d={`M4 ${y}h${i === ys.length - 1 && n > 1 ? 10 : 16}`} />
+      ))}
     </svg>
   );
 }
@@ -92,11 +89,11 @@ function Check() {
   );
 }
 
-/** The thinking-level pill in the input box; opens a small menu above it. */
-function BrainPicker({ value, onChange, disabled }) {
+/** The Answer Style pill in the input box; opens a small menu above it. */
+function StylePicker({ value, onChange, disabled }) {
   const [open, setOpen] = useState(false);
   const wrapRef = useRef(null);
-  const current = BRAIN_LEVELS[value - 1];
+  const current = ANSWER_STYLES.find((x) => x.id === value) || ANSWER_STYLES[1];
   useEffect(() => {
     if (!open) return;
     const away = (e) => {
@@ -117,14 +114,15 @@ function BrainPicker({ value, onChange, disabled }) {
   }, [disabled]);
   return (
     <div className="ai-brain" ref={wrapRef}>
-      <button type="button" className={`ai-brain-btn${open ? " is-open" : ""}`} aria-haspopup="menu" aria-expanded={open} aria-label={`Thinking level: ${current.label}`} onClick={() => setOpen((o) => !o)} disabled={disabled}>
-        <BrainIcon level={value} size={18} />
+      <button type="button" className={`ai-brain-btn${open ? " is-open" : ""}`} aria-haspopup="menu" aria-expanded={open} aria-label={`Answer style: ${current.label}`} onClick={() => setOpen((o) => !o)} disabled={disabled}>
+        <StyleIcon style={current.id} size={18} />
         <span>{current.label}</span>
         <Chevron />
       </button>
       {open && (
-        <div className="ai-brain-menu" role="menu" aria-label="Thinking level">
-          {BRAIN_LEVELS.map((b) => (
+        <div className="ai-brain-menu" role="menu" aria-label="Answer style">
+          <div className="ai-brain-menu-head">Answer Style</div>
+          {ANSWER_STYLES.map((b) => (
             <button
               key={b.id}
               type="button"
@@ -136,7 +134,7 @@ function BrainPicker({ value, onChange, disabled }) {
                 setOpen(false);
               }}
             >
-              <BrainIcon level={b.id} size={20} />
+              <StyleIcon style={b.id} size={20} />
               <span className="ai-brain-item-text">
                 <b>{b.label}</b>
                 <small>{b.hint}</small>
@@ -173,7 +171,7 @@ export default function BlackbirdAI({ me, userId, stats, elo, results, practice,
   const [loaded, setLoaded] = useState(false);
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
-  const [brain, setBrain] = useState(2);
+  const [style, setStyle] = useState(DEFAULT_STYLE);
   const listRef = useRef(null);
   const inputRef = useRef(null);
 
@@ -185,7 +183,7 @@ export default function BlackbirdAI({ me, userId, stats, elo, results, practice,
     setLoaded(true);
   }, [storageKey]);
   // every visit starts at Balanced; a pick lasts while the tab is open
-  const pickBrain = (b) => setBrain(b);
+  const pickStyle = (v) => setStyle(v);
   useEffect(() => {
     if (!loaded) return;
     try {
@@ -262,7 +260,7 @@ export default function BlackbirdAI({ me, userId, stats, elo, results, practice,
     const id = Date.now();
     const aid = id + 1;
     const history = messages.filter((m) => !m.error && m.content).slice(-8).map(({ role, content }) => ({ role, content }));
-    setMessages((prev) => [...prev, { id, role: "user", content: q }, { id: aid, role: "assistant", content: "", streaming: true, steps: [], brain }]);
+    setMessages((prev) => [...prev, { id, role: "user", content: q }, { id: aid, role: "assistant", content: "", streaming: true, steps: [] }]);
     setInput("");
     if (inputRef.current) inputRef.current.style.height = "auto";
     setBusy(true);
@@ -273,7 +271,7 @@ export default function BlackbirdAI({ me, userId, stats, elo, results, practice,
       const res = await fetch("/api/insights", {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${data?.session?.access_token || ""}` },
-        body: JSON.stringify({ kind: "me", question: q, history, summary, me }),
+        body: JSON.stringify({ kind: "me", question: q, history, style }),
         signal: ctrl.signal,
       });
       if (!res.ok || !(res.headers.get("content-type") || "").includes("ndjson")) {
@@ -307,7 +305,7 @@ export default function BlackbirdAI({ me, userId, stats, elo, results, practice,
           else if (ev.type === "done") {
             finished = true;
             if (ev.left !== undefined) setLeft(ev.left);
-            patch(aid, () => ({ content: ev.text, charts: (ev.charts || []).slice(0, 3), followups: ev.followups || [], actions: ev.actions || [], streaming: false, steps: undefined }));
+            patch(aid, () => ({ content: ev.text, charts: (ev.charts || []).slice(0, 3), followups: ev.followups || [], actions: ev.actions || [], via: ev.via || null, coverage: ev.coverage || null, streaming: false, steps: undefined }));
           } else if (ev.type === "error") {
             finished = true;
             patch(aid, () => ({ content: ev.error || "Something went wrong.", error: true, streaming: false, steps: undefined }));
@@ -414,12 +412,6 @@ export default function BlackbirdAI({ me, userId, stats, elo, results, practice,
             <div key={m.id} className={`ai-row ${m.role === "user" ? "is-user" : "is-bot"}${m.error ? " is-error" : ""}`}>
               {m.role === "assistant" ? <BirdAvatar /> : <PlayerBadge username={me || "?"} color={playerColors?.[me]} size={26} showName={false} />}
               <div className={`ai-bubble${chartsOf(m).length ? " has-chart" : ""}`}>
-                {live && !shown && (
-                  <div className="ai-brain-tag">
-                    <BrainIcon level={m.brain || 2} size={14} />
-                    {BRAIN_LEVELS[(m.brain || 2) - 1].tag}…
-                  </div>
-                )}
                 {live && (m.steps || []).length > 0 && (
                   <ul className="ai-steps" aria-live="polite">
                     {m.steps.map((st, i) => (
@@ -439,6 +431,8 @@ export default function BlackbirdAI({ me, userId, stats, elo, results, practice,
                 {shown ? m.role === "assistant" && !m.error ? <AIText text={shown} /> : <div className="ai-text">{shown}</div> : null}
                 {live && shown && <span className="ai-caret" aria-hidden="true" />}
                 {m.stopped && <div className="ai-stopped">Stopped</div>}
+                {!live && m.via === "plain" && <div className="ai-note">Answered from your headline stats only; the detailed game analysis wasn't available this time.</div>}
+                {!live && m.via === "tools" && m.coverage && <div className="ai-note">Based on {m.coverage}.</div>}
                 {chartsOf(m).map((c, i) => (
                   <AIChart key={i} chart={c} badges={badges} me={me} colors={playerColors} />
                 ))}
@@ -496,7 +490,7 @@ export default function BlackbirdAI({ me, userId, stats, elo, results, practice,
             }}
           />
           <div className="ai-box-bar">
-            <BrainPicker value={brain} onChange={pickBrain} disabled={busy} />
+            <StylePicker value={style} onChange={pickStyle} disabled={busy} />
             {busy ? (
               <button className="btn ai-send ai-stop" type="button" onClick={stop} aria-label="Stop">
                 <StopIcon />
