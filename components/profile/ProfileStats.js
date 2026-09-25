@@ -171,13 +171,15 @@ function PeriodPicker({ period, custom, onPeriod, onCustom }) {
       </div>
       {period === "custom" && (
         <div className="period-custom">
-          <label>
+          <label className="period-field">
             <span>From</span>
-            <input className="input" type="date" max={custom.to || today} value={custom.from || ""} onChange={(e) => onCustom({ ...custom, from: e.target.value })} />
+            <input type="date" className={custom.from ? "" : "is-empty"} max={custom.to || today} value={custom.from || ""} onChange={(e) => onCustom({ ...custom, from: e.target.value })} aria-label="From date" />
+            {!custom.from && <span className="period-hint">First game</span>}
           </label>
-          <label>
+          <label className="period-field">
             <span>To</span>
-            <input className="input" type="date" min={custom.from || undefined} max={today} value={custom.to || ""} onChange={(e) => onCustom({ ...custom, to: e.target.value })} />
+            <input type="date" className={custom.to ? "" : "is-empty"} min={custom.from || undefined} max={today} value={custom.to || ""} onChange={(e) => onCustom({ ...custom, to: e.target.value })} aria-label="To date" />
+            {!custom.to && <span className="period-hint">Today</span>}
           </label>
         </div>
       )}

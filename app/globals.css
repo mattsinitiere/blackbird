@@ -120,6 +120,7 @@ select {
   flex: 1 1 auto;
   min-height: 0;
   overflow-y: auto;
+  overflow-x: hidden;
   overscroll-behavior: contain;
   -webkit-overflow-scrolling: touch;
   scrollbar-width: none;
@@ -674,7 +675,6 @@ a:focus-visible {
   color: var(--gold);
   background: rgba(212, 160, 23, 0.08);
   border-color: var(--gold-line);
-  box-shadow: 0 0 6px rgba(212, 160, 23, 0.35);
 }
 [data-theme="dark"] .tag-pill.is-dev,
 [data-theme="dark"] .tag-icon-chip.is-dev,
@@ -683,7 +683,6 @@ a:focus-visible {
   --gold: #f1c75b;
   --gold-line: #d9ae45;
   background: rgba(241, 199, 91, 0.06);
-  box-shadow: 0 0 8px rgba(241, 199, 91, 0.35);
 }
 .tag-icon-chip.is-dev.on {
   background: var(--gold-line);
@@ -1140,33 +1139,6 @@ label.check input {
     transform: scale(1);
   }
 }
-.load-bar {
-  position: relative;
-  width: 132px;
-  height: 3px;
-  margin-top: 18px;
-  border-radius: 99px;
-  overflow: hidden;
-  background: var(--line);
-  animation: load-up 0.5s 0.2s ease both;
-}
-.load-bar span {
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  width: 40%;
-  border-radius: 99px;
-  background: var(--accent);
-  animation: load-slide 1.2s cubic-bezier(0.45, 0, 0.55, 1) infinite;
-}
-@keyframes load-slide {
-  from {
-    left: -40%;
-  }
-  to {
-    left: 100%;
-  }
-}
 .load-phrase {
   display: inline-block;
   animation: load-up 0.35s ease both;
@@ -1222,7 +1194,6 @@ label.check input {
   .load-status,
   .load-phrase,
   .load-glow,
-  .load-bar,
   .load-wires line {
     animation: none;
     opacity: 1;
@@ -1233,9 +1204,6 @@ label.check input {
   }
   .load-wires line {
     opacity: 0.45;
-  }
-  .load-bar span {
-    animation-duration: 3s;
   }
 }
 
@@ -3713,11 +3681,12 @@ html:not([data-theme="dark"]) .app.is-profile {
 /* Statistics date range (components/profile/ProfileStats.js) */
 .period-custom {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   gap: 8px;
   margin-top: 8px;
 }
-.period-custom label {
+.period-field {
+  position: relative;
   display: flex;
   flex-direction: column;
   gap: 4px;
@@ -3726,9 +3695,53 @@ html:not([data-theme="dark"]) .app.is-profile {
   font-weight: 600;
   color: var(--muted);
 }
-.period-custom .input {
-  min-width: 0;
+/* iOS gives date inputs a fixed native width unless the native look is
+   switched off; that pushed the page sideways */
+.period-field input[type="date"] {
+  -webkit-appearance: none;
+  appearance: none;
+  display: block;
+  box-sizing: border-box;
   width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  height: 46px;
+  margin: 0;
+  padding: 0 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--ink);
+  font: inherit;
+  font-size: 16px; /* 16px stops iOS zooming in on focus */
+  font-weight: 600;
+  text-align: left;
+}
+.period-field input[type="date"]::-webkit-date-and-time-value {
+  margin: 0;
+  text-align: left;
+}
+.period-field input[type="date"]:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+/* empty: hide the browser's mm/dd/yyyy so the hint shows instead */
+.period-field input.is-empty:not(:focus),
+.period-field input.is-empty:not(:focus)::-webkit-datetime-edit {
+  color: transparent;
+}
+.period-field input:focus + .period-hint {
+  display: none;
+}
+.period-hint {
+  position: absolute;
+  left: 13px;
+  bottom: 13px;
+  font-size: 16px;
+  font-weight: 500;
+  color: var(--muted);
+  pointer-events: none;
 }
 
 /* charts: tap a point to read it (components/Charts.js) */

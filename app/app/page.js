@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo, useCallback, useRef } from "react";
+import { useState, useEffect, useMemo, useCallback, useRef, useLayoutEffect } from "react";
 import { useRouter } from "next/navigation";
 import { supabase, isConfigured } from "@/lib/supabase";
 import { getPlayers, addPlayer as dbAddPlayer, linkPlayerAuth as dbLinkPlayerAuth, setPlayerHidden as dbSetPlayerHidden, setPlayerColor as dbSetPlayerColor, updatePlayerProfile as dbUpdatePlayerProfile, getGameResults, recordGame, getFollows, getGameRowsForSync, getEloFor, followPlayer as dbFollowPlayer, unfollowPlayer as dbUnfollowPlayer } from "@/lib/db";
@@ -61,8 +61,10 @@ export default function Page() {
   // Branded splash: hold the loading screen 1–3 s on every open so the app
   // always launches with a moment of perceived loading.
   const [splashDone, setSplashDone] = useState(false);
+  // every screen change starts at the top (the scroll area is shared)
+  const scrollRef = useRef(null);
   useEffect(() => {
-    const t = setTimeout(() => setSplashDone(true), 1000 + Math.random() * 2000);
+    const t = setTimeout(() => setSplashDone(true), 2000 + Math.random() * 2000);
     return () => clearTimeout(t);
   }, []);
 
@@ -587,6 +589,10 @@ export default function Page() {
     setView(PLAY_VIEWS[game.gameType] || "playX01");
   }, [persistLive]);
 
+  useLayoutEffect(() => {
+    if (scrollRef.current) scrollRef.current.scrollTop = 0;
+  }, [view, profileUser]);
+
   const openProfile = (u) => {
     if (view !== "profile") setProfileFrom(view);
     setProfileUser(u);
@@ -702,7 +708,7 @@ export default function Page() {
   return (
     <PlayerLookContext.Provider value={playerMeta}>
     <main className={`app shell${view === "profile" ? " is-profile" : ""}`}>
-      <div className={`scroll${FILL_VIEWS.includes(view) ? " scroll-fill" : ""}`}>
+      <div ref={scrollRef} className={`scroll${FILL_VIEWS.includes(view) ? " scroll-fill" : ""}`}>
         <div className={`container${view === "profile" ? " container-profile" : ""}${FILL_VIEWS.includes(view) ? " container-fill" : ""}`}>
         <header className="header">
           <button type="button" className="brand-home" aria-label="Blackbird home" onClick={() => setView("home")}>
