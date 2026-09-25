@@ -1,13 +1,13 @@
 import { PlayerBadge } from "./ui";
 import Icon from "./Icon";
-import { TAG_ICONS, TAG_MAX, normalizeTag, validateTag } from "@/lib/profile";
+import { TAG_ICONS, DEV_TAG_ICONS, TAG_MAX, normalizeTag, validateTag } from "@/lib/profile";
 
 /**
  * Name tag editor shared by the app's Account screen and the website's
  * profile page: 2–5 letters/digits and/or one icon, with a live preview.
  * Controlled: the parent owns `tag` and `tagIcon` and saves them.
  */
-export default function TagEditor({ username, color, tag, tagIcon, onChange, idPrefix = "tag" }) {
+export default function TagEditor({ username, color, tag, tagIcon, onChange, idPrefix = "tag", isDev = false }) {
   const check = validateTag(tag);
   return (
     <div>
@@ -57,6 +57,26 @@ export default function TagEditor({ username, color, tag, tagIcon, onChange, idP
           </button>
         ))}
       </div>
+      {isDev && (
+        <>
+          <div className="tag" style={{ margin: "12px 0 6px" }}>Developer only</div>
+          <div className="tag-icon-grid" role="group" aria-label="Developer tag icon">
+            {DEV_TAG_ICONS.map((i) => (
+              <button
+                key={i.id}
+                type="button"
+                className={`chip tag-icon-chip is-dev${tagIcon === i.id ? " on" : ""}`}
+                onClick={() => onChange({ tag, tagIcon: i.id })}
+                aria-pressed={tagIcon === i.id}
+                aria-label={`${i.label} (developer only)`}
+                title={i.label}
+              >
+                <Icon id={i.id} size="1.1em" />
+              </button>
+            ))}
+          </div>
+        </>
+      )}
     </div>
   );
 }

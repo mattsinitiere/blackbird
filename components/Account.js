@@ -301,7 +301,7 @@ export default function Account({ user, players, results, addPlayer, setPlayerHi
                 <label className="set-label" htmlFor="set-location">Location</label>
                 <input id="set-location" className="input" maxLength={LOCATION_MAX} value={draft.location} placeholder="Home bar or town" onChange={(e) => set({ location: e.target.value })} />
 
-                <TagEditor username={myPlayer.username} color={myColor} tag={draft.tag} tagIcon={draft.tagIcon} onChange={({ tag, tagIcon }) => set({ tag, tagIcon })} />
+                <TagEditor username={myPlayer.username} color={myColor} tag={draft.tag} tagIcon={draft.tagIcon} onChange={({ tag, tagIcon }) => set({ tag, tagIcon })} isDev={!!isAdmin} />
               </>
             )}
           </div>

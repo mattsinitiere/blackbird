@@ -1,9 +1,98 @@
+import { useEffect, useRef, useState } from "react";
+
+const fmtShortDate = (iso) => {
+  if (!iso) return "";
+  try {
+    return new Date(iso).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
+  } catch {
+    return "";
+  }
+};
+
+/**
+ * Tap (or drag, or hover with a mouse) to select the nearest point; arrow
+ * keys move it when the chart has focus; Esc or a tap elsewhere clears it.
+ * `indexAt(viewBoxX)` maps a position to a data index.
+ */
+function useScrub(count, W, indexAt) {
+  const [sel, setSel] = useState(null);
+  const wrap = useRef(null);
+  const svg = useRef(null);
+  const down = useRef(false);
+  useEffect(() => {
+    if (sel == null) return;
+    const away = (e) => {
+      if (wrap.current && !wrap.current.contains(e.target)) setSel(null);
+    };
+    document.addEventListener("pointerdown", away);
+    return () => document.removeEventListener("pointerdown", away);
+  }, [sel]);
+  const pick = (e) => {
+    const r = svg.current?.getBoundingClientRect();
+    if (!r || !r.width) return;
+    const i = indexAt(((e.clientX - r.left) / r.width) * W);
+    if (i != null && i >= 0 && i < count) setSel(i);
+  };
+  const handlers = {
+    onPointerDown: (e) => {
+      down.current = true;
+      pick(e);
+    },
+    onPointerMove: (e) => {
+      if (down.current || e.pointerType === "mouse") pick(e);
+    },
+    onPointerUp: () => {
+      down.current = false;
+    },
+    onPointerCancel: () => {
+      down.current = false;
+    },
+    onPointerLeave: (e) => {
+      down.current = false;
+      if (e.pointerType === "mouse") setSel(null);
+    },
+    onKeyDown: (e) => {
+      if (e.key === "ArrowRight" || e.key === "ArrowLeft") {
+        e.preventDefault();
+        const step = e.key === "ArrowRight" ? 1 : -1;
+        setSel((s) => Math.max(0, Math.min(count - 1, s == null ? (step > 0 ? 0 : count - 1) : s + step)));
+      } else if (e.key === "Escape") setSel(null);
+    },
+  };
+  return { sel: sel != null && sel < count ? sel : null, wrap, svg, handlers };
+}
+
+/** The floating readout above a selected point. */
+function Readout({ pct, value, sub }) {
+  const edge = pct < 16 ? "is-left" : pct > 84 ? "is-right" : "";
+  return (
+    <div className={`chart-readout ${edge}`} style={{ left: `${pct}%` }} role="status" aria-live="polite">
+      <b>{value}</b>
+      {sub && <span>{sub}</span>}
+    </div>
+  );
+}
+
 /**
  * Tiny dependency-free SVG line chart. Scales to container width via viewBox.
  * data: [{ x:number, y:number, date?:string, label?:string }]
  * textScale enlarges the axis text where the chart is drawn narrow.
  */
 export function LineChart({ data, color = "var(--accent)", unit = "", decimals = 0, textScale = 1 }) {
+  const W = 600;
+  const H = 230;
+  const padL = Math.round(46 * textScale);
+  const padR = 16;
+  const n = data?.length || 0;
+  const xsAll = n ? data.map((d) => d.x) : [0];
+  const minX0 = Math.min(...xsAll);
+  const spanX0 = Math.max(...xsAll) - minX0 || 1;
+  const sxAt = (x) => padL + ((x - minX0) / spanX0) * (W - padL - padR);
+  const { sel, wrap, svg, handlers } = useScrub(n, W, (vx) => {
+    let best = 0;
+    for (let i = 1; i < n; i++) if (Math.abs(sxAt(data[i].x) - vx) < Math.abs(sxAt(data[best].x) - vx)) best = i;
+    return best;
+  });
   if (!data || data.length === 0) {
     return (
       <p className="tag" style={{ textTransform: "none", letterSpacing: 0, margin: "6px 0" }}>
@@ -12,10 +101,6 @@ export function LineChart({ data, color = "var(--accent)", unit = "", decimals =
     );
   }
 
-  const W = 600;
-  const H = 230;
-  const padL = Math.round(46 * textScale);
-  const padR = 16;
   const padT = 16;
   const padB = 30;
 
@@ -64,9 +149,22 @@ export function LineChart({ data, color = "var(--accent)", unit = "", decimals =
   };
 
   const gradId = `g-${color.replace(/[^a-z0-9]/gi, "")}`;
+  const cur = sel != null ? data[sel] : null;
 
   return (
-    <svg viewBox={`0 0 ${W} ${H}`} width="100%" role="img" style={{ display: "block" }}>
+    <div className="chart-wrap" ref={wrap}>
+    {cur && <Readout pct={(sx(cur.x) / W) * 100} value={`${fmt(cur.y)}${unit}`} sub={cur.label || fmtShortDate(cur.date)} />}
+    <svg
+      ref={svg}
+      viewBox={`0 0 ${W} ${H}`}
+      width="100%"
+      role="img"
+      tabIndex={0}
+      aria-label="Chart. Tap a point, or use the arrow keys, to read its value."
+      className="chart-svg"
+      style={{ display: "block" }}
+      {...handlers}
+    >
       <defs>
         <linearGradient id={gradId} x1="0" y1="0" x2="0" y2="1">
           <stop offset="0%" stopColor={color} stopOpacity="0.18" />
@@ -99,6 +197,13 @@ export function LineChart({ data, color = "var(--accent)", unit = "", decimals =
         <circle key={i} cx={sx(d.x)} cy={sy(d.y)} r={data.length > 24 ? 0 : 3} fill={color} />
       ))}
 
+      {cur && (
+        <g pointerEvents="none">
+          <line x1={sx(cur.x)} x2={sx(cur.x)} y1={padT} y2={H - padB} stroke="var(--ink-soft)" strokeWidth="1.5" strokeDasharray="4 4" />
+          <circle cx={sx(cur.x)} cy={sy(cur.y)} r="7" fill={color} stroke="var(--surface)" strokeWidth="3" />
+        </g>
+      )}
+
       <text x={padL} y={H - 8} textAnchor="start" fontSize={12 * textScale} fill="var(--ink-soft)">
         {data[0].label || fmtDate(data[0].date)}
       </text>
@@ -108,6 +213,7 @@ export function LineChart({ data, color = "var(--accent)", unit = "", decimals =
         </text>
       )}
     </svg>
+    </div>
   );
 }
 
@@ -118,6 +224,12 @@ export function LineChart({ data, color = "var(--accent)", unit = "", decimals =
  * months, and by Blackbird AI for comparisons, where each bar has a label).
  */
 export function BarChart({ data, color = "var(--accent)", textScale = 1 }) {
+  const W = 600;
+  const padL = Math.round(40 * textScale);
+  const padR = 12;
+  const n = data?.length || 0;
+  const slotW = n ? (W - padL - padR) / n : 1;
+  const { sel, wrap, svg, handlers } = useScrub(n, W, (vx) => Math.max(0, Math.min(n - 1, Math.floor((vx - padL) / slotW))));
   if (!data || data.length === 0 || !data.some((d) => d.y > 0)) {
     return (
       <p className="tag" style={{ textTransform: "none", letterSpacing: 0, margin: "6px 0" }}>
@@ -126,10 +238,7 @@ export function BarChart({ data, color = "var(--accent)", textScale = 1 }) {
     );
   }
 
-  const W = 600;
   const H = 200;
-  const padL = Math.round(40 * textScale);
-  const padR = 12;
   const padT = 14;
   const padB = 28;
 
@@ -152,8 +261,23 @@ export function BarChart({ data, color = "var(--accent)", textScale = 1 }) {
     }
   };
 
+  const cur = sel != null ? data[sel] : null;
+
   return (
-    <svg viewBox={`0 0 ${W} ${H}`} width="100%" role="img" style={{ display: "block" }}>
+    <div className="chart-wrap" ref={wrap}>
+    {cur && <Readout pct={((padL + sel * slot + slot / 2) / W) * 100} value={String(cur.y)} sub={cur.label || fmtShortDate(cur.date)} />}
+    <svg
+      ref={svg}
+      viewBox={`0 0 ${W} ${H}`}
+      width="100%"
+      role="img"
+      tabIndex={0}
+      aria-label="Chart. Tap a bar, or use the arrow keys, to read its value."
+      className="chart-svg"
+      style={{ display: "block" }}
+      {...handlers}
+    >
+      {cur && <rect x={padL + sel * slot} y={padT} width={slot} height={H - padT - padB} fill="var(--ink)" opacity="0.06" pointerEvents="none" />}
       {ticks.map((t, i) => (
         <g key={i}>
           <line x1={padL} x2={W - padR} y1={sy(t)} y2={sy(t)} stroke="var(--line)" strokeWidth="1" />
@@ -168,7 +292,7 @@ export function BarChart({ data, color = "var(--accent)", textScale = 1 }) {
         const y = sy(d.y);
         const h = Math.max(0, H - padB - y);
         if (h === 0) return null;
-        return <rect key={i} x={x} y={y} width={bw} height={h} rx="3" fill={color} />;
+        return <rect key={i} x={x} y={y} width={bw} height={h} rx="3" fill={color} opacity={sel != null && sel !== i ? 0.4 : 1} />;
       })}
 
       {labelled ? (
@@ -190,5 +314,6 @@ export function BarChart({ data, color = "var(--accent)", textScale = 1 }) {
         </>
       )}
     </svg>
+    </div>
   );
 }

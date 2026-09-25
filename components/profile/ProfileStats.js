@@ -5,6 +5,7 @@ import PlayerCard from "../PlayerCard";
 import { gameName } from "@/lib/summary";
 import { playerLabel } from "@/lib/bots";
 import { computePractice } from "@/lib/practice";
+import { PERIODS, periodLabel, toInputDate } from "@/lib/period";
 
 function gameLabel(r) {
   if (r.gameType === "x01") return `${r.config.startScore}`;
@@ -81,15 +82,26 @@ export function PracticeCard({ rows, me, onOpen, openGame, playerColors }) {
  * redesign, in the same order: player card export, headline tiles, trend
  * charts, career cards per game mode, streaks and form, then practice.
  */
-export default function ProfileStats({ user, player, stats, elo, timeline, career, practiceRows, onOpenPractice, openGame, playerColors, rivalryCard, empty }) {
+export default function ProfileStats({ user, player, stats, allStats = stats, elo, timeline, career, practiceRows, period = "all", bounds = {}, custom = {}, onPeriod, onCustom, onOpenPractice, openGame, playerColors, rivalryCard, empty }) {
+  const label = periodLabel(period, bounds);
   return (
     <>
       {rivalryCard}
+      {allStats && <PlayerCard user={user} handle={player?.handle} stats={allStats} elo={elo} playerColors={playerColors} />}
+      {allStats && onPeriod && <PeriodPicker period={period} custom={custom} onPeriod={onPeriod} onCustom={onCustom} />}
+      {allStats && !stats && (
+        <div className="card pf-empty-card mb-12">
+          <p className="pf-empty-title">No ranked games in this range</p>
+          <p className="pf-empty">{label}. Pick a longer range to see more.</p>
+          <button type="button" className="btn btn-sm" onClick={() => onPeriod("all")}>
+            Show All Time
+          </button>
+        </div>
+      )}
       {stats ? (
         <>
-          <PlayerCard user={user} handle={player?.handle} stats={stats} elo={elo} playerColors={playerColors} />
           <div className="between pf-stats-note">
-            <span className="tag">All time · ranked games only</span>
+            <span className="tag">{label} · ranked games only</span>
             <span className="tag">
               {stats.wins}–{stats.games - stats.wins}
             </span>
@@ -123,7 +135,7 @@ export default function ProfileStats({ user, player, stats, elo, timeline, caree
             )}
           </div>
         </>
-      ) : (
+      ) : allStats ? null : (
         empty
       )}
 
@@ -142,5 +154,33 @@ export default function ProfileStats({ user, player, stats, elo, timeline, caree
 
       {practiceRows.length > 0 && <PracticeCard rows={practiceRows} me={user} onOpen={onOpenPractice} openGame={openGame} playerColors={playerColors} />}
     </>
+  );
+}
+
+/** Range chips: 30 Days (default), 90 Days, All Time, Custom (two dates). */
+function PeriodPicker({ period, custom, onPeriod, onCustom }) {
+  const today = toInputDate(new Date());
+  return (
+    <div className="mb-12">
+      <div className="seg" role="tablist" aria-label="Date range">
+        {PERIODS.map((p) => (
+          <button key={p.id} type="button" role="tab" aria-selected={period === p.id} className="seg-btn" onClick={() => onPeriod(p.id)}>
+            {p.label}
+          </button>
+        ))}
+      </div>
+      {period === "custom" && (
+        <div className="period-custom">
+          <label>
+            <span>From</span>
+            <input className="input" type="date" max={custom.to || today} value={custom.from || ""} onChange={(e) => onCustom({ ...custom, from: e.target.value })} />
+          </label>
+          <label>
+            <span>To</span>
+            <input className="input" type="date" min={custom.from || undefined} max={today} value={custom.to || ""} onChange={(e) => onCustom({ ...custom, to: e.target.value })} />
+          </label>
+        </div>
+      )}
+    </div>
   );
 }

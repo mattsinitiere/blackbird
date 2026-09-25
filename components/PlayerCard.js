@@ -1,7 +1,7 @@
 import { useState, useContext } from "react";
 import { PlayerBadge, PlayerLookContext } from "./ui";
 import { defaultPlayerColor } from "@/lib/constants";
-import { isTagIcon } from "@/lib/profile";
+import { isTagIcon, isDevTagIcon } from "@/lib/profile";
 import { iconParts } from "@/lib/icons";
 import { cardStats } from "@/lib/playerCard";
 
@@ -220,16 +220,24 @@ function drawCard({ user, stats, elo, playerColor, handle, look = {}, images = {
     const pillW = 24 + (tagIcon ? iconSize : 0) + (tagIcon && tagLetters ? 10 : 0) + textW;
     const pillH = 44;
     const pillY = y - 33;
+    // the developer's tag is gold outline, as in the app
+    const dev = isDevTagIcon(tagIcon);
+    const ink = dev ? (pal.theme === "dark" ? "#f1c75b" : "#9a7208") : pal.accent;
     roundRect(ctx, x, pillY, pillW, pillH, 10);
-    ctx.fillStyle = pal.accentSoft;
+    ctx.fillStyle = dev ? "rgba(212, 160, 23, 0.10)" : pal.accentSoft;
     ctx.fill();
+    if (dev) {
+      ctx.strokeStyle = pal.theme === "dark" ? "#d9ae45" : "#d4a017";
+      ctx.lineWidth = 2;
+      ctx.stroke();
+    }
     let px = x + 12;
     if (tagIcon) {
-      drawIcon(ctx, tagIcon, px, pillY + (pillH - iconSize) / 2, iconSize, pal.accent);
+      drawIcon(ctx, tagIcon, px, pillY + (pillH - iconSize) / 2, iconSize, ink);
       px += iconSize + (tagLetters ? 10 : 0);
     }
     if (tagLetters) {
-      ctx.fillStyle = pal.accent;
+      ctx.fillStyle = ink;
       ctx.fillText(tagLetters, px, y - 2);
     }
   }

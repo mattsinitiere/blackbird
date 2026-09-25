@@ -2,7 +2,7 @@ import { createContext, useContext, useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { defaultPlayerColor } from "@/lib/constants";
 import { playerLabel, isBot } from "@/lib/bots";
-import { isTagIcon, tagLabel } from "@/lib/profile";
+import { isTagIcon, isDevTagIcon, tagLabel } from "@/lib/profile";
 import Icon from "./Icon";
 import BotAvatar, { hasPortrait } from "./BotAvatar";
 
@@ -18,7 +18,7 @@ export function TagPill({ tag, tagIcon, className = "" }) {
   const icon = isTagIcon(tagIcon) ? tagIcon : null;
   if (!icon && !tag) return null;
   return (
-    <span className={`tag-pill ${className}`.trim()} aria-label={`tag ${tagLabel({ tag, tagIcon: icon })}`}>
+    <span className={`tag-pill ${isDevTagIcon(icon) ? "is-dev" : ""} ${className}`.replace(/\s+/g, " ").trim()} aria-label={`tag ${tagLabel({ tag, tagIcon: icon })}`}>
       {icon && <Icon id={icon} size="1.15em" strokeWidth={2.4} className="tag-pill-icon" />}
       {tag && <span>{tag}</span>}
     </span>

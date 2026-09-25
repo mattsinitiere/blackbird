@@ -3,7 +3,8 @@ import { BackBar, Mini } from "./ui";
 import AchievementsCard from "./Achievements";
 import { computeCareer } from "@/lib/gamestats/career";
 import { computeAchievements, readSeen, writeSeen, seenKey } from "@/lib/achievements";
-import { playerTimeline, rivalry } from "@/lib/stats";
+import { playerTimeline, rivalry, computeStats } from "@/lib/stats";
+import { DEFAULT_PERIOD, periodBounds, filterByPeriod } from "@/lib/period";
 import { matchFeed, achievementFeed, mergeFeed, circleFor } from "@/lib/activity";
 import ProfileCover from "./profile/ProfileCover";
 import ProfileIdentity from "./profile/ProfileIdentity";
@@ -68,6 +69,17 @@ export default function Profile({
   }, [isMe, userId, badges]);
 
   const myPractice = useMemo(() => practice.filter((r) => r.username === user), [practice, user]);
+
+  // Statistics tab: a date range (last 30 days by default)
+  const [period, setPeriod] = useState(DEFAULT_PERIOD);
+  const [custom, setCustom] = useState({ from: "", to: "" });
+  const bounds = useMemo(() => periodBounds(period, new Date(), custom), [period, custom]);
+  const pResults = useMemo(() => filterByPeriod(results, bounds), [results, bounds]);
+  const pPractice = useMemo(() => filterByPeriod(practice, bounds), [practice, bounds]);
+  const pStats = useMemo(() => (period === "all" ? stats : computeStats(pResults)[user] || null), [period, stats, pResults, user]);
+  const pTimeline = useMemo(() => (pStats ? playerTimeline(pResults, user) : null), [pStats, pResults, user]);
+  const pCareer = useMemo(() => computeCareer({ results: pResults, practice: pPractice }, user), [pResults, pPractice, user]);
+  const pMyPractice = useMemo(() => pPractice.filter((r) => r.username === user), [pPractice, user]);
   const timeline = useMemo(() => (stats ? playerTimeline(results, user) : null), [stats, results, user]);
   const feed = useMemo(() => mergeFeed(matchFeed(results, user), achievementFeed(badges)), [results, user, badges]);
   const circle = useMemo(
@@ -185,11 +197,17 @@ export default function Profile({
               <ProfileStats
                 user={user}
                 player={player}
-                stats={stats}
+                stats={pStats}
+                allStats={stats}
                 elo={elo}
-                timeline={timeline}
-                career={career}
-                practiceRows={myPractice}
+                timeline={pTimeline}
+                career={pCareer}
+                practiceRows={pMyPractice}
+                period={period}
+                bounds={bounds}
+                custom={custom}
+                onPeriod={setPeriod}
+                onCustom={setCustom}
                 onOpenPractice={onOpenPractice}
                 openGame={openGame}
                 playerColors={playerColors}
