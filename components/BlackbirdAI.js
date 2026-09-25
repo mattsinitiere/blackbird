@@ -365,8 +365,8 @@ export default function BlackbirdAI({ me, userId, stats, elo, results, practice,
       <div className="ai-head">
         <BirdAvatar />
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div className="display" style={{ fontSize: "calc(18px * var(--fs))" }}>Blackbird AI</div>
-          <div className="tag" style={{ textTransform: "none", letterSpacing: 0, marginTop: 2 }}>Your games, your stats, your coach.</div>
+          <div className="display" style={{ fontSize: "calc(18px * var(--fs))" }}>Merlin</div>
+          <div className="tag" style={{ textTransform: "none", letterSpacing: 0, marginTop: 2 }}>Your Blackbird Coach</div>
         </div>
         {messages.length > 0 && (
           <button className="btn ai-new-chat" onClick={() => setMessages([])} disabled={busy} aria-label="New chat" title="New chat">
@@ -402,7 +402,7 @@ export default function BlackbirdAI({ me, userId, stats, elo, results, practice,
               </p>
             ) : (
               <p className="subtle" style={{ margin: "0 0 16px" }}>
-                Play or practice a few games first. Blackbird AI only talks about games you have actually logged.
+                Play or practice a few games first. Merlin only talks about games you have actually logged.
               </p>
             )}
             <div className="ai-suggestions">
@@ -493,7 +493,7 @@ export default function BlackbirdAI({ me, userId, stats, elo, results, practice,
             placeholder={hasData ? "Ask about your games…" : "Log a game first…"}
             rows={1}
             disabled={busy || !hasData}
-            aria-label="Ask Blackbird AI"
+            aria-label="Ask Merlin"
             onBlur={() => {
               // iOS scrolls the page up for the keyboard; put it back so the
               // header and input stay where they belong

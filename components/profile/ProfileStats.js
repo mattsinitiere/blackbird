@@ -106,7 +106,7 @@ export default function ProfileStats({ onAskAI = null, user, player, stats, allS
         <>
           {onAskAI && (
             <button type="button" className="btn mb-12" style={{ width: "100%" }} onClick={() => onAskAI(`Look at my stats for ${label.toLowerCase()}: what's going well, what's slipping, and what should I work on?`)}>
-              Ask AI About My Stats
+              Ask Merlin About My Stats
             </button>
           )}
           <div className="between pf-stats-note">

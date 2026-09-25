@@ -14,7 +14,7 @@ of that lands in a personal practice log, never in the league stats.
 A public website at `/` explains the product; the scoring app itself lives
 at `/app`. Sign-up is invite-only (a shared code), everyone signs in with
 email and password, scores games on their phone, and results sync
-instantly to everyone who follows them. A **Blackbird AI** tab answers
+instantly to everyone who follows them. A **Merlin** tab answers
 questions about your own games and draws charts, and every game gets a
 **match report** and counts towards 32 **achievements**. Postgres is the
 single source of truth for game data.
@@ -52,9 +52,9 @@ single source of truth for game data.
 |:---:|:---:|:---:|
 | <img src="docs/screenshots/achievements.png" width="240" alt="Achievements grid with unlocked badges and progress bars"> | <img src="docs/screenshots/friends.png" width="240" alt="Friends screen, opened from your profile: find players by name or @handle, following and followers"> | <img src="docs/screenshots/practice.png" width="240" alt="Practice hub with session counts and the eight-bot ladder"> |
 
-| Your profile | Blackbird AI | Phone while casting |
+| Your profile | Merlin | Phone while casting |
 |:---:|:---:|:---:|
-| <img src="docs/screenshots/profile.png" width="240" alt="Your own profile: badge, @handle, bio, Following and Followers, Find friends and the settings gear; the bottom bar shows line-icon tabs and your avatar"> | <img src="docs/screenshots/ai.png" width="240" alt="Blackbird AI chat tab with suggested questions"> | <img src="docs/screenshots/phone-casting.png" width="240" alt="Simplified phone scoring UI while casting, showing the TV code"> |
+| <img src="docs/screenshots/profile.png" width="240" alt="Your own profile: badge, @handle, bio, Following and Followers, Find friends and the settings gear; the bottom bar shows line-icon tabs and your avatar"> | <img src="docs/screenshots/ai.png" width="240" alt="Merlin chat tab with suggested questions"> | <img src="docs/screenshots/phone-casting.png" width="240" alt="Simplified phone scoring UI while casting, showing the TV code"> |
 
 **TV scoreboard** (`/tv`, paired with the phone by a 4-character code):
 
@@ -80,7 +80,7 @@ single source of truth for game data.
   customized in Account settings. The signed-in player's own badge is the
   far-right tab of the bottom bar and opens their profile.
 - **Bottom bar**: line-icon tabs for Home, Play (a dot while a game is in
-  progress), Stats, Matchup and Blackbird AI, then your avatar for your
+  progress), Stats, Matchup and Merlin, then your avatar for your
   profile. Your profile holds Following / Followers, Find friends and the
   settings gear.
 - **TV scoreboard (cast mode)**: tap Cast to TV during any game, put the
@@ -133,7 +133,7 @@ single source of truth for game data.
   side-by-side report with a per-round chart for each player. The Records
   screen (Stats → Records) holds league records and streaks for every
   game type. Both read through the stats engine in `lib/gamestats/`.
-- **Blackbird AI**: the sparkle tab in the bottom nav is a chat about your
+- **Merlin**: the sparkle tab in the bottom nav is a chat about your
   own games (form, checkouts, records, rivals, trends, practice). Ask for
   a chart and the app draws one from its own numbers. Needs an AI provider
   key on the server (see [step 3](#3-pick-an-ai-provider-for-the-blackbird-ai-tab)).

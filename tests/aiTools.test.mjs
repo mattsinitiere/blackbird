@@ -185,7 +185,7 @@ test("runAgent reports tool steps and streams text", async () => {
 });
 
 // ---- identity, units, badges and versus widgets ----
-import { isIdentityQuestion, scrubIdentity } from "../lib/aiText.js";
+import { isIdentityQuestion, scrubIdentity, IDENTITY_REPLY } from "../lib/aiText.js";
 import { withUnit, axisUnit, resolveChart as resolveOne, extractCharts as extractSome } from "../lib/aiChart.js";
 
 test("identity questions are caught; darts questions are not", () => {
@@ -195,7 +195,7 @@ test("identity questions are caught; darts questions are not", () => {
 
 test("scrubIdentity renames models and companies but leaves blocks alone", () => {
   const out = scrubIdentity("I'm ChatGPT from OpenAI.\n```chart\n{\"title\":\"gpt\"}\n```");
-  assert.match(out, /I'm Blackbird AI from Blackbird\./);
+  assert.match(out, /I'm Merlin from Blackbird\./);
   assert.match(out, /"title":"gpt"/);
 });
 
@@ -217,4 +217,12 @@ test("badges and versus blocks resolve only against known data", () => {
   assert.equal(v.wins, 2);
   assert.equal(resolveOne({ type: "versus", opponent: "Nobody" }, {}, {}, ctx), null);
   assert.equal(resolveOne({ type: "badges", ids: ["nope"] }, {}, {}, ctx), null);
+});
+
+test("the assistant has one name: Merlin (old 'Blackbird AI' mentions are normalised too)", () => {
+  assert.match(IDENTITY_REPLY, /I'm \*\*Merlin\*\*/);
+  assert.doesNotMatch(IDENTITY_REPLY, /Blackbird AI/);
+  assert.equal(scrubIdentity("I'm Blackbird AI, running on GPT-4o."), "I'm Merlin, running on Merlin.");
+  assert.equal(scrubIdentity("Ask Blackbird AI / ChatGPT anything."), "Ask Merlin anything.", "a doubled name collapses");
+  assert.equal(scrubIdentity("Blackbird is the app."), "Blackbird is the app.", "the app's name stays");
 });

@@ -962,6 +962,7 @@ button.badge-tile {
 }
 .modal-backdrop .modal {
   touch-action: auto;
+  overscroll-behavior: contain;
   max-height: calc(100svh - 40px);
   overflow-y: auto;
 }
@@ -5067,4 +5068,191 @@ html:not([data-theme="dark"]) .app.is-profile {
   padding: 5px 0;
   border-bottom: 1px solid var(--line);
   font-size: calc(13px * var(--fs));
+}
+
+/* ---------- Home search (components/Search.js) ---------- */
+.header-search {
+  flex: none;
+  display: inline-grid;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--ink);
+  cursor: pointer;
+}
+.header-search:active {
+  transform: scale(0.96);
+}
+.modal-backdrop.search-backdrop {
+  padding: 0;
+  align-items: stretch;
+  justify-content: center;
+  background: var(--bg);
+}
+.search-sheet {
+  width: 100%;
+  max-width: 640px;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg);
+  touch-action: auto;
+}
+.search-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: calc(12px + env(safe-area-inset-top)) 16px 12px;
+  border-bottom: 1px solid var(--line);
+}
+.search-field {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 42px;
+  padding: 0 12px;
+  border-radius: 999px;
+  background: var(--surface-2);
+  color: var(--muted);
+}
+.search-input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  outline: none;
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  font-size: 16px; /* 16px stops iOS zooming on focus */
+}
+.search-input::-webkit-search-cancel-button {
+  cursor: pointer;
+}
+.search-cancel {
+  flex: none;
+  border: 0;
+  background: none;
+  color: var(--ink);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 8px 2px;
+}
+.search-body {
+  flex: 1;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 8px 16px calc(24px + env(safe-area-inset-bottom));
+}
+.search-group {
+  margin-top: 14px;
+}
+.search-group-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+.search-group-title {
+  margin: 0 0 6px;
+  font-size: calc(12px * var(--fs));
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.search-more {
+  border: 0;
+  background: none;
+  color: var(--accent);
+  font: inherit;
+  font-size: calc(13px * var(--fs));
+  font-weight: 600;
+  cursor: pointer;
+  padding: 4px 0;
+}
+.search-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+  overflow: hidden;
+}
+.search-list li + li {
+  border-top: 1px solid var(--line);
+}
+.search-row {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 11px 14px;
+  border: 0;
+  background: none;
+  color: var(--ink);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.search-row:active {
+  background: var(--surface-2);
+}
+.search-row-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.search-row-title {
+  font-weight: 600;
+  font-size: calc(15px * var(--fs));
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.search-row-sub {
+  font-size: calc(12.5px * var(--fs));
+  color: var(--muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.search-pill {
+  flex: none;
+  padding: 3px 9px;
+  border-radius: 999px;
+  font-size: calc(12px * var(--fs));
+  font-weight: 700;
+  background: var(--surface-2);
+  color: var(--ink-soft);
+}
+.search-pill.is-win {
+  background: rgba(22, 163, 74, 0.14);
+  color: #15803d;
+}
+.search-pill.is-loss {
+  background: rgba(224, 58, 58, 0.12);
+  color: var(--red);
+}
+[data-theme="dark"] .search-pill.is-win {
+  color: #4ade80;
+}
+.search-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.search-empty {
+  margin: 24px 4px;
+  color: var(--muted);
+  font-size: calc(14px * var(--fs));
+  line-height: 1.45;
 }

@@ -265,18 +265,48 @@ export function BackBar({ back, title }) {
  * the scrolling content, not the screen. While open, the app's scroll
  * area is locked so the page can't move behind it.
  */
-export function Overlay({ children, onBackdrop, label }) {
+// every area that can scroll behind a pop-up: the page, the Merlin chat's
+// message list and its input
+const BEHIND_SCROLLERS = ".scroll, .ai-messages, .ai-input";
+let openOverlays = 0;
+let restoreScroll = null;
+
+function lockBehind() {
+  if (openOverlays++ > 0) return; // already locked by an outer pop-up
+  // html and body too: iOS Safari otherwise drags (rubber-bands) the whole
+  // page behind a fixed pop-up
+  const els = [document.documentElement, document.body, ...document.querySelectorAll(BEHIND_SCROLLERS)];
+  const prev = els.map((el) => [el.style.overflow, el.style.overflowY, el.style.overscrollBehavior]);
+  els.forEach((el) => {
+    el.style.overflow = "hidden";
+    el.style.overflowY = "hidden";
+    el.style.overscrollBehavior = "none";
+  });
+  restoreScroll = () =>
+    els.forEach((el, i) => {
+      el.style.overflow = prev[i][0];
+      el.style.overflowY = prev[i][1];
+      el.style.overscrollBehavior = prev[i][2];
+    });
+}
+
+function unlockBehind() {
+  if (--openOverlays > 0) return; // an outer pop-up is still open
+  openOverlays = 0;
+  restoreScroll?.();
+  restoreScroll = null;
+}
+
+export function Overlay({ children, onBackdrop, label, className = "" }) {
   const [host, setHost] = useState(null);
   useEffect(() => {
     setHost(document.body);
-    const scrollers = [...document.querySelectorAll(".scroll")];
-    const prev = scrollers.map((el) => el.style.overflowY);
-    scrollers.forEach((el) => (el.style.overflowY = "hidden"));
-    return () => scrollers.forEach((el, i) => (el.style.overflowY = prev[i]));
+    lockBehind();
+    return unlockBehind;
   }, []);
   if (!host) return null;
   return createPortal(
-    <div className="modal-backdrop" onClick={onBackdrop} role="presentation" aria-label={label}>
+    <div className={`modal-backdrop${className ? ` ${className}` : ""}`} onClick={onBackdrop} role="presentation" aria-label={label}>
       {children}
     </div>,
     host
@@ -399,6 +429,16 @@ export function MatchupIcon(props) {
 }
 
 /** The Blackbird AI sparkle. */
+/** Magnifier for Home search. */
+export function SearchIcon({ size = 22 }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <circle cx="11" cy="11" r="7" />
+      <path d="M20 20l-3.6-3.6" />
+    </svg>
+  );
+}
+
 export function SparkleIcon(props) {
   return (
     <NavSvg {...props}>

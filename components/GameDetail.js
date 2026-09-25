@@ -156,7 +156,7 @@ export default function GameDetail({ rows, playerColors, back, me = null, onAskA
           style={{ width: "100%" }}
           onClick={() => onAskAI(`Talk me through my ${gameTitle(gameType, config)} game on ${fmtDate(match.completedAt)} (game id ${match.gameId}): what decided it, and what should I practise?`)}
         >
-          Ask AI About This Game
+          Ask Merlin About This Game
         </button>
       )}
 
@@ -268,9 +268,9 @@ function AIReport({ gameId, me }) {
 
   if (report) {
     return (
-      <section className="card mb-12 ai-game-report" aria-label="Blackbird AI match analysis">
+      <section className="card mb-12 ai-game-report" aria-label="Merlin's match analysis">
         <div className="ai-weekly-head">
-          <span className="ai-weekly-title">Blackbird AI Analysis</span>
+          <span className="ai-weekly-title">Merlin's Analysis</span>
         </div>
         <AIText text={report.text} />
         {report.charts.map((c, i) => (

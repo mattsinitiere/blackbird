@@ -25,7 +25,8 @@ import { botColors, isBot } from "@/lib/bots";
 import { rematchGame } from "@/lib/games";
 import { readPending, enqueuePending, flushPending } from "@/lib/pendingGames";
 import { activityFromEvents, profileEventsToRecord, todayKey } from "@/lib/playerEvents";
-import { Logo, CastIcon, PlayerBadge, Modal, pressProps, PlayerLookContext, HomeIcon, PlayIcon, StatsIcon, MatchupIcon, SparkleIcon } from "@/components/ui";
+import { Logo, CastIcon, PlayerBadge, Modal, pressProps, PlayerLookContext, HomeIcon, PlayIcon, StatsIcon, MatchupIcon, SparkleIcon, SearchIcon } from "@/components/ui";
+import Search from "@/components/Search";
 import Home from "@/components/Home";
 import Setup from "@/components/Setup";
 import BotSetup from "@/components/BotSetup";
@@ -309,7 +310,9 @@ export default function Page() {
 
   // training plans (lib/trainingPlans.js): { plans: [] | null (not set up), completions, loading, error }
   const [planState, setPlanState] = useState({ plans: undefined, completions: [], loading: true, error: "" });
-  const [aiPlan, setAiPlan] = useState(null); // a plan button pressed in Blackbird AI
+  const [aiPlan, setAiPlan] = useState(null); // a plan button pressed in the Merlin chat
+  const [searchOpen, setSearchOpen] = useState(false);
+  const closeSearch = useCallback(() => setSearchOpen(false), []);
   const [planNotice, setPlanNotice] = useState("");
   const loadPlans = useCallback(async () => {
     try {
@@ -880,7 +883,24 @@ export default function Page() {
           <button type="button" className="brand-home" aria-label="Blackbird home" onClick={() => setView("home")}>
             <Logo variant="lockup" height={40} />
           </button>
+          {view === "home" && (
+            <button type="button" className="header-search" aria-label="Search players, game modes and matches" onClick={() => setSearchOpen(true)}>
+              <SearchIcon />
+            </button>
+          )}
         </header>
+        {searchOpen && (
+          <Search
+            players={players}
+            results={allResults}
+            me={myName}
+            playerColors={playerColors}
+            onClose={closeSearch}
+            openProfile={openProfile}
+            openGame={openGame}
+            openSetup={(initial) => openSetup({ ...initial, players: [myName].filter(Boolean) })}
+          />
+        )}
 
         {loadError && (
           <div className="card mb-12" style={{ borderColor: "var(--red)" }}>
@@ -1150,7 +1170,7 @@ export default function Page() {
           { key: "play", label: live ? "Play (game in progress)" : "Play", icon: <PlayIcon />, active: view === "setup" || view === "bots" || view === "summary" || ALL_PLAY_VIEWS.includes(view), go: goPlay, dot: !!live },
           { key: "stats", label: "Stats", icon: <StatsIcon />, active: ["leaderboard", "records", "game"].includes(view) || (view === "profile" && !onMyProfile), go: () => setView("leaderboard") },
           { key: "matchup", label: "Matchup", icon: <MatchupIcon />, active: view === "matchup", go: () => setView("matchup") },
-          { key: "ai", label: "Blackbird AI", icon: <SparkleIcon />, active: view === "ai", go: () => setView("ai") },
+          { key: "ai", label: "Merlin", icon: <SparkleIcon />, active: view === "ai", go: () => setView("ai") },
         ].map((t) => (
           <button key={t.key} type="button" className={`navbtn navbtn-icon ${t.active ? "active" : ""}`} onClick={t.go} aria-label={t.label} title={t.label} aria-current={t.active ? "page" : undefined}>
             {t.icon}

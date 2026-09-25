@@ -4,6 +4,12 @@ This covers training plans, Merlin, strategy hints, Alter Ego, the scoped AI
 data layer, the fixed Luna configuration and the admin analytics. For Alter
 Ego's calibration details see docs/ALTER_EGO.md.
 
+> **Naming.** The assistant is called **Merlin** everywhere in the app: the
+> chat tab, the Home coach card, Scout With Merlin, Ask Merlin About This
+> Game, and its answer to "what are you?". Older notes below say "Blackbird
+> AI"; it's the same thing. (Code keeps its names: `BlackbirdAI.js`,
+> `/api/insights`.)
+
 ## Setup
 
 Apply these migrations in order in the Supabase SQL editor. Each one is
