@@ -1,8 +1,10 @@
 -- players identity guard, ai_request_log ownership, game_results visibility.
+-- (Elo and owner-only writes: test_lock_writes.sql.)
 \set ON_ERROR_STOP 1
-insert into auth.users (id, email) values
-  ('c0000000-0000-0000-0000-00000000000c', 'cat@test'),
-  ('d0000000-0000-0000-0000-00000000000d', 'dan@test');
+insert into auth.users (id, email, raw_user_meta_data) values
+  ('c0000000-0000-0000-0000-00000000000c', 'cat@test', '{"display_name":"Cat"}'),
+  ('d0000000-0000-0000-0000-00000000000d', 'dan@test', '{"display_name":"Dan"}'),
+  ('ee000000-0000-0000-0000-0000000000ee', 'eve@test', '{"display_name":"Unlinked"}');
 insert into players (username, auth_id) values ('Cat', 'c0000000-0000-0000-0000-00000000000c'), ('Dan', 'd0000000-0000-0000-0000-00000000000d'), ('Unlinked', null);
 insert into game_results (game_id, username, game_type, winner, result) values
   ('0c000000-0000-0000-0000-000000000001', 'Cat', 'x01', 'Cat', 'practice'),
@@ -10,19 +12,26 @@ insert into game_results (game_id, username, game_type, winner, result) values
 
 set role authenticated;
 set request.jwt.claim.sub = 'c0000000-0000-0000-0000-00000000000c';
-do $$ begin
-  -- can't point Dan's row at yourself, unlink it, or rename it
-  begin update players set auth_id = 'c0000000-0000-0000-0000-00000000000c' where username = 'Dan'; raise exception 'stole a player row';
+do $$
+declare n int;
+begin
+  -- can't point Dan's row at yourself, unlink it, or rename it. Since
+  -- migration-lock-writes.sql the update policy hides his row (0 rows);
+  -- the identity guard would refuse it anyway
+  begin update players set auth_id = 'c0000000-0000-0000-0000-00000000000c' where username = 'Dan'; get diagnostics n = row_count; assert n = 0, 'stole a player row';
   exception when insufficient_privilege then null; end;
-  begin update players set auth_id = null where username = 'Dan'; raise exception 'unlinked another account';
+  begin update players set auth_id = null where username = 'Dan'; get diagnostics n = row_count; assert n = 0, 'unlinked another account';
   exception when insufficient_privilege then null; end;
-  begin update players set username = 'Danny' where username = 'Dan'; raise exception 'renamed another account';
+  begin update players set username = 'Danny' where username = 'Dan'; get diagnostics n = row_count; assert n = 0, 'renamed another account';
   exception when insufficient_privilege then null; end;
   begin insert into players (username, auth_id) values ('Fake', 'd0000000-0000-0000-0000-00000000000d'); raise exception 'inserted a row linked to someone else';
   exception when insufficient_privilege then null; end;
-  -- still allowed: Elo write-back on others, claiming an unlinked row, adding an unlinked guest
+  -- Elo is server-only now (migration-lock-writes.sql): Dan's row is
+  -- invisible to Cat's updates, her own is refused
   update players set elo = 1010 where username = 'Dan';
-  update players set elo = 990, auth_id = auth_id where username = 'Cat';
+  begin update players set elo = 990 where username = 'Cat'; raise exception 'changed own Elo';
+  exception when insufficient_privilege then null; end;
+  -- still allowed: adding an unlinked guest
   insert into players (username) values ('Guest');
   -- results: only your own (no follows here)
   assert (select count(*) from game_results) = 1, 'Cat sees only her own results';
@@ -32,14 +41,16 @@ do $$ begin
 end $$;
 reset role;
 
+-- an account with no player row claims the unlinked row carrying its name
 set role authenticated;
-set request.jwt.claim.sub = 'c0000000-0000-0000-0000-00000000000c';
+set request.jwt.claim.sub = 'ee000000-0000-0000-0000-0000000000ee';
 do $$ begin
-  update players set auth_id = 'c0000000-0000-0000-0000-00000000000c' where username = 'Unlinked';
+  update players set auth_id = 'ee000000-0000-0000-0000-0000000000ee' where username = 'Unlinked';
 end $$;
 reset role;
 do $$ begin
-  assert (select auth_id from players where username = 'Unlinked') = 'c0000000-0000-0000-0000-00000000000c', 'claimed the unlinked row';
+  assert (select auth_id from players where username = 'Unlinked') = 'ee000000-0000-0000-0000-0000000000ee', 'claimed the unlinked row';
+  assert (select elo from players where username = 'Dan') = 1000, 'Dan''s Elo untouched';
   assert (select auth_id from players where username = 'Dan') = 'd0000000-0000-0000-0000-00000000000d', 'Dan still Dan';
   assert (select auth_id from ai_request_log limit 1) = 'c0000000-0000-0000-0000-00000000000c', 'log row owned by the caller';
 end $$;

@@ -47,23 +47,20 @@ create index if not exists matches_completed_at_idx on matches (completed_at);
 
 -- ------------------------------------------------------------
 -- Row Level Security: any signed-in member of your group can
--- read and add data. (The Supabase dashboard always bypasses RLS,
--- so you can edit/delete rows there yourself if needed.)
+-- read data; writes are limited (see migration-lock-writes.sql,
+-- which you must run on a fresh install for members to add or edit
+-- players). (The Supabase dashboard always bypasses RLS, so you
+-- can edit/delete rows there yourself if needed.)
 -- ------------------------------------------------------------
 alter table players enable row level security;
 alter table matches enable row level security;
 
 create policy "members read players"
   on players for select to authenticated using (true);
-create policy "members add players"
-  on players for insert to authenticated with check (true);
-create policy "members update players"
-  on players for update to authenticated using (true) with check (true);
+-- insert/update on players: owner or admin only, in migration-lock-writes.sql
 
 create policy "members read matches"
   on matches for select to authenticated using (true);
-create policy "members add matches"
-  on matches for insert to authenticated with check (true);
 
 -- One row per player per game (per-player scoring).
 create table if not exists game_results (
@@ -114,8 +111,7 @@ create policy "members read results"
     select p.username from players p
     where p.auth_id = (select auth.uid())
        or p.id in (select f.followed from follows f where f.follower = (select auth.uid()))));
-create policy "members add results"
-  on game_results for insert to authenticated with check (true);
+-- no insert policy: games are saved by app/api/record-game (service role)
 
 -- Profile fields: unique @handle + owner-only edits.
 -- (Full details and the backfill live in migration-add-profile.sql; run that

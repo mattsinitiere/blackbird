@@ -16,9 +16,9 @@ create index if not exists game_results_time_id_idx
 -- 2) Who "me" is. The server now derives the caller's player from
 --    players.auth_id = auth.uid(), so a member must not be able to point
 --    someone else's row at themselves, or rename a row that belongs to
---    another account. The players UPDATE policy is still open to members
---    (Elo write-back and colours rely on it); this trigger closes only the
---    identity columns. The service role (admin tools) has no auth.uid()
+--    another account. (migration-lock-writes.sql, run last, then limits
+--    the players UPDATE policy to the owner or admin.) This trigger closes
+--    the identity columns. The service role (admin tools) has no auth.uid()
 --    and is unaffected.
 create or replace function players_guard_identity() returns trigger
 language plpgsql as $$
