@@ -316,6 +316,9 @@ and the bot exist. Don't build online play vs strangers yet.
 Owner's side in parallel: buy the domain, Google OAuth client, Stripe
 account; Apple Developer Program when the iOS app is in reach.
 
+Bar tablets (locked-down kiosk at the board, venue-owned, QR check-in,
+signed venue games): design draft in [docs/VENUE_MODE.md](docs/VENUE_MODE.md).
+
 ### Hardware: auto-scoring for any steel-tip board
 
 **Goal**: a premium retrofit that works on any wall-mounted bristle board
