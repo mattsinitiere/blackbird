@@ -379,6 +379,118 @@ that contract; sell only after the gate and the betas. The app roadmap
 continues in parallel — the rig is only worth $699 if the software on
 the TV is worth watching.
 
+> **Superseded in part by the positioning update below (late September
+> 2026):** the homebrew camera rig is now parked. The board event protocol
+> still stands and is the one contract every scorer plugs into.
+
+### Positioning update — late September 2026: stand out from Scolia
+
+**The problem.** A Blackbird board + enclosure + camera auto-scoring
+product for bars would be a later, pricier copy of what already ships.
+Scolia sells **Scolia Pro** to "pubs, bars and darts clubs", with an app
+on phone, tablet and TV, heatmaps and coordinate stats, and private
+tournaments of up to 128 players. DartConnect runs amateur leagues at
+$5/player/season (team leagues $20/team). DartCounter bundles the Target
+Omni. Autodarts is the cheap DIY camera option.
+
+**Where not to compete**
+
+- **Camera detection hardware.** Scolia has years of head start on
+  accuracy, manufacturing and distribution; Autodarts is cheaper. A small
+  team can't win this, and hardware needs real money before it pays back.
+- **Online play against strangers.** Scolia, Autodarts and DartCounter
+  already have the player pools. (Unchanged from above.)
+- **Heavy, sanctioned league administration.** DartConnect is cheap and
+  already set up in league cities.
+
+**Where Blackbird wins**
+
+1. **Hardware-agnostic.** Scolia's software is built around Scolia
+   hardware; without the board there is no Scolia experience. Blackbird is
+   the best experience for the boards people already have: manual scoring
+   on a phone, a venue tablet, and, when present, Autodarts, Prodigy or
+   Scolia (if they grant API access). The hardware makers can't say this,
+   because they need you to buy their board.
+2. **The night out, not solo practice.** TV mode with no hardware, party
+   games (Killer, Gotcha, Halve It, Tic-Tac-Toe), group Elo, rivalries,
+   the matchup predictor, achievements, night summaries.
+3. **Merlin working from the player's real data.** Coaching from your own
+   numbers, training plans built from your weaknesses, Alter Ego. Any
+   rival can add an AI chat within a year. The lasting advantage is the
+   player data plus a coaching experience that works, so keep improving it.
+4. **Casual bar leagues that DartConnect is too heavy for.** A bar
+   league set up in 5 minutes, QR check-in, standings on the bar TV, a
+   cheap tablet at the board (docs/VENUE_MODE.md). Priced for a bar that
+   runs a Tuesday night.
+
+**Pitch:** "Blackbird makes any dartboard social: TV scoreboards,
+leagues, rivalries and an AI coach, with or without auto-scoring."
+Scolia is where you plug hardware in, not the competitor to beat.
+
+**What changes**
+
+- **Custom camera rig: parked.** The design, BOM and 500-throw gate in
+  the hardware section above stay on file, but nothing gets built until
+  bars ask for auto-scoring *and* integrations can't meet it. If bars ask,
+  first bundle Autodarts parts (if their terms allow commercial use) or
+  partner with Scolia.
+- **Hardware we do build:** the enclosure and tablet mount first, so
+  Blackbird looks like a finished station at the board. No cameras.
+- **Board adapters, not detection.** One board event protocol
+  (`dart.detected` / `darts.removed` plus status, stamped with
+  `boardId` / `bootId` / `seq`, signed with a board key). Each scorer gets
+  a small adapter into `packages/scoring-core` events:
+  - **Prodigy:** `fromProdigyEvent`, already in the code.
+  - **Autodarts:** a bridge on the Autodarts computer reads the local
+    Board Manager API (port 3180, `GET /api/state` → `status`,
+    `throws[].segment`) and sends signed events to Blackbird's server. The
+    browser can't call that API directly from an HTTPS page. The API is
+    unofficial and changed between Board Manager versions, so ask
+    Autodarts about a stable API and commercial use first.
+  - **Scolia:** their business API needs an application (believed to be
+    a cloud WebSocket; confirm with Scolia). Apply early; approval takes
+    time.
+  - **Target Omni:** no. It's sold "exclusively for DartCounter"; don't
+    reverse-engineer it. Ask Target about a partnership, but don't plan
+    around it.
+  - A **simulated board** so the whole path is testable with no hardware.
+
+**Build order (replaces the ordering in "Sequence" where they differ)**
+
+1. **Server-side saves.** Games go through a server route or a Postgres
+   function: the client uploads the dart list, the server replays it with
+   scoring-core and computes Elo. Close the open `players` UPDATE and
+   `game_results` INSERT policies. Leagues, venues and signed boards all
+   depend on this.
+2. **Simple leagues.** `leagues` + membership, `game_results.league_id`, a
+   read policy for fellow league members, invite code/QR, standings.
+   Opponent sign-off for league results.
+3. **Venue tablet** (docs/VENUE_MODE.md): kiosk lockdown, pairing, QR
+   check-in, signed venue games.
+4. **Board-adapter layer + simulated board**, then the Autodarts bridge,
+   then Scolia once access is granted.
+5. **Keep investing in** Merlin, the TV experience and party games.
+6. **Later:** async challenges (both players play the same game before a
+   deadline, results hidden until both submit), counted outside the main
+   Elo unless board-verified or confirmed by both players.
+
+**Check demand before building 2–3.** Run a real league on Blackbird
+(ours, then one at a bar we don't know). Talk to 5–10 league organisers
+and bar owners: what they use now, what annoys them, and whether they'd
+pay $X a month. If none of them would switch, stop and rethink before
+writing the league and venue code.
+
+**Honest risks**
+
+- Amateur groups are hard to charge. Expect hobby-scale revenue until
+  several thousand users. A venue subscription (bars paying) is likelier
+  to earn than player Premium.
+- Scolia or DartCounter can copy features. What lasts: staying
+  hardware-agnostic (they're unlikely to support rival boards) and the
+  groups and leagues that settle on Blackbird.
+- The Autodarts and Scolia integrations depend on third parties' terms
+  and APIs. Keep every adapter small and replaceable.
+
 ## Stats engine follow-ups
 
 - Teach `packages/scoring-core` `deriveCompletedResult` to emit the stats
