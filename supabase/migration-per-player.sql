@@ -33,6 +33,6 @@ drop policy if exists "members read results" on game_results;
 create policy "members read results"
   on game_results for select to authenticated using (true);
 
-drop policy if exists "members add results" on game_results;
-create policy "members add results"
-  on game_results for insert to authenticated with check (true);
+-- No insert policy: games are saved by app/api/record-game with the
+-- service role (see migration-lock-writes.sql). This file used to create
+-- an open one; re-running it no longer does.

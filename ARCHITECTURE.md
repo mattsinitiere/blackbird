@@ -260,16 +260,25 @@ hand-rolled. This is deliberate: no supply-chain surface, no bundle bloat.
   @handle and follows/unfollows; `app/app/page.js` derives `following`,
   `followers`, `social` and `circlePlayers` (me + who I follow), which is
   what Home, Setup and the AI coach receive as `players`.
-- **RLS posture** (see `supabase/schema.sql` and
-  `migration-follows-tags.sql`): any *authenticated* account may read
-  players, insert players/game_results and update players (needed for Elo
-  write-back), and may read only its own follows (plus follows of its own
-  player row). `game_results` SELECT is restricted to rows whose username
-  is the caller's own player or a player the caller follows, so every
-  screen is friends-only without a single client-side filter. Before the
+- **RLS posture** (see `supabase/schema.sql`, `migration-follows-tags.sql`
+  and `migration-lock-writes.sql`): any *authenticated* account may read
+  players and only its own follows (plus follows of its own player row).
+  `game_results` SELECT is restricted to rows whose username is the
+  caller's own player or a player the caller follows, so every screen is
+  friends-only without a single client-side filter. Before the follows
   migration runs `getFollows()` returns null and the app treats everyone
-  as the circle. Nothing is deletable or rewritable via the anon key
-  except your own follows — destructive operations exist only behind
+  as the circle.
+- **Writes are owner-or-admin.** A member may update only their own
+  players row, and never its `elo` or `username` (`players_guard_core`);
+  they may claim an unlinked row only if it carries their own display name
+  and they have no row yet, and a row they add gets Elo 1000. The admin
+  (`is_admin()`, the `ADMIN_EMAIL` account) may change any row. The
+  browser cannot insert `game_results` or `matches` at all: games are
+  saved by `/api/record-game`, which checks the caller played in the game
+  (or is the admin), decides ranked vs practice itself, and computes Elo
+  from the stored ratings (`lib/gameSave.js`), ignoring any ratings the
+  client sends. Nothing is deletable via the anon key except your own
+  follows and training plans; destructive operations exist only behind
   `/api/admin`.
 - **Admin** = the single email in `ADMIN_EMAIL` (checked client-side for UI
   and re-verified server-side in `/api/admin`, which is the only holder of
@@ -602,6 +611,18 @@ checks that every drill is playable, and saves it with the service role
 through `create_training_plan()`, which enforces three plans per account
 and idempotency. Listing, deleting and recording progress go straight to
 Supabase under RLS. See docs/TRAINING_AND_COACHING.md.
+
+### `/api/record-game` (POST)
+
+Saves one finished game. Requires a valid session token; the caller's
+player row (`players.auth_id`) must be one of the game's human players,
+unless the caller is `ADMIN_EMAIL`. Takes `{gameId, gameType, config,
+players, winner, perPlayer, completedAt}`, validated by
+`lib/gameSave.js` (`parseGameSave`, `planGameSave`), which works out
+ranked vs practice with `isRankedMatch` and the new Elo with
+`applyEloUpdate` from the ratings in the database. Writes the result rows
+and Elo with the service role. Idempotent by `gameId`: a retried or
+late-synced game that already has rows returns `{ok: true, already: true}`.
 
 ### `/api/admin` (POST)
 
