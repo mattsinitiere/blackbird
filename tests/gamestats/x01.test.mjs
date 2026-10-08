@@ -1,6 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { analyzeGame, analyzeMatch, rowsFromMatch } from "../../lib/gamestats/index.js";
+import { analyzeGame, analyzeMatch, rowsFromMatch, withBotRows } from "../../lib/gamestats/index.js";
+import { buildResultRows, resultFromRow } from "../../lib/practice.js";
 import { replayX01Visits } from "../../lib/x01log.js";
 
 const T = (n) => ({ n, mult: 3 });
@@ -88,10 +89,41 @@ test("legacy row without a log keeps totals only", () => {
 test("analyzeMatch and rowsFromMatch", () => {
   const match = { gameId: "m1", gameType: "x01", config: { startScore: 301, doubleOut: true }, players: ["Ann", "bot:rook"], winner: "Ann", completedAt: "2026-09-24T19:05:00.000Z", perPlayer: { Ann: v2Row.stats, "bot:rook": {} } };
   const rows = rowsFromMatch(match);
-  assert.equal(rows.length, 1);
+  assert.equal(rows.length, 2, "the bot gets a row like a person");
   assert.deepEqual(rows[0].opponents, ["bot:rook"]);
+  assert.equal(rows[1].username, "bot:rook");
+  assert.equal(rows[1].result, "loss");
   const m = analyzeMatch(rows);
   assert.equal(m.winner, "Ann");
   assert.equal(m.players.Ann.won, true);
+  assert.equal(m.players["bot:rook"].won, false);
   assert.equal(analyzeMatch([]), null);
+});
+
+test("a saved bot game rebuilds the bot's row with every visit", () => {
+  const match = { gameId: "m2", gameType: "x01", config: { startScore: 301, doubleOut: true }, players: ["bot:rook", "Ann"], winner: "bot:rook", completedAt: "2026-09-24T19:05:00.000Z", perPlayer: { Ann: { dartsThrown: 6 }, "bot:rook": v2Row.stats } };
+  const saved = buildResultRows({ ...match, ranked: false, currentElo: { Ann: 1000 }, places: { "bot:rook": 1, Ann: 2 } }).map((r) => resultFromRow(r));
+  assert.equal(saved.length, 1, "still one database row: the human's");
+  assert.equal(saved[0].stats.place, 2);
+  assert.equal(saved[0].stats.botStats["bot:rook"].place, 1);
+
+  const rows = withBotRows(saved);
+  assert.deepEqual(rows.map((r) => r.username), ["Ann", "bot:rook"]);
+  assert.equal(rows[0].stats.botStats, undefined, "the human's stats lose the copy");
+  assert.equal(rows[1].result, "win");
+  assert.deepEqual(rows[1].opponents, ["Ann"]);
+  const m = analyzeMatch(rows);
+  assert.equal(m.players["bot:rook"].won, true);
+  assert.equal(m.players["bot:rook"].visits.length, v2Visits.length);
+  assert.equal(m.players["bot:rook"].metrics.threeDartAvg, analyzeGame(v2Row).metrics.threeDartAvg);
+});
+
+test("withBotRows: two humans vs a bot make one bot row; old bot games add none", () => {
+  const bot = { dartsThrown: 3 };
+  const a = { gameId: "g", username: "Ann", opponents: ["Bob", "bot:jay"], winner: "Ann", gameType: "x01", stats: { botStats: { "bot:jay": bot } } };
+  const b = { ...a, username: "Bob", opponents: ["Ann", "bot:jay"] };
+  assert.deepEqual(withBotRows([a, b]).map((r) => r.username), ["Ann", "Bob", "bot:jay"]);
+  const old = { gameId: "g", username: "Ann", opponents: ["bot:jay"], winner: "Ann", gameType: "x01", stats: { dartsThrown: 9 } };
+  assert.deepEqual(withBotRows([old]), [old]);
+  assert.deepEqual(withBotRows(null), []);
 });

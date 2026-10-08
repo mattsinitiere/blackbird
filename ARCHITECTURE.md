@@ -113,7 +113,7 @@ components/
   BotSetup.js             Play a Bot: opponent gallery, bot games only,
                           throw order; always practice (opened from Setup,
                           the practice hub and a bot game's summary)
-  BotAvatar.js            bot portraits: one vector bird per bot, used by
+  BotAvatar.js            bot avatars: a donut ring in the bot's color, used by
                           PlayerBadge wherever a bot appears
   PlayX01.js              X01 engine + UI (per-dart entry)
   PlayCricket.js          cricket engine + UI (marks, MPR, variants)
