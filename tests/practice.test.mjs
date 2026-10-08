@@ -84,6 +84,20 @@ test("buildResultRows: bot games write only the human's row, bot as opponent", (
   assert.equal(rows[0].elo_after, 1000);
 });
 
+test("buildResultRows: the bot's stats ride along on the human's row", () => {
+  const rows = buildResultRows({
+    ...base,
+    players: ["Ann", "bot:rook"],
+    winner: "bot:rook",
+    perPlayer: { Ann: { dartsThrown: 21 }, "bot:rook": { dartsThrown: 18 } },
+    ranked: false,
+    currentElo: {},
+  });
+  assert.deepEqual(rows[0].stats, { dartsThrown: 21, botStats: { "bot:rook": { dartsThrown: 18 } } });
+  const plain = buildResultRows({ ...base, players: ["Ann", "Bob"], ranked: true, eloAfter: { Ann: 990, Bob: 1010 } });
+  assert.equal(plain[0].stats.botStats, undefined, "no key at all without a bot");
+});
+
 test("splitResults separates practice rows and keeps order", () => {
   const rows = [
     { id: 1, result: "win" },

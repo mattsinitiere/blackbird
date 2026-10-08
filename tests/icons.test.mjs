@@ -30,10 +30,10 @@ test("icon paths are well formed", () => {
   }
 });
 
-test("every bot has its own portrait", async () => {
-  const src = (await import("node:fs")).readFileSync(new URL("../components/BotAvatar.js", import.meta.url), "utf8");
-  const { BOTS } = await import("../lib/bots.js");
-  for (const b of BOTS) assert.ok(src.includes(`"${b.id}": () =>`), `${b.id} has no portrait`);
+test("every bot has a ring color", async () => {
+  const { BOTS, botColors } = await import("../lib/bots.js");
+  const colors = botColors();
+  for (const id of [...BOTS.map((b) => b.id), "bot:alterego"]) assert.match(colors[id] || "", /^#[0-9a-f]{6}$/i, `${id} has no color`);
 });
 
 test("the migration's allowed tag icons and covers match the app's lists", async () => {

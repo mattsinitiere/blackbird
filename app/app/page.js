@@ -55,7 +55,7 @@ import GameSummary from "@/components/GameSummary";
 import BlackbirdAI from "@/components/BlackbirdAI";
 import Friends from "@/components/Friends";
 import GameDetail from "@/components/GameDetail";
-import { rowsFromMatch } from "@/lib/gamestats";
+import { rowsFromMatch, withBotRows } from "@/lib/gamestats";
 
 const PLAY_VIEWS = { x01: "playX01", cricket: "playCricket", baseball: "playBaseball", aroundTheClock: "playAroundTheClock", killer: "playKiller", shanghai: "playShanghai", halveit: "playHalveIt", gotcha: "playGotcha", tictactoe: "playTicTacToe", bobs27: "playBobs27", checkoutDrill: "playCheckoutDrill", scoringDrill: "playScoringDrill" };
 
@@ -786,7 +786,7 @@ export default function Page() {
     const rows = allResults.filter((x) => x.gameId === row.gameId);
     if (!rows.length) return;
     if (view !== "game") setGameFrom(view);
-    setGameRows(rows);
+    setGameRows(withBotRows(rows));
     setView("game");
   };
   const openReport = () => {
