@@ -7,7 +7,7 @@ import { FONT_SCALES, PICKER_COLORS, defaultPlayerColor } from "@/lib/constants"
 import { COVERS, coverId } from "@/lib/covers";
 import TagEditor from "./TagEditor";
 import ProfileCover from "./profile/ProfileCover";
-import { applyFontScale } from "@/lib/prefs";
+import { applyFontScale, applyTheme as applyThemePref, themePref } from "@/lib/prefs";
 import { setFeedbackPrefs, feedback } from "@/lib/feedback";
 import { normalizeHandle, validateHandle, suggestHandle, validateTag, BIO_MAX, LOCATION_MAX } from "@/lib/profile";
 
@@ -41,7 +41,7 @@ export default function Account({ user, players, results, addPlayer, setPlayerHi
   const meta = user?.user_metadata || {};
   const savedName = meta.display_name || "";
   const [section, setSection] = useState("profile");
-  const [theme, setTheme] = useState(meta.theme === "dark" ? "dark" : "light");
+  const [theme, setTheme] = useState(themePref(meta.theme));
   const [fontScale, setFontScale] = useState(FONT_SCALES.some((f) => f.id === meta.fontScale) ? meta.fontScale : "normal");
   const [haptics, setHaptics] = useState(meta.haptics !== false);
   const [sounds, setSounds] = useState(meta.sounds === true);
@@ -164,7 +164,7 @@ export default function Account({ user, players, results, addPlayer, setPlayerHi
 
   const applyTheme = (t) => {
     setTheme(t);
-    if (typeof document !== "undefined") document.documentElement.dataset.theme = t;
+    applyThemePref(t);
     persist({ theme: t });
   };
   const applyTextSize = (id) => {
@@ -386,6 +386,9 @@ export default function Account({ user, players, results, addPlayer, setPlayerHi
             </button>
             <button className={`btn ${theme === "dark" ? "btn-toggle-on" : ""}`} style={{ flex: 1 }} onClick={() => applyTheme("dark")}>
               Dark
+            </button>
+            <button className={`btn ${theme === "system" ? "btn-toggle-on" : ""}`} style={{ flex: 1 }} onClick={() => applyTheme("system")}>
+              System
             </button>
           </div>
 

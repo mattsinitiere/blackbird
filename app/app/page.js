@@ -15,7 +15,7 @@ import { normalizeHandle, validateHandle } from "@/lib/profile";
 import { PROFILE_PARAM, resolveProfileParam } from "@/lib/profileLink";
 import { computeStats, eloMapFromPlayers, applyEloUpdate } from "@/lib/stats";
 import { ADMIN_EMAIL, defaultPlayerColor } from "@/lib/constants";
-import { applyFontScale } from "@/lib/prefs";
+import { applyFontScale, applyTheme, themePref } from "@/lib/prefs";
 import { feedback, setFeedbackPrefs } from "@/lib/feedback";
 import { makeCastCode, openCastChannel, castAvailable, stripHistory } from "@/lib/cast";
 import { buildSummary } from "@/lib/summary";
@@ -285,10 +285,16 @@ export default function Page() {
   useEffect(() => {
     if (typeof document === "undefined") return;
     const meta = (session && session.user && session.user.user_metadata) || {};
-    document.documentElement.dataset.theme = meta.theme === "dark" ? "dark" : "light";
+    applyTheme(meta.theme);
     document.documentElement.style.removeProperty("--accent");
     applyFontScale(meta.fontScale);
     setFeedbackPrefs({ haptics: meta.haptics !== false, sounds: meta.sounds === true });
+    // "system" follows the device as it switches between light and dark
+    if (themePref(meta.theme) !== "system" || !window.matchMedia) return;
+    const mq = window.matchMedia("(prefers-color-scheme: dark)");
+    const onChange = () => applyTheme("system");
+    mq.addEventListener?.("change", onChange);
+    return () => mq.removeEventListener?.("change", onChange);
   }, [session]);
 
   // a tap on any dart key (every game mode uses .chip keys) gets a light
@@ -355,34 +361,53 @@ export default function Page() {
     }
   }, [sessionUid, refresh, loadPlans]);
 
+  // back in the foreground after a while: catch up on anything realtime
+  // missed while the page was asleep (a quick app switch doesn't reload)
   useEffect(() => {
     if (!sessionUid) return;
+    let hiddenAt = 0;
     const onFocus = () => {
-      if (document.visibilityState === "visible") refresh();
+      if (document.visibilityState === "hidden") hiddenAt = Date.now();
+      else if (hiddenAt && Date.now() - hiddenAt > 60_000) refresh();
     };
     document.addEventListener("visibilitychange", onFocus);
     return () => document.removeEventListener("visibilitychange", onFocus);
   }, [sessionUid, refresh]);
 
-  // live updates: a friend's finished game, a follow or a profile change
-  // refreshes the data, debounced so a burst of rows causes one refresh
+  // live updates. A friend's finished game arrives as its own rows (RLS
+  // filters them per subscriber) and is merged in place; a player change
+  // (a new rating, a profile edit) reloads only the roster; a follow
+  // changes whose games are visible, so it reloads everything. Bursts are
+  // debounced. This used to reload every result for every event: a single
+  // finished game fired 2N events and N full downloads per follower.
+  const refreshPlayers = useCallback(async () => {
+    try {
+      setPlayers(await getPlayers());
+    } catch {}
+  }, []);
   useEffect(() => {
     if (!sessionUid || !supabase?.channel) return;
-    let timer = null;
-    const bump = () => {
-      clearTimeout(timer);
-      timer = setTimeout(() => {
-        if (document.visibilityState === "visible") refresh();
+    const timers = {};
+    const later = (name, fn) => {
+      clearTimeout(timers[name]);
+      timers[name] = setTimeout(() => {
+        if (document.visibilityState === "visible") fn();
       }, 1500);
     };
     const ch = supabase.channel("bb-live");
-    for (const table of ["game_results", "follows", "players"]) ch.on("postgres_changes", { event: "*", schema: "public", table }, bump);
+    ch.on("postgres_changes", { event: "INSERT", schema: "public", table: "game_results" }, (payload) => {
+      const row = payload?.new;
+      if (!row?.game_id) return later("all", refresh);
+      setAllResults((rs) => (rs.some((r) => r.id === row.id) ? rs : [...rs, resultFromRow(row)].sort((a, b) => String(a.completedAt).localeCompare(String(b.completedAt)))));
+    });
+    ch.on("postgres_changes", { event: "*", schema: "public", table: "players" }, () => later("players", refreshPlayers));
+    ch.on("postgres_changes", { event: "*", schema: "public", table: "follows" }, () => later("all", refresh));
     ch.subscribe();
     return () => {
-      clearTimeout(timer);
+      Object.values(timers).forEach(clearTimeout);
       supabase.removeChannel(ch);
     };
-  }, [sessionUid, refresh]);
+  }, [sessionUid, refresh, refreshPlayers]);
 
   const handleAdoptTried = useRef(false);
   useEffect(() => {

@@ -2,21 +2,20 @@ import { useState } from "react";
 import { BackBar, PlayerBadge, pressProps } from "./ui";
 import { BASE_ELO } from "@/lib/constants";
 
+// an average over one or two games isn't a standing: below this many games
+// in a mode a player is listed under "Not ranked yet" instead
+export const MIN_GAMES = 5;
+
 export default function Leaderboard({ usernames, stats, elo, openProfile, openRecords, back, playerColors }) {
   const [mode, setMode] = useState("overall");
 
-  const rows = usernames
+  const gamesIn = (s) => (mode === "x01" ? s.x01.games : mode === "cricket" ? s.cricket.games : mode === "baseball" ? s.baseball.games : s.games);
+  const all = usernames
     .map((u) => ({ u, s: stats[u], elo: elo[u] || BASE_ELO }))
-    .filter((r) => r.s)
-    .filter((r) =>
-      mode === "x01"
-        ? r.s.x01.games > 0
-        : mode === "cricket"
-        ? r.s.cricket.games > 0
-        : mode === "baseball"
-        ? r.s.baseball.games > 0
-        : true
-    )
+    .filter((r) => r.s && gamesIn(r.s) > 0);
+  const unranked = all.filter((r) => gamesIn(r.s) < MIN_GAMES).sort((a, b) => gamesIn(b.s) - gamesIn(a.s));
+  const rows = all
+    .filter((r) => gamesIn(r.s) >= MIN_GAMES)
     .sort((a, b) => {
       if (mode === "x01") return b.s.x01.threeDartAvg - a.s.x01.threeDartAvg;
       if (mode === "cricket") return b.s.cricket.mpr - a.s.cricket.mpr;
@@ -81,7 +80,7 @@ export default function Leaderboard({ usernames, stats, elo, openProfile, openRe
 
       {rows.length === 0 && (
         <p className="subtle">
-          No completed games in this category yet.
+          {unranked.length ? `Nobody has played ${MIN_GAMES} games in this category yet.` : "No completed games in this category yet."}
           {" Standings show you and the players you follow."}
         </p>
       )}
@@ -97,7 +96,7 @@ export default function Leaderboard({ usernames, stats, elo, openProfile, openRe
               style={{ display: "flex", alignItems: "center", gap: 12 }}
               {...pressProps(() => openProfile(r.u))}
             >
-              <div className="num" style={{ fontSize: "calc(20px * var(--fs))", width: "calc(22px * var(--fs))", color: i === 0 ? "var(--amber)" : "var(--muted)" }}>
+              <div className="num" style={{ fontSize: "calc(20px * var(--fs))", width: "calc(22px * var(--fs))", color: i === 0 ? "var(--accent)" : "var(--muted)" }}>
                 {i + 1}
               </div>
               <div style={{ flex: 1 }}>
@@ -135,6 +134,24 @@ export default function Leaderboard({ usernames, stats, elo, openProfile, openRe
           );
         })}
       </div>
+
+      {unranked.length > 0 && (
+        <div className="mt-12">
+          <h3 className="section-title" style={{ fontSize: "calc(15px * var(--fs))" }}>Not Ranked Yet</h3>
+          <div className="stack-8">
+            {unranked.map((r) => (
+              <div key={r.u} className="card pad-sm clickable" style={{ display: "flex", alignItems: "center", gap: 12 }} {...pressProps(() => openProfile(r.u))}>
+                <div style={{ flex: 1 }}>
+                  <PlayerBadge username={r.u} color={playerColors?.[r.u]} size={22} />
+                </div>
+                <span className="tag tag-plain">
+                  {gamesIn(r.s)} of {MIN_GAMES} games
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

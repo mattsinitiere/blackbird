@@ -16,6 +16,9 @@ import { buildServerSummary, loadPlayers, myPlayerFrom } from "@/lib/data/server
 // never sent to the browser.
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+// a tool loop makes several model calls in a row; give it room before
+// the platform cuts the request off
+export const maxDuration = 60;
 
 
 // The personal Blackbird AI tab: the signed-in player's own games, form,

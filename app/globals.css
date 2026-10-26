@@ -101,6 +101,11 @@ input,
 select {
   font-family: inherit;
 }
+/* pinch zoom stays available; a quick double tap on a key must not zoom */
+button,
+[role="button"] {
+  touch-action: manipulation;
+}
 
 .app {
   min-height: 100vh;

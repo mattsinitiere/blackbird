@@ -53,3 +53,12 @@ test("undo: a committed visit comes back minus its last dart", () => {
   assert.deepEqual(dartsAfterUndo([{ n: 20 }, { n: 20 }, { n: 5 }]), [{ n: 20 }, { n: 20 }]);
   assert.deepEqual(dartsAfterUndo(undefined), []);
 });
+
+import { themePref, resolveTheme } from "../lib/prefs.js";
+test("theme: unset means system, which follows the device", () => {
+  assert.equal(themePref(undefined), "system");
+  assert.equal(themePref("dark"), "dark");
+  assert.equal(resolveTheme(undefined, true), "dark");
+  assert.equal(resolveTheme("system", false), "light");
+  assert.equal(resolveTheme("light", true), "light");
+});

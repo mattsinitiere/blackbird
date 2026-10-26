@@ -19,6 +19,9 @@ import { buildProfile } from "@/lib/alterEgo";
 // player, under row-level security (lib/db.js).
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+// a tool loop makes several model calls in a row; give it room before
+// the platform cuts the request off
+export const maxDuration = 60;
 
 const REPAIR_ATTEMPTS = 1; // one retry with the validator's errors, then give up
 
