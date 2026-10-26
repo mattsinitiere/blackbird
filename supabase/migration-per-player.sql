@@ -29,10 +29,19 @@ create index if not exists game_results_completed_idx on game_results (completed
 
 alter table game_results enable row level security;
 
-drop policy if exists "members read results" on game_results;
-create policy "members read results"
-  on game_results for select to authenticated using (true);
-
-drop policy if exists "members add results" on game_results;
-create policy "members add results"
-  on game_results for insert to authenticated with check (true);
+-- Created only when missing: later migrations narrow these policies
+-- (migration-follows-tags.sql scopes reads to your circle,
+-- migration-record-game.sql closes direct inserts), and re-running this
+-- file must never open them back up.
+do $$
+begin
+  if not exists (select 1 from pg_policies where tablename = 'game_results' and policyname = 'members read results') then
+    create policy "members read results"
+      on game_results for select to authenticated using (true);
+  end if;
+  if not exists (select 1 from pg_proc where proname = 'record_game')
+     and not exists (select 1 from pg_policies where tablename = 'game_results' and policyname = 'members add results') then
+    create policy "members add results"
+      on game_results for insert to authenticated with check (true);
+  end if;
+end $$;

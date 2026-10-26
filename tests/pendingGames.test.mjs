@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { readPending, enqueuePending, flushPending, eloForLateSync } from "../lib/pendingGames.js";
+import { readPending, readParked, enqueuePending, flushPending, eloForLateSync, MAX_ATTEMPTS } from "../lib/pendingGames.js";
 
 function memStore() {
   const m = new Map();
@@ -57,4 +57,32 @@ test("flush sends oldest first, stops on failure, keeps the rest", async () => {
   assert.deepEqual(r2.saved, ["b", "c"]);
   assert.equal(readPending("u", s).length, 0);
   assert.deepEqual(sent, ["a", "b", "c"]);
+});
+
+test("a game the server refuses for good is parked and the queue moves on", async () => {
+  const s = memStore();
+  enqueuePending("u", { match: match("bad"), ranked: true }, s);
+  enqueuePending("u", { match: match("good"), ranked: true }, s);
+  const deps = {
+    currentElo: async () => ({ Matt: 1000, Chuck: 1000 }),
+    existingRows: async () => [],
+    record: async (args) => {
+      if (args.gameId === "bad") throw Object.assign(new Error("not allowed"), { code: "42501" });
+    },
+  };
+  const r = await flushPending("u", deps, s);
+  assert.deepEqual(r.saved, ["good"]);
+  assert.deepEqual(r.parked, ["bad"]);
+  assert.equal(r.left, 0);
+  assert.equal(readParked("u", s)[0].match.gameId, "bad");
+  assert.equal(readParked("u", s)[0].lastCode, "42501");
+});
+
+test("a game that keeps failing is parked after MAX_ATTEMPTS", async () => {
+  const s = memStore();
+  enqueuePending("u", { match: match("flaky"), ranked: false, attempts: MAX_ATTEMPTS - 1 }, s);
+  const deps = { currentElo: async () => ({}), existingRows: async () => [], record: async () => { throw new Error("Failed to fetch"); } };
+  const r = await flushPending("u", deps, s);
+  assert.deepEqual(r.parked, ["flaky"]);
+  assert.equal(readPending("u", s).length, 0);
 });
