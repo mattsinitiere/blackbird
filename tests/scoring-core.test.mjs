@@ -137,6 +137,40 @@ test("cricket cutthroat: surplus hits give points to open opponents; lowest wins
   assert.equal(s.engine.A.markCount, 4); // 3 closing + 1 scoring (B still open)
 });
 
+test("cricket cutthroat: closing everything wins only with the lowest score", () => {
+  let s = createGame({ gameType: "cricket", players: ["A", "B"], config: { variant: "cutthroat" } });
+  s = play(s, [endTurn]); // A passes
+  s = play(s, [dart(20, 3), dart(20, 3), endTurn]); // B closes 20 and puts 60 on A
+  assert.equal(s.engine.A.points, 60);
+  s = play(s, [dart(20, 3), dart(19, 3), dart(18, 3), endTurn]);
+  s = play(s, [endTurn]);
+  s = play(s, [dart(17, 3), dart(16, 3), dart(15, 3), endTurn]);
+  s = play(s, [endTurn]);
+  s = play(s, [dart(25, 2), dart(25, 1), endTurn]); // A has closed everything, but 60 v 0
+  assert.equal(s.status, "active");
+  s = play(s, [endTurn]); // B passes
+  s = play(s, [dart(19, 3), dart(19, 3), endTurn]); // A piles 120 on B (19 still open for B)
+  assert.equal(s.engine.B.points, 114);
+  assert.equal(s.status, "completed");
+  assert.equal(s.winner, "A");
+});
+
+test("cricket cutthroat: a closed-out player can win on an opponent's turn", () => {
+  let s = createGame({ gameType: "cricket", players: ["A", "B", "C"], config: { variant: "cutthroat" } });
+  s = play(s, [dart(20, 3), dart(19, 3), dart(18, 3), endTurn]); // A closes 20/19/18
+  s = play(s, [dart(17, 3), dart(17, 1), endTurn]); // B closes 17: +17 on A and C
+  s = play(s, [endTurn]); // C passes
+  s = play(s, [dart(17, 3), dart(16, 3), dart(15, 3), endTurn]);
+  s = play(s, [endTurn, endTurn]); // B, C pass
+  s = play(s, [dart(25, 2), dart(25, 1), endTurn]); // A closed out on 17; B is lower on 0
+  assert.equal(s.status, "active");
+  s = play(s, [endTurn]); // B passes
+  s = play(s, [dart(20, 3), dart(20, 1), dart(20, 1), endTurn]); // C closes 20: +40 on B only
+  assert.deepEqual([s.engine.A.points, s.engine.B.points, s.engine.C.points], [17, 40, 17]);
+  assert.equal(s.status, "completed");
+  assert.equal(s.winner, "A"); // tied lowest with C, and the only one closed out
+});
+
 test("cricket no-score: first to close everything wins; surplus marks are dead", () => {
   let s = createGame({ gameType: "cricket", players: ["A", "B"], config: { variant: "noscore" } });
   const seq = [];

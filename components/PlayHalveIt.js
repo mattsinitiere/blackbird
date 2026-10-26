@@ -3,7 +3,7 @@ import DartBoard from "./DartBoard";
 import { dartValue, dartLabel } from "@/lib/darts";
 import Celebration from "./Celebration";
 import { PlayerBadge, UndoIcon } from "./ui";
-import { HALVEIT_TARGETS, HALVEIT_START, halveItTargetLabel, hitsTarget, scoreDart } from "@/lib/gamestats/halveit";
+import { HALVEIT_TARGETS, HALVEIT_START, halveItTargetLabel, hitsTarget, scoreDart, halveItWinner } from "@/lib/gamestats/halveit";
 import { createRecorder, ensureRecorder, stamp, recordVisit, recordEvent, finishRecorder, stripDarts } from "@/lib/recorder";
 
 // rules live in lib/gamestats/halveit.js so the stats engine replays them
@@ -73,9 +73,7 @@ export default function PlayHalveIt({ game, resume, onProgress, onFinish, onQuit
     const newTurn = turn + 1;
     const completedRounds = Math.floor(newTurn / players.length);
     if (newTurn % players.length === 0 && completedRounds >= 9) {
-      const max = Math.max(...players.map((u) => ns[u] !== undefined ? ns.scores[u] : 0));
-      const leaders = players.filter((u) => ns.scores[u] === max);
-      const winner = leaders[0];
+      const winner = halveItWinner(players, ns);
       const completedAt = new Date().toISOString();
       const perPlayer = {};
       players.forEach((u) => {

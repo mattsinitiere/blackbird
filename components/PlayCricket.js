@@ -10,6 +10,7 @@ import { pickCricketTarget, botThrow } from "@/lib/botStrategy";
 import { useBotTurn } from "@/lib/useBotTurn";
 import { ALTER_EGO_ID, botFromConfig } from "@/lib/alterEgo";
 import { createRecorder, ensureRecorder, stamp, recordVisit, finishRecorder } from "@/lib/recorder";
+import { cutthroatWinner } from "@/packages/scoring-core/cricket.js";
 
 const numOf = (t) => (t === "B" ? 25 : Number(t));
 
@@ -151,11 +152,8 @@ export default function PlayCricket({ game, resume, onProgress, onFinish, onQuit
         return finish(ns, cur);
       }
     } else if (variant === "cutthroat") {
-      if (players.some((u) => allClosed(ns[u].marks))) {
-        let winner = players[0];
-        players.forEach((u) => {
-          if (ns[u].points < ns[winner].points) winner = u;
-        });
+      const winner = cutthroatWinner(players, ns, cur);
+      if (winner) {
         setCeleb({ type: "close", label: "All closed!" });
         return finish(ns, winner);
       }

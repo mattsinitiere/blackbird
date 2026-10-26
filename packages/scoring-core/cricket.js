@@ -89,19 +89,26 @@ export function cricketCommit(state) {
   if (variant === "noscore") {
     if (allClosed(ns[cur].marks)) return { ...base, status: "completed", winner: cur };
   } else if (variant === "cutthroat") {
-    if (players.some((u) => allClosed(ns[u].marks))) {
-      let winner = players[0];
-      players.forEach((u) => {
-        if (ns[u].points < ns[winner].points) winner = u;
-      });
-      return { ...base, status: "completed", winner };
-    }
+    const winner = cutthroatWinner(players, ns, cur);
+    if (winner) return { ...base, status: "completed", winner };
   } else {
     const closedAll = allClosed(ns[cur].marks);
     const leads = players.every((u) => u === cur || ns[cur].points >= ns[u].points);
     if (closedAll && leads) return { ...base, status: "completed", winner: cur };
   }
   return { ...base, turn: state.turn + 1 };
+}
+
+/**
+ * Cutthroat ends when a player has closed every number AND has the lowest
+ * score (ties count). Points land on opponents, so a closed-out player can
+ * become lowest on someone else's turn: every player is checked, the
+ * thrower first, then throw order. Returns null while play continues.
+ */
+export function cutthroatWinner(players, engine, cur) {
+  const order = cur != null ? [cur, ...players.filter((u) => u !== cur)] : players;
+  const low = Math.min(...players.map((u) => engine[u].points));
+  return order.find((u) => allClosed(engine[u].marks) && engine[u].points === low) ?? null;
 }
 
 export function cricketResult(state) {

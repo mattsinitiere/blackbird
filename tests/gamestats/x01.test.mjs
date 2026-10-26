@@ -127,3 +127,52 @@ test("withBotRows: two humans vs a bot make one bot row; old bot games add none"
   assert.deepEqual(withBotRows([old]), [old]);
   assert.deepEqual(withBotRows(null), []);
 });
+
+// ---- best-of finishing numbers: every won leg counts, not just the last
+import { computeRecords } from "../../lib/gamestats/records.js";
+import { computeStats } from "../../lib/stats.js";
+
+const bo3Visits = [
+  ...replayX01Visits([T(20), T(20), T(20), T(20), T(17), D(5)], 301, true, 0),
+  ...replayX01Visits([S(1), S(1), S(1)], 301, true, 1),
+  ...replayX01Visits([T(20), T(20), T(20), T(20), S(1), S(20), D(20)], 301, true, 2),
+].map((v, i) => ({ ...v, i }));
+const bo3Row = (username, winner) => ({
+  gameId: "bo3",
+  username,
+  gameType: "x01",
+  config: { startScore: 301, doubleOut: true, legs: 3 },
+  winner,
+  result: winner === username ? "win" : "loss",
+  completedAt: "2026-10-01T00:00:00Z",
+  stats: { v: 2, visits: bo3Visits, dartsThrown: 16, pointsScored: 785, checkout: 40, legs: [{ w: username, d: 6, co: 121 }, { w: "Bob", d: 3, co: 0 }, { w: username, d: 7, co: 40 }] },
+});
+
+test("x01 best-of: highest checkout is the best finish over every won leg", () => {
+  const a = analyzeGame(bo3Row("Ann", "Ann"));
+  assert.equal(a.metrics.checkout, 121);
+  assert.deepEqual(a.metrics.hitsByRange, { "2-40": 1, "41-70": 0, "71-100": 0, "101-170": 1 });
+  const rec = computeRecords({ results: [bo3Row("Ann", "Ann")], practice: [] }).find((r) => r.id === "x01_high_checkout");
+  assert.equal(rec.value, 121);
+  assert.equal(computeStats([bo3Row("Ann", "Ann")]).Ann.x01.highestCheckout, 121);
+});
+
+test("x01 best-of: a match loser keeps the checkouts of the legs they won", () => {
+  assert.equal(analyzeGame(bo3Row("Ann", "Bob")).metrics.checkout, 121);
+});
+
+test("x01: best leg compares 501 legs only", () => {
+  const rec = computeRecords({ results: [bo3Row("Ann", "Ann")], practice: [] }).find((r) => r.id === "x01_best_leg");
+  assert.equal(rec, undefined); // a 6-dart 301 leg is not a 501 record
+  assert.equal(computeStats([bo3Row("Ann", "Ann")]).Ann.x01.bestLeg, null);
+});
+
+test("x01: a bust visit scores 0 in the first nine, in every engine", () => {
+  // 301 double out: 60 (241 left), 180 (61 left), T19 S5 busts, then S1 S20 D20
+  const visits = replayX01Visits([S(20), S(20), S(20), T(20), T(20), T(20), T(19), S(5), S(1), S(20), D(20)], 301, true, 0).map((v, i) => ({ ...v, i }));
+  assert.equal(visits[2].out.k, "bust");
+  const row = { gameId: "f9", username: "Ann", gameType: "x01", config: { startScore: 301, doubleOut: true }, winner: "Ann", result: "win", stats: { v: 2, visits, dartsThrown: 11 } };
+  // first nine darts: 60 + 180 + 0 (bust) + 1 = 241
+  assert.equal(analyzeGame(row).metrics.first9Avg, 80.3);
+  assert.equal(computeStats([row]).Ann.x01.first9Avg, 80.3);
+});
