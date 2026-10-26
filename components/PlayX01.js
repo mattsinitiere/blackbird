@@ -7,8 +7,8 @@ import { dartValue, dartLabel } from "@/lib/darts";
 import { botFor, playerLabel, isBot } from "@/lib/bots";
 import { undoDepth, dartsAfterUndo } from "@/lib/undo";
 import { useFinishConfirm } from "./FinishConfirm";
-import { pickX01Target, botThrow } from "@/lib/botStrategy";
-import { ALTER_EGO_ID, botFromConfig, throwForAlterEgo } from "@/lib/alterEgo";
+import { pickX01Target, botThrowX01 } from "@/lib/botStrategy";
+import { ALTER_EGO_ID, botFromConfig } from "@/lib/alterEgo";
 import { X01Hint } from "./StrategyHint";
 import { useBotTurn } from "@/lib/useBotTurn";
 import { createRecorder, ensureRecorder, stamp, recordVisit, finishRecorder, stripDarts } from "@/lib/recorder";
@@ -44,6 +44,9 @@ export default function PlayX01({ game, resume, onProgress, onFinish, onQuit, ca
   const [celeb, setCeleb] = useState(null);
   const [legsWon, setLegsWon] = useState(() => resume?.legsWon ?? players.reduce((o, u) => ((o[u] = 0), o), {}));
   const [legHistory, setLegHistory] = useState(() => resume?.legHistory ?? []);
+  // the visit just thrown, so a bot's (or anyone's) three darts stay readable
+  // after the turn has moved on
+  const [lastVisit, setLastVisit] = useState(null);
   const doneRef = useRef(false); // set once onFinish fires; stops a trailing bot throw
 
   useEffect(() => {
@@ -128,6 +131,7 @@ export default function PlayX01({ game, resume, onProgress, onFinish, onQuit, ca
     }
     setTurnDarts([]);
     setMult(1);
+    setLastVisit({ who: cur, darts, scored: kind === "bust" ? null : sum });
 
     if (sum === 180 && kind !== "bust") {
       setCeleb({ type: "180" });
@@ -209,6 +213,7 @@ export default function PlayX01({ game, resume, onProgress, onFinish, onQuit, ca
     if (back.legHistory) setLegHistory(back.legHistory);
     setMult(1);
     setMsg("");
+    setLastVisit(null);
     setHistory(history.slice(0, -depth));
   };
   const canUndo = (turnDarts.length > 0 && !isBot(cur)) || undoDepth(history, players, isBot) > 0;
@@ -220,9 +225,11 @@ export default function PlayX01({ game, resume, onProgress, onFinish, onQuit, ca
   useBotTurn({
     active: !!bot && !doneRef.current && !celeb && !confirming,
     key: `${turn}:${turnDarts.length}:${legHistory.length}`,
+    // a beat longer before a dart at a finishing double
+    delayMs: remaining <= 50 && remaining % 2 === 0 && config.doubleOut ? 1150 : 750,
     throwOne: () => {
       const target = pickX01Target({ remaining, doubleOut: !!config.doubleOut, checkout: bot.checkout });
-      const land = bot.id === ALTER_EGO_ID ? throwForAlterEgo(bot, target, remaining, !!config.doubleOut) : botThrow(bot, target);
+      const land = botThrowX01(bot, target, remaining, !!config.doubleOut);
       addDart({ n: land.n, mult: land.mult });
     },
   });
@@ -310,7 +317,13 @@ export default function PlayX01({ game, resume, onProgress, onFinish, onQuit, ca
         </div>
 
         <div className="flex-wrap" style={{ minHeight: 34, marginBottom: 8 }}>
-          {turnDarts.length === 0 && <span className="tag">tap a multiplier, then a number</span>}
+          {turnDarts.length === 0 && (
+            <span className="tag tag-plain">
+              {lastVisit
+                ? `Last: ${playerLabel(lastVisit.who)} ${lastVisit.scored == null ? "bust" : lastVisit.scored} (${lastVisit.darts.map(dartLabel).join(" ")})`
+                : "tap a multiplier, then a number"}
+            </span>
+          )}
           {turnDarts.map((d, i) => (
             <span key={i} className="btn" style={{ padding: "5px 10px", fontSize: "calc(13px * var(--fs))" }}>
               {dartLabel(d)}

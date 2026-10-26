@@ -184,7 +184,7 @@ function BotActions({ bot, onRematch, onChooseBot, onPlayBot, onPracticeHub }) {
             <div className="tag" style={{ color: "var(--live)" }}>New Opponent Unlocked</div>
             <div className="bot-unlock-name">{next.name}</div>
             <div className="tag" style={{ textTransform: "none", letterSpacing: 0 }}>
-              Level {next.level} · {next.avg} average. {next.blurb}
+              Level {next.level} · averages {next.legAvg}. {next.blurb}
             </div>
           </div>
         </div>

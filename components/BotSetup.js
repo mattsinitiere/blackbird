@@ -68,7 +68,7 @@ export default function BotSetup({ me, ladder, initial = null, onStart, back }) 
         <div className="bot-hero-text">
           <div className="bot-hero-name">{bot.name}</div>
           <div className="bot-hero-meta">
-            Level {bot.level} · {bot.avg} average
+            Level {bot.level} · averages {bot.legAvg}
           </div>
           <p className="bot-hero-quote">&ldquo;{bot.blurb}&rdquo;</p>
           <div className="bot-hero-record">
@@ -117,7 +117,7 @@ export default function BotSetup({ me, ladder, initial = null, onStart, back }) 
                   )}
                 </span>
                 <span className="bot-tile-name">{b.name}</span>
-                <span className="bot-tile-level">{unlocked ? `L${b.level} · ${b.avg}` : `Beat ${ladder[i - 1].bot.name}`}</span>
+                <span className="bot-tile-level">{unlocked ? `L${b.level} · ${b.legAvg}` : `Beat ${ladder[i - 1].bot.name}`}</span>
               </button>
             );
           })}

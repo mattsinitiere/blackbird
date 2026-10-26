@@ -114,7 +114,7 @@ export default function Practice({ practice, me, onStart, back, playerColors, op
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ fontWeight: 700, display: "flex", alignItems: "center", gap: 6 }}>
                   <span>{bot.name}</span>
-                  <span className="tag" style={{ letterSpacing: 0 }}>L{bot.level} · avg {bot.avg}</span>
+                  <span className="tag" style={{ letterSpacing: 0 }}>L{bot.level} · avg {bot.legAvg}</span>
                 </div>
                 <div className="tag" style={{ textTransform: "none", letterSpacing: 0, marginTop: 2 }}>
                   {unlocked ? bot.blurb : `Beat ${p.bots.ladder[i - 1].bot.name} to unlock.`}

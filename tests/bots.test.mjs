@@ -88,3 +88,39 @@ test("botLadder: records per bot and unlock by beating the one below", () => {
   assert.deepEqual([l[1].wins, l[1].losses, l[1].unlocked], [0, 1, true]);
   assert.equal(l[2].unlocked, false, "Sam's win over Sparrow doesn't unlock Jay for Matt");
 });
+
+// ---- whole-leg calibration: what the app shows is what the bot plays
+import { botThrowX01 } from "../lib/botStrategy.js";
+import { createGame, applyGameEvent, currentPlayer } from "../packages/scoring-core/index.js";
+
+const dv = (d) => (d.n === 0 ? 0 : d.n === 25 ? 25 * d.mult : d.n * d.mult);
+function soloLeg(bot, rng) {
+  let s = createGame({ gameType: "x01", players: ["p"], config: { startScore: 501, doubleOut: true } });
+  let attempts = 0;
+  while (s.status === "active") {
+    const remaining = s.engine.scores.p - s.visit.reduce((a, d) => a + dv(d), 0);
+    const t = pickX01Target({ remaining, doubleOut: true, checkout: bot.checkout }, rng);
+    if (t.mult === 2 && dv(t) === remaining) attempts++;
+    const l = botThrowX01(bot, t, remaining, true, rng);
+    s = applyGameEvent(s, { type: "game.dart", dart: { n: l.n, mult: l.mult } });
+  }
+  return { points: s.engine.points.p, darts: s.engine.darts.p, attempts };
+}
+
+test("each bot's shown leg average matches simulated 501 legs, and finishing climbs the ladder", () => {
+  const rates = [];
+  for (const bot of BOTS) {
+    const rng = mulberry32(7);
+    let points = 0, darts = 0, attempts = 0;
+    const N = 120;
+    for (let i = 0; i < N; i++) {
+      const r = soloLeg(bot, rng);
+      points += r.points; darts += r.darts; attempts += r.attempts;
+    }
+    const avg = (points / darts) * 3;
+    assert.ok(Math.abs(avg - bot.legAvg) <= 4, `${bot.name}: simulated leg avg ${avg.toFixed(1)} vs shown ${bot.legAvg}`);
+    rates.push(N / attempts);
+  }
+  for (let i = 1; i < rates.length; i++) assert.ok(rates[i] > rates[i - 1] - 0.02, `checkout rate should climb: ${rates.map((r) => (r * 100).toFixed(0)).join(", ")}`);
+  assert.ok(rates[0] > 0.04, "the bottom bot can finish a leg");
+});
