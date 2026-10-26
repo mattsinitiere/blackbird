@@ -6,7 +6,7 @@ import { BASE_ELO } from "@/lib/constants";
 // in a mode a player is listed under "Not ranked yet" instead
 export const MIN_GAMES = 5;
 
-export default function Leaderboard({ usernames, stats, elo, openProfile, openRecords, back, playerColors }) {
+export default function Leaderboard({ usernames, stats, elo, openProfile, openRecords, openMatchup = null, back, playerColors }) {
   const [mode, setMode] = useState("overall");
 
   const gamesIn = (s) => (mode === "x01" ? s.x01.games : mode === "cricket" ? s.cricket.games : mode === "baseball" ? s.baseball.games : s.games);
@@ -70,11 +70,18 @@ export default function Leaderboard({ usernames, stats, elo, openProfile, openRe
         ))}
       </div>
 
-      {openRecords && (
+      {(openRecords || openMatchup) && (
         <div className="row mb-12">
-          <button className="btn" style={{ flex: 1 }} onClick={openRecords}>
-            Records
-          </button>
+          {openRecords && (
+            <button className="btn" style={{ flex: 1 }} onClick={openRecords}>
+              Records
+            </button>
+          )}
+          {openMatchup && (
+            <button className="btn" style={{ flex: 1 }} onClick={openMatchup}>
+              Matchup
+            </button>
+          )}
         </div>
       )}
 

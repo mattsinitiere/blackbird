@@ -465,6 +465,18 @@ export function MatchupIcon(props) {
   );
 }
 
+/** A dart in flight: the Practice tab. */
+export function PracticeIcon(props) {
+  return (
+    <NavSvg {...props}>
+      <path d="M21 3l-1.3 4.7-8.2 8.2-3.4-3.4 8.2-8.2L21 3z" />
+      <path d="M9.8 14.2L4 20" />
+      <path d="M4 20l-1-4 3 1" />
+      <path d="M4 20l4 1-1-3" />
+    </NavSvg>
+  );
+}
+
 /** Magnifier for Home search. */
 export function SearchIcon({ size = 22 }) {
   return (

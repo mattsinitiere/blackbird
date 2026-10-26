@@ -27,7 +27,7 @@ import { getOccasion } from "@/lib/occasions";
 import { playAgainLabel } from "@/lib/playAgain";
 import { readPending, enqueuePending, flushPending } from "@/lib/pendingGames";
 import { activityFromEvents, profileEventsToRecord, todayKey } from "@/lib/playerEvents";
-import { Logo, CastIcon, PlayerBadge, Modal, pressProps, PlayerLookContext, HomeIcon, PlayIcon, StatsIcon, MatchupIcon, SparkleIcon, SearchIcon } from "@/components/ui";
+import { Logo, CastIcon, PlayerBadge, Modal, pressProps, PlayerLookContext, HomeIcon, PlayIcon, StatsIcon, PracticeIcon, SparkleIcon, SearchIcon } from "@/components/ui";
 import Search from "@/components/Search";
 import Home from "@/components/Home";
 import Setup from "@/components/Setup";
@@ -64,6 +64,15 @@ const PLAY_VIEWS = { x01: "playX01", cricket: "playCricket", baseball: "playBase
 // views laid out to fill the screen down to the nav (content pinned to the bottom)
 const FILL_VIEWS = ["matchup", "ai"];
 
+// screens that open on their own from a link (/app#leaderboard); the rest
+// need state (a player, a game) and fall back to Home
+const LINKABLE_VIEWS = ["home", "leaderboard", "records", "matchup", "ai", "practice", "setup", "friends", "account"];
+function viewFromHash() {
+  if (typeof window === "undefined") return "home";
+  const v = window.location.hash.replace(/^#/, "");
+  return LINKABLE_VIEWS.includes(v) ? v : "home";
+}
+
 export default function Page() {
   const [authReady, setAuthReady] = useState(false);
   const [session, setSession] = useState(null);
@@ -93,7 +102,8 @@ export default function Page() {
   const { competitive: results, practice } = useMemo(() => splitResults(allResults), [allResults]);
   const [loadError, setLoadError] = useState("");
 
-  const [view, setView] = useState("home");
+  // read once on the client; the first render is the loading screen either way
+  const [view, setView] = useState(viewFromHash);
   const [live, setLive] = useState(null);
   const liveProgress = useRef(null);
 
@@ -894,6 +904,47 @@ export default function Page() {
   const ALL_PLAY_VIEWS = Object.values(PLAY_VIEWS);
   onPlayScreenRef.current = ALL_PLAY_VIEWS.includes(view);
   const playing = ALL_PLAY_VIEWS.includes(view) && !!live;
+
+  // browser history: every screen change is a history entry, so the phone's
+  // back gesture steps back through the app instead of leaving it
+  const fromPop = useRef(false);
+  const historyStarted = useRef(false);
+  useEffect(() => {
+    if (!dataReady || typeof window === "undefined") return;
+    const url = `${window.location.pathname}${window.location.search}${view === "home" ? "" : `#${view}`}`;
+    if (!historyStarted.current) {
+      historyStarted.current = true;
+      window.history.replaceState({ bbView: view }, "", url);
+      return;
+    }
+    if (fromPop.current) {
+      fromPop.current = false;
+      return;
+    }
+    if (window.history.state?.bbView !== view) window.history.pushState({ bbView: view }, "", url);
+  }, [view, dataReady]);
+  useEffect(() => {
+    const onPop = (e) => {
+      const v = e.state?.bbView;
+      if (!v) return;
+      fromPop.current = true;
+      setView(v);
+    };
+    window.addEventListener("popstate", onPop);
+    return () => window.removeEventListener("popstate", onPop);
+  }, []);
+  // a screen whose state is gone (back to a finished game, a closed report)
+  // lands on Home instead of an empty page
+  useEffect(() => {
+    const orphan =
+      (ALL_PLAY_VIEWS.includes(view) && !live) ||
+      (view === "summary" && !finished) ||
+      (view === "game" && !gameRows) ||
+      (view === "profile" && !profileUser) ||
+      (view === "admin" && !isAdmin);
+    if (orphan) setView("home");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [view, live, finished, gameRows, profileUser, isAdmin]);
   // keep the screen awake while scoring: the phone sits on a table between
   // turns. The lock drops when the page hides, so take it again on return.
   useEffect(() => {
@@ -1038,7 +1089,7 @@ export default function Page() {
             me={myName}
             onStart={(initial) => (initial?.bot ? openBots(initial, "practice") : openSetup(initial))}
             openGame={openGame}
-            back={() => setView("home")}
+            back={null}
             playerColors={playerColors}
             onAskAI={askAI}
             myRows={myRows}
@@ -1118,7 +1169,7 @@ export default function Page() {
           />
         )}
         {view === "leaderboard" && (
-          <Leaderboard usernames={visibleUsernames} stats={stats} elo={elo} openProfile={openProfile} openRecords={() => setView("records")} back={null} playerColors={playerColors} />
+          <Leaderboard usernames={visibleUsernames} stats={stats} elo={elo} openProfile={openProfile} openRecords={() => setView("records")} openMatchup={() => setView("matchup")} back={null} playerColors={playerColors} />
         )}
         {view === "profile" && profileUser && (
           <Profile
@@ -1275,14 +1326,15 @@ export default function Page() {
       )}
       <nav className="nav" aria-label="Main">
         {[
-          { key: "home", label: "Home", icon: <HomeIcon />, active: ["home", "practice"].includes(view), go: () => setView("home") },
-          { key: "play", label: live ? "Play (game in progress)" : "Play", icon: <PlayIcon />, active: view === "setup" || view === "bots" || view === "summary" || ALL_PLAY_VIEWS.includes(view), go: goPlay, dot: !!live },
-          { key: "stats", label: "Stats", icon: <StatsIcon />, active: ["leaderboard", "records", "game"].includes(view) || (view === "profile" && !onMyProfile), go: () => setView("leaderboard") },
-          { key: "matchup", label: "Matchup", icon: <MatchupIcon />, active: view === "matchup", go: () => setView("matchup") },
+          { key: "home", label: "Home", icon: <HomeIcon />, active: view === "home", go: () => setView("home") },
+          { key: "play", label: "Play", aria: live ? "Play (game in progress)" : "Play", icon: <PlayIcon />, active: view === "setup" || view === "bots" || view === "summary" || ALL_PLAY_VIEWS.includes(view), go: goPlay, dot: !!live },
+          { key: "practice", label: "Practice", icon: <PracticeIcon />, active: view === "practice", go: () => setView("practice") },
+          { key: "stats", label: "Stats", icon: <StatsIcon />, active: ["leaderboard", "records", "game", "matchup"].includes(view) || (view === "profile" && !onMyProfile), go: () => setView("leaderboard") },
           { key: "ai", label: "Merlin", icon: <SparkleIcon />, active: view === "ai", go: () => setView("ai") },
         ].map((t) => (
-          <button key={t.key} type="button" className={`navbtn navbtn-icon ${t.active ? "active" : ""}`} onClick={t.go} aria-label={t.label} title={t.label} aria-current={t.active ? "page" : undefined}>
+          <button key={t.key} type="button" className={`navbtn navbtn-icon ${t.active ? "active" : ""}`} onClick={t.go} aria-label={t.aria || t.label} aria-current={t.active ? "page" : undefined}>
             {t.icon}
+            <span className="nav-label" aria-hidden="true">{t.label}</span>
             {t.dot && <span className="nav-dot" aria-hidden="true" />}
           </button>
         ))}
@@ -1291,10 +1343,10 @@ export default function Page() {
           className={`navbtn navbtn-icon navbtn-me ${meTabActive ? "active" : ""}`}
           onClick={() => (myName ? openProfile(myName) : setView("account"))}
           aria-label="Your profile"
-          title="Your profile"
           aria-current={meTabActive ? "page" : undefined}
         >
-          <PlayerBadge username={myName || "?"} color={playerColors[myName]} size={28} showName={false} />
+          <PlayerBadge username={myName || "?"} color={playerColors[myName]} size={24} showName={false} />
+          <span className="nav-label" aria-hidden="true">Me</span>
         </button>
       </nav>
     </main>

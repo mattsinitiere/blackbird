@@ -603,14 +603,27 @@ a:focus-visible {
 .navbtn-icon {
   position: relative;
   display: inline-flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 10px 4px;
-  min-height: 48px;
+  gap: 3px;
+  padding: 7px 2px 6px;
+  min-height: 52px;
+  min-width: 0;
 }
 .navbtn-icon svg {
-  width: calc(24px * var(--fs-chrome));
-  height: calc(24px * var(--fs-chrome));
+  width: calc(22px * var(--fs-chrome));
+  height: calc(22px * var(--fs-chrome));
+}
+/* a word under every tab icon: icons alone left new players guessing */
+.nav-label {
+  font-size: calc(10.5px * var(--fs-chrome));
+  font-weight: 600;
+  line-height: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
 }
 .navbtn-me.active {
   background: var(--accent-soft);
@@ -619,7 +632,7 @@ a:focus-visible {
 /* live game in progress, on the Play tab */
 .nav-dot {
   position: absolute;
-  top: 9px;
+  top: 5px;
   right: calc(50% - 17px);
   width: 8px;
   height: 8px;
