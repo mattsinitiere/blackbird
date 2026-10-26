@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState } from "react";
+import { createContext, useContext, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { defaultPlayerColor } from "@/lib/constants";
 import { playerLabel, isBot } from "@/lib/bots";
@@ -313,10 +313,47 @@ export function Overlay({ children, onBackdrop, label, className = "" }) {
   );
 }
 
-export function Modal({ children }) {
+const FOCUSABLE = 'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
+
+/**
+ * A dialog. Escape calls onClose (when given), Tab stays inside the dialog,
+ * and focus returns to whatever opened it. labelledBy names the dialog for
+ * screen readers (the id of its heading).
+ */
+export function Modal({ children, onClose, labelledBy }) {
+  const ref = useRef(null);
+  const closeRef = useRef(onClose);
+  closeRef.current = onClose;
+  useEffect(() => {
+    const opener = document.activeElement;
+    const onKey = (e) => {
+      if (e.key === "Escape" && closeRef.current) {
+        e.stopPropagation();
+        closeRef.current();
+        return;
+      }
+      if (e.key !== "Tab" || !ref.current) return;
+      const items = [...ref.current.querySelectorAll(FOCUSABLE)];
+      if (!items.length) return;
+      const first = items[0];
+      const last = items[items.length - 1];
+      if (e.shiftKey && document.activeElement === first) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && document.activeElement === last) {
+        e.preventDefault();
+        first.focus();
+      }
+    };
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("keydown", onKey);
+      if (opener && typeof opener.focus === "function" && document.contains(opener)) opener.focus();
+    };
+  }, []);
   return (
     <Overlay>
-      <div className="modal fade" role="dialog" aria-modal="true" onClick={(e) => e.stopPropagation()}>
+      <div ref={ref} className="modal fade" role="dialog" aria-modal="true" aria-labelledby={labelledBy} onClick={(e) => e.stopPropagation()}>
         {children}
       </div>
     </Overlay>

@@ -4,7 +4,9 @@ import { Modal, PlayerBadge, UndoIcon } from "./ui";
 import DartBoard from "./DartBoard";
 import Celebration from "./Celebration";
 import { dartValue, dartLabel } from "@/lib/darts";
-import { botFor, playerLabel } from "@/lib/bots";
+import { botFor, playerLabel, isBot } from "@/lib/bots";
+import { undoDepth, dartsAfterUndo } from "@/lib/undo";
+import { useFinishConfirm } from "./FinishConfirm";
 import { pickX01Target, botThrow } from "@/lib/botStrategy";
 import { ALTER_EGO_ID, botFromConfig, throwForAlterEgo } from "@/lib/alterEgo";
 import { X01Hint } from "./StrategyHint";
@@ -52,6 +54,15 @@ export default function PlayX01({ game, resume, onProgress, onFinish, onQuit, ca
   const turnSum = turnDarts.reduce((a, d) => a + dartValue(d), 0);
   const remaining = s.scores[cur] - turnSum;
 
+  // a winning dart waits for one tap before the result saves (undo-able)
+  const { finish, confirmBar, confirming } = useFinishConfirm({
+    onFinish,
+    onUndo: () => {
+      doneRef.current = false;
+      undo();
+    },
+  });
+
   const finishGame = useCallback((ns, winner) => {
     doneRef.current = true;
     const completedAt = new Date().toISOString();
@@ -78,7 +89,7 @@ export default function PlayX01({ game, resume, onProgress, onFinish, onQuit, ca
         ...finishRecorder(ns.rec, u, completedAt),
       };
     });
-    onFinish({
+    finish({
       id: game.id,
       gameType: "x01",
       config,
@@ -87,10 +98,12 @@ export default function PlayX01({ game, resume, onProgress, onFinish, onQuit, ca
       perPlayer,
       completedAt,
     });
-  }, [game, players, config, isLegs, legsWon, onFinish, start]);
+  }, [game, players, config, isLegs, legsWon, finish, start]);
 
   const commit = (darts, kind) => {
-    setHistory((h) => [...h, { s: JSON.parse(JSON.stringify(s)), turn }]);
+    // the snapshot keeps the visit's darts and the leg score, so undo can
+    // step back one dart, and back across a finished leg
+    setHistory((h) => [...h, { s: JSON.parse(JSON.stringify(s)), turn, darts, legsWon, legHistory }]);
     const sum = darts.reduce((a, d) => a + dartValue(d), 0);
     const scoreBefore = s.scores[cur];
     const ns = JSON.parse(JSON.stringify(s));
@@ -146,7 +159,6 @@ export default function PlayX01({ game, resume, onProgress, onFinish, onQuit, ca
         });
         const legsPlayed = nb.legs[cur].length;
         setS(nb);
-        setHistory([]);
         // the throw alternates each leg
         setTurn(legsPlayed % players.length);
         setMsg(`${playerLabel(cur)} wins leg ${newLegsWon[cur]}!`);
@@ -178,26 +190,35 @@ export default function PlayX01({ game, resume, onProgress, onFinish, onQuit, ca
   };
 
   const undo = () => {
-    if (turnDarts.length > 0) {
+    // a person's own darts in this visit go one at a time; a bot's
+    // half-thrown visit is dropped along with it below
+    if (turnDarts.length > 0 && !isBot(cur)) {
       setTurnDarts((d) => d.slice(0, -1));
       return;
     }
-    setHistory((h) => {
-      if (!h.length) return h;
-      const last = h[h.length - 1];
-      setS(last.s);
-      setTurn(last.turn);
-      setMsg("");
-      return h.slice(0, -1);
-    });
+    const depth = undoDepth(history, players, isBot);
+    if (!depth) {
+      if (turnDarts.length) setTurnDarts([]);
+      return;
+    }
+    const back = history[history.length - depth];
+    setS(back.s);
+    setTurn(back.turn);
+    setTurnDarts(dartsAfterUndo(back.darts));
+    if (back.legsWon) setLegsWon(back.legsWon);
+    if (back.legHistory) setLegHistory(back.legHistory);
+    setMult(1);
+    setMsg("");
+    setHistory(history.slice(0, -depth));
   };
+  const canUndo = (turnDarts.length > 0 && !isBot(cur)) || undoDepth(history, players, isBot) > 0;
 
   // a bot at the oche throws by itself through addDart, one dart at a time
   // Alter Ego's profile was frozen into the game config when it started
   // (lib/alterEgo.js); it's never recomputed mid-game or on resume
   const bot = cur === ALTER_EGO_ID ? botFromConfig(config.alterEgo) : botFor(cur);
   useBotTurn({
-    active: !!bot && !doneRef.current,
+    active: !!bot && !doneRef.current && !celeb && !confirming,
     key: `${turn}:${turnDarts.length}:${legHistory.length}`,
     throwOne: () => {
       const target = pickX01Target({ remaining, doubleOut: !!config.doubleOut, checkout: bot.checkout });
@@ -213,6 +234,10 @@ export default function PlayX01({ game, resume, onProgress, onFinish, onQuit, ca
   return (
     <div className="fade">
       {celeb && <Celebration type={celeb.type} label={celeb.label} onDone={() => setCeleb(null)} />}
+      {confirmBar}
+      <div className="sr-only" aria-live="polite">
+        {`${playerLabel(cur)} to throw, ${remaining} left.${msg ? ` ${msg}.` : ""}`}
+      </div>
       <div className="between mb-12">
         <div>
           <div className="display" style={{ fontSize: "calc(17px * var(--fs))" }}>
@@ -256,7 +281,7 @@ export default function PlayX01({ game, resume, onProgress, onFinish, onQuit, ca
               </div>
               <div
                 className="num"
-                style={{ fontSize: "calc(44px * var(--fs))", lineHeight: 1.05, marginTop: 2, color: shown <= 40 ? "var(--red)" : "var(--ink)" }}
+                style={{ fontSize: "calc(44px * var(--fs))", lineHeight: 1.05, marginTop: 2, color: shown <= 40 ? "var(--accent)" : "var(--ink)" }}
               >
                 {shown}
               </div>
@@ -300,6 +325,7 @@ export default function PlayX01({ game, resume, onProgress, onFinish, onQuit, ca
               key={m}
               className={`btn ${mult === m ? "btn-primary" : ""}`}
               style={{ flex: 1 }}
+              aria-pressed={mult === m}
               onClick={() => setMult(m)}
             >
               {m === 1 ? "Single" : m === 2 ? "Double" : "Triple"}
@@ -320,10 +346,11 @@ export default function PlayX01({ game, resume, onProgress, onFinish, onQuit, ca
           <button className="chip" onClick={() => addDart({ n: 25, mult: 2 })}>Bull</button>
           <button className="chip" onClick={() => addDart({ n: 0, mult: 0 })}>Miss</button>
         </div>
-        <button className="chip chip-undo" onClick={undo} disabled={!turnDarts.length && !history.length}>
+        </div>
+        {/* outside the bot lock: undo goes back past a bot's visit to yours */}
+        <button className="chip chip-undo" onClick={undo} disabled={!canUndo}>
           <UndoIcon /> Undo
         </button>
-        </div>
 
         {!castActive && (
           <div style={{ marginTop: 14 }}>

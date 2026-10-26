@@ -23,6 +23,8 @@ import { isRankedMatch, splitResults, botLadder, buildResultRows, humanPlayers, 
 import { computeAchievements, diffUnlocked, seenKey, readSeen, writeSeen } from "@/lib/achievements";
 import { botColors, isBot } from "@/lib/bots";
 import { rematchGame } from "@/lib/games";
+import { getOccasion } from "@/lib/occasions";
+import { playAgainLabel } from "@/lib/playAgain";
 import { readPending, enqueuePending, flushPending } from "@/lib/pendingGames";
 import { activityFromEvents, profileEventsToRecord, todayKey } from "@/lib/playerEvents";
 import { Logo, CastIcon, PlayerBadge, Modal, pressProps, PlayerLookContext, HomeIcon, PlayIcon, StatsIcon, MatchupIcon, SparkleIcon, SearchIcon } from "@/components/ui";
@@ -66,13 +68,18 @@ export default function Page() {
   const [authReady, setAuthReady] = useState(false);
   const [session, setSession] = useState(null);
 
-  // Branded splash: hold the loading screen 1–3 s on every open so the app
-  // always launches with a moment of perceived loading.
+  // Branded splash: a short hold so the wordmark doesn't flash, longer on a
+  // seasonal day so the flourish is seen, and none at all when a game in
+  // progress is waiting (reopening the app at the board must be instant).
   const [splashDone, setSplashDone] = useState(false);
   // every screen change starts at the top (the scroll area is shared)
   const scrollRef = useRef(null);
   useEffect(() => {
-    const t = setTimeout(() => setSplashDone(true), 2000 + Math.random() * 2000);
+    let hold = getOccasion() ? 2000 : 700;
+    try {
+      if (window.localStorage.getItem("bb-live-game")) hold = 0;
+    } catch {}
+    const t = setTimeout(() => setSplashDone(true), hold);
     return () => clearTimeout(t);
   }, []);
 
@@ -246,9 +253,12 @@ export default function Page() {
     return () => sub.subscription.unsubscribe();
   }, []);
 
+  // a token refresh (hourly) hands over a new session object for the same
+  // user: effects that load data key on the user id, not the object
+  const sessionUid = session?.user?.id || null;
   useEffect(() => {
-    sessionUserIdRef.current = session?.user?.id || null;
-  }, [session]);
+    sessionUserIdRef.current = sessionUid;
+  }, [sessionUid]);
 
   // restore a persisted live game for THIS account, once per sign-in
   useEffect(() => {
@@ -264,7 +274,6 @@ export default function Page() {
         liveProgress.current = progress || null;
         liveGameRef.current = game;
         setLive(game);
-        setNotice("Live game restored — open Play to continue.");
       }
     } catch {}
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -339,26 +348,26 @@ export default function Page() {
   }, []);
 
   useEffect(() => {
-    if (session) {
+    if (sessionUid) {
       setDataReady(false);
       refresh();
       loadPlans();
     }
-  }, [session, refresh, loadPlans]);
+  }, [sessionUid, refresh, loadPlans]);
 
   useEffect(() => {
-    if (!session) return;
+    if (!sessionUid) return;
     const onFocus = () => {
       if (document.visibilityState === "visible") refresh();
     };
     document.addEventListener("visibilitychange", onFocus);
     return () => document.removeEventListener("visibilitychange", onFocus);
-  }, [session, refresh]);
+  }, [sessionUid, refresh]);
 
   // live updates: a friend's finished game, a follow or a profile change
   // refreshes the data, debounced so a burst of rows causes one refresh
   useEffect(() => {
-    if (!session || !supabase?.channel) return;
+    if (!sessionUid || !supabase?.channel) return;
     let timer = null;
     const bump = () => {
       clearTimeout(timer);
@@ -373,7 +382,7 @@ export default function Page() {
       clearTimeout(timer);
       supabase.removeChannel(ch);
     };
-  }, [session, refresh]);
+  }, [sessionUid, refresh]);
 
   const backfillRan = useRef(false);
   const handleAdoptTried = useRef(false);
@@ -388,7 +397,12 @@ export default function Page() {
     const wantHandle = metaHandle && validateHandle(metaHandle).ok ? metaHandle : null;
     const existing =
       players.find((p) => p.authId === meId) ||
-      players.find((p) => p.username.toLowerCase() === meName.toLowerCase());
+      players.find((p) => !p.authId && p.username.toLowerCase() === meName.toLowerCase());
+    if (!existing && players.some((p) => p.username.toLowerCase() === meName.toLowerCase())) {
+      // the name belongs to someone else's account: never score as them
+      setNotice(`"${meName}" is already another player's name. Pick a different display name in Settings.`);
+      return;
+    }
     if (existing) {
       if (!existing.authId) {
         (async () => {
@@ -430,7 +444,7 @@ export default function Page() {
   const myAuthId = session?.user?.id || null;
   const myPlayerRow = useMemo(() => {
     const name = (session?.user?.user_metadata?.display_name || "").trim().toLowerCase();
-    return players.find((p) => p.authId === myAuthId) || players.find((p) => p.username.toLowerCase() === name) || null;
+    return players.find((p) => p.authId === myAuthId) || players.find((p) => !p.authId && p.username.toLowerCase() === name) || null;
   }, [players, session, myAuthId]);
   // who I follow (null = follows not installed: everyone) and who follows me
   const following = useMemo(() => (follows === null ? null : followingUsernames(follows, players, myAuthId)), [follows, players, myAuthId]);
@@ -538,12 +552,8 @@ export default function Page() {
     return r;
   }, [refresh]);
 
-  // the signed-in account's own player row: by account link first, then by name
-  const myPlayer = useMemo(() => {
-    const uid = session?.user?.id;
-    const name = (session?.user?.user_metadata?.display_name || "").trim().toLowerCase();
-    return players.find((p) => p.authId === uid) || players.find((p) => p.username.toLowerCase() === name) || null;
-  }, [players, session]);
+  // the signed-in account's own player row
+  const myPlayer = myPlayerRow;
 
   const userId = session?.user?.id || null;
   // a saved plan game counts toward its plan; written only after the result
@@ -679,7 +689,8 @@ export default function Page() {
     await saveMatch(match, eloAfter, ranked);
   }, [elo, playerColors, playerMeta, persistLive, saveMatch, results, practice, circlePlayers, social, myName, session]);
 
-  const startGame = useCallback((game) => {
+  const beginGame = useCallback((game) => {
+    setStartAsk(null);
     finishingRef.current = false;
     liveProgress.current = null;
     lastFinishedRef.current = null;
@@ -691,6 +702,13 @@ export default function Page() {
     setFinished(null);
     setView(PLAY_VIEWS[game.gameType] || "playX01");
   }, [persistLive]);
+  // starting anything while a game is in progress asks first: Play Again,
+  // Start, a plan drill or a bot must never silently discard a live leg
+  const [startAsk, setStartAsk] = useState(null);
+  const startGame = useCallback((game) => {
+    if (live) setStartAsk(game);
+    else beginGame(game);
+  }, [live, beginGame]);
 
   // my own rows (Alter Ego profiles, plan playability)
   const myRows = useMemo(() => [...results, ...practice].filter((r) => r.username === myName), [results, practice, myName]);
@@ -845,7 +863,7 @@ export default function Page() {
     router.replace("/");
   };
 
-  const quit = () => {
+  const quit = (next = null) => {
     setQuitAsk(false);
     finishingRef.current = true;
     lastFinishedRef.current = null;
@@ -855,11 +873,35 @@ export default function Page() {
     if (castChannel.current) castChannel.current.send("ended", {});
     setLive(null);
     setNotice("");
-    setView("home");
+    if (next) beginGame(next);
+    else setView("home");
   };
 
   const ALL_PLAY_VIEWS = Object.values(PLAY_VIEWS);
   onPlayScreenRef.current = ALL_PLAY_VIEWS.includes(view);
+  const playing = ALL_PLAY_VIEWS.includes(view) && !!live;
+  // keep the screen awake while scoring: the phone sits on a table between
+  // turns. The lock drops when the page hides, so take it again on return.
+  useEffect(() => {
+    if (!playing || typeof navigator === "undefined" || !navigator.wakeLock) return;
+    let lock = null;
+    let gone = false;
+    const take = async () => {
+      if (document.visibilityState !== "visible") return;
+      try {
+        const l = await navigator.wakeLock.request("screen");
+        if (gone) l.release().catch(() => {});
+        else lock = l;
+      } catch {}
+    };
+    take();
+    document.addEventListener("visibilitychange", take);
+    return () => {
+      gone = true;
+      document.removeEventListener("visibilitychange", take);
+      if (lock) lock.release().catch(() => {});
+    };
+  }, [playing]);
   const playViewFor = (gt) => PLAY_VIEWS[gt] || "playX01";
   const goPlay = () => (live ? setView(playViewFor(live.gameType)) : openSetup(null));
   const askQuit = () => setQuitAsk(true);
@@ -937,6 +979,18 @@ export default function Page() {
               </div>
             </div>
             <span className="tag" style={{ color: "var(--accent)" }}>Set up</span>
+          </div>
+        )}
+        {view === "home" && live && (
+          <div className="card pad-sm mb-12" style={{ display: "flex", alignItems: "center", gap: 12, borderColor: "var(--accent)" }}>
+            <PlayIcon />
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontWeight: 700 }}>Game in progress</div>
+              <div className="tag tag-plain" style={{ marginTop: 2 }}>{playAgainLabel(live)}</div>
+            </div>
+            <button type="button" className="btn btn-primary" onClick={() => setView(playViewFor(live.gameType))}>
+              Resume
+            </button>
           </div>
         )}
         {notice && view === "home" && (
@@ -1038,7 +1092,7 @@ export default function Page() {
               await flushQueue();
               setSaveState((st) => (st === "saving" ? "queued" : st));
             }}
-            onRematch={() => startGame(rematchGame(finished.game || { ...finished.match, id: "" }))}
+            onRematch={() => startGame(rematchGame(finished.game || { ...finished.match, id: "" }, { rotate: true }))}
             onNewGame={() => setView("setup")}
             bot={finished.botId ? { id: finished.botId, unlocked: finished.unlockedBot } : null}
             onChooseBot={() => openBots({ bot: finished.botId, gameType: finished.match?.gameType }, "practice")}
@@ -1166,8 +1220,8 @@ export default function Page() {
         </div>
       </div>
       {quitAsk && live && (
-        <Modal>
-          <h3 className="section-title" style={{ fontSize: "calc(18px * var(--fs))" }}>Quit this game?</h3>
+        <Modal onClose={() => setQuitAsk(false)} labelledBy="quit-ask-title">
+          <h3 id="quit-ask-title" className="section-title" style={{ fontSize: "calc(18px * var(--fs))" }}>Quit this game?</h3>
           <p className="subtle" style={{ marginTop: 0 }}>
             The game in progress will be discarded and nothing will be saved to stats.
           </p>
@@ -1175,8 +1229,32 @@ export default function Page() {
             <button className="btn" style={{ flex: 1 }} onClick={() => setQuitAsk(false)} autoFocus>
               Keep Playing
             </button>
-            <button className="btn btn-danger" style={{ flex: 1 }} onClick={quit}>
+            <button className="btn btn-danger" style={{ flex: 1 }} onClick={() => quit()}>
               Quit Game
+            </button>
+          </div>
+        </Modal>
+      )}
+      {startAsk && live && (
+        <Modal onClose={() => setStartAsk(null)} labelledBy="start-ask-title">
+          <h3 id="start-ask-title" className="section-title" style={{ fontSize: "calc(18px * var(--fs))" }}>A game is in progress</h3>
+          <p className="subtle" style={{ marginTop: 0 }}>
+            {playAgainLabel(live)} isn&apos;t finished. Starting a new game discards it and nothing from it is saved.
+          </p>
+          <div className="row" style={{ marginTop: 16 }}>
+            <button
+              className="btn"
+              style={{ flex: 1 }}
+              autoFocus
+              onClick={() => {
+                setStartAsk(null);
+                setView(playViewFor(live.gameType));
+              }}
+            >
+              Resume Game
+            </button>
+            <button className="btn btn-danger" style={{ flex: 1 }} onClick={() => quit(startAsk)}>
+              Discard &amp; Start
             </button>
           </div>
         </Modal>

@@ -25,3 +25,31 @@ test("elo: zero-sum between two players", () => {
   assert.equal(after.A + after.B, 2000);
   assert.ok(after.A > 1000);
 });
+
+import { rematchGame } from "../lib/games.js";
+
+test("rematch: same order by default, rotated on request", () => {
+  const g = { id: "a", gameType: "x01", players: ["A", "B", "C"], config: { startScore: 501 } };
+  assert.deepEqual(rematchGame(g).players, ["A", "B", "C"]);
+  assert.deepEqual(rematchGame(g, { rotate: true }).players, ["B", "C", "A"]);
+  assert.notEqual(rematchGame(g).id, undefined);
+  const k = rematchGame({ id: "k", gameType: "killer", players: ["A", "B"], config: {} }, { rotate: true });
+  assert.deepEqual(Object.keys(k.config.numbers).sort(), ["A", "B"]);
+});
+
+import { undoDepth, dartsAfterUndo } from "../lib/undo.js";
+
+test("undo: skips bot visits back to the last person's visit", () => {
+  const isBot = (u) => u.startsWith("bot:");
+  const players = ["me", "bot:raven"];
+  const history = [{ turn: 0 }, { turn: 1 }, { turn: 2 }, { turn: 3 }];
+  assert.equal(undoDepth(history, players, isBot), 2); // pop the bot's visit and my last one
+  assert.equal(undoDepth(history.slice(0, 3), players, isBot), 1);
+  assert.equal(undoDepth([{ turn: 1 }], players, isBot), 0); // only a bot visit to undo
+  assert.equal(undoDepth([], players, isBot), 0);
+});
+
+test("undo: a committed visit comes back minus its last dart", () => {
+  assert.deepEqual(dartsAfterUndo([{ n: 20 }, { n: 20 }, { n: 5 }]), [{ n: 20 }, { n: 20 }]);
+  assert.deepEqual(dartsAfterUndo(undefined), []);
+});

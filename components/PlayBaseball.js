@@ -2,7 +2,9 @@ import { useState, useEffect, useRef } from "react";
 import { BASEBALL_INNINGS } from "@/lib/constants";
 import DartBoard from "./DartBoard";
 import { PlayerBadge, UndoIcon } from "./ui";
-import { botFor, playerLabel } from "@/lib/bots";
+import { botFor, playerLabel, isBot } from "@/lib/bots";
+import { undoDepth, dartsAfterUndo } from "@/lib/undo";
+import { useFinishConfirm } from "./FinishConfirm";
 import { pickBaseballTarget, botThrow } from "@/lib/botStrategy";
 import { useBotTurn } from "@/lib/useBotTurn";
 import { ALTER_EGO_ID, botFromConfig } from "@/lib/alterEgo";
@@ -33,17 +35,18 @@ export default function PlayBaseball({ game, resume, onProgress, onFinish, onQui
   // numbers continue 10,11,...20 then wrap back to 1
   const target = ((inning - 1) % 20) + 1;
 
-  const addDart = (mult) => {
+  // mult 0 = miss; `land` is where a bot's dart really landed (kept for its
+  // stats even when it missed the inning's number)
+  const addDart = (mult, land) => {
     if (turnDarts.length >= 3) return;
-    // mult 0 = miss
-    const dart = stamp(mult === 0 ? { n: 0, mult: 0 } : { n: target, mult }, game.startedAt);
+    const dart = stamp(land ? { n: land.n, mult: land.mult } : mult === 0 ? { n: 0, mult: 0 } : { n: target, mult }, game.startedAt);
     const next = [...turnDarts, dart];
     if (next.length === 3) commitInning(next);
     else setTurnDarts(next);
   };
 
   const commitInning = (darts) => {
-    setHistory((h) => [...h, { state: JSON.parse(JSON.stringify(state)), turn }]);
+    setHistory((h) => [...h, { state: JSON.parse(JSON.stringify(state)), turn, darts }]);
     const runs = darts.reduce((a, d) => a + (d.n === target ? d.mult : 0), 0);
     const ns = JSON.parse(JSON.stringify(state));
     recordVisit(ns.rec, cur, { r: inning - 1, s0: ns[cur].total, darts, out: { runs } });
@@ -66,7 +69,7 @@ export default function PlayBaseball({ game, resume, onProgress, onFinish, onQui
         players.forEach((u) => {
           perPlayer[u] = { runs: ns[u].total, innings: ns[u].innings, dartsThrown: ns[u].log.length, darts: ns[u].log, ...finishRecorder(ns.rec, u, completedAt) };
         });
-        onFinish({
+        confirmFinish({
           id: game.id,
           gameType: "baseball",
           config: game.config?.alterEgo ? { alterEgo: game.config.alterEgo } : {},
@@ -82,29 +85,43 @@ export default function PlayBaseball({ game, resume, onProgress, onFinish, onQui
   };
 
   const undo = () => {
-    if (turnDarts.length > 0) {
+    if (turnDarts.length > 0 && !isBot(cur)) {
       setTurnDarts((d) => d.slice(0, -1));
       return;
     }
-    setHistory((h) => {
-      if (!h.length) return h;
-      const last = h[h.length - 1];
-      setState(last.state);
-      setTurn(last.turn);
-      return h.slice(0, -1);
-    });
+    // back to the last inning a person threw (a bot's is never re-rolled)
+    const depth = undoDepth(history, players, isBot);
+    if (!depth) {
+      if (turnDarts.length) setTurnDarts([]);
+      return;
+    }
+    const back = history[history.length - depth];
+    setState(back.state);
+    setTurn(back.turn);
+    setTurnDarts(dartsAfterUndo(back.darts));
+    setHistory(history.slice(0, -depth));
   };
+  const canUndo = (turnDarts.length > 0 && !isBot(cur)) || undoDepth(history, players, isBot) > 0;
+
+  // the game-winning inning waits for one tap before the result saves
+  const { finish: confirmFinish, confirmBar, confirming } = useFinishConfirm({
+    onFinish,
+    onUndo: () => {
+      doneRef.current = false;
+      undo();
+    },
+  });
 
   // a bot at the oche aims the triple of the inning's number
   // the Alter Ego is rebuilt from the profile frozen into the game when it
   // started (lib/alterEgo.js); it's never recomputed mid-game or on resume
   const bot = cur === ALTER_EGO_ID ? botFromConfig(game.config?.alterEgo) : botFor(cur);
   useBotTurn({
-    active: !!bot && !doneRef.current,
+    active: !!bot && !doneRef.current && !confirming,
     key: `${turn}:${turnDarts.length}`,
     throwOne: () => {
       const land = botThrow(bot, pickBaseballTarget(target));
-      addDart(land.n === target ? land.mult : 0);
+      addDart(land.n === target ? land.mult : 0, land);
     },
   });
   const botLock = bot ? { opacity: 0.5, pointerEvents: "none" } : undefined;
@@ -115,6 +132,7 @@ export default function PlayBaseball({ game, resume, onProgress, onFinish, onQui
 
   return (
     <div className="fade">
+      {confirmBar}
       <div className="between mb-12">
         <div className="display" style={{ fontSize: "calc(17px * var(--fs))" }}>
           Baseball
@@ -147,7 +165,7 @@ export default function PlayBaseball({ game, resume, onProgress, onFinish, onQui
                     {state[u].innings[c - 1] != null ? state[u].innings[c - 1] : ""}
                   </td>
                 ))}
-                <td className="num" style={{ color: "var(--amber)" }}>
+                <td className="num" style={{ color: "var(--ink)", fontWeight: 700 }}>
                   {state[u].total}
                 </td>
               </tr>
@@ -162,7 +180,7 @@ export default function PlayBaseball({ game, resume, onProgress, onFinish, onQui
           <span className="tag">
             Inning {isExtra ? `${inning} (extra · ${target})` : inning} — {playerLabel(cur)}, dart {Math.min(turnDarts.length + 1, 3)} of 3{bot ? " · throwing…" : ""}
           </span>
-          <span className="num" style={{ color: "var(--amber)" }}>{liveRuns}</span>
+          <span className="num" style={{ color: "var(--accent)" }}>{liveRuns}</span>
         </div>
 
         <div style={botLock}>
@@ -179,15 +197,16 @@ export default function PlayBaseball({ game, resume, onProgress, onFinish, onQui
           )}
           {turnDarts.map((d, i) => (
             <span key={i} className="btn" style={{ padding: "5px 10px", fontSize: "calc(13px * var(--fs))" }}>
-              {d.n === 0 ? "Miss" : d.mult === 1 ? "Single" : d.mult === 2 ? "Double" : "Triple"}
+              {d.n !== target ? "Miss" : d.mult === 1 ? "Single" : d.mult === 2 ? "Double" : "Triple"}
             </span>
           ))}
         </div>
 
-        <button className="chip chip-undo" style={{ marginTop: 12 }} onClick={undo} disabled={!turnDarts.length && !history.length}>
+        </div>
+        {/* outside the bot lock: undo goes back past a bot's inning to yours */}
+        <button className="chip chip-undo" style={{ marginTop: 12 }} onClick={undo} disabled={!canUndo}>
           <UndoIcon /> Undo
         </button>
-        </div>
 
         {!castActive && (
           <div style={{ marginTop: 14 }}>

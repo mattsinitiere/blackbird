@@ -1,5 +1,7 @@
 import { useState, useEffect } from "react";
 import DartBoard from "./DartBoard";
+import { useFinishConfirm } from "./FinishConfirm";
+import { dartsAfterUndo } from "@/lib/undo";
 import { dartLabel } from "@/lib/darts";
 import { PlayerBadge, UndoIcon } from "./ui";
 import { createRecorder, ensureRecorder, stamp, recordVisit, recordEvent, finishRecorder, stripDarts } from "@/lib/recorder";
@@ -45,7 +47,7 @@ export default function PlayKiller({ game, resume, onProgress, onFinish, onQuit,
   };
 
   const endTurn = (darts = turnDarts) => {
-    setHistory((h) => [...h, { s: JSON.parse(JSON.stringify(s)), turn }]);
+    setHistory((h) => [...h, { s: JSON.parse(JSON.stringify(s)), turn, darts }]);
     const ns = JSON.parse(JSON.stringify(s));
 
     ns.darts[cur] += darts.length;
@@ -112,7 +114,7 @@ export default function PlayKiller({ game, resume, onProgress, onFinish, onQuit,
           ...finishRecorder(ns.rec, u, completedAt),
         };
       });
-      onFinish({
+      confirmFinish({
         id: game.id,
         gameType: "killer",
         config,
@@ -141,9 +143,12 @@ export default function PlayKiller({ game, resume, onProgress, onFinish, onQuit,
       const last = h[h.length - 1];
       setS(last.s);
       setTurn(last.turn);
+      setTurnDarts(dartsAfterUndo(last.darts));
       return h.slice(0, -1);
     });
   };
+  // the game-ending visit waits for one tap before the result saves
+  const { finish: confirmFinish, confirmBar } = useFinishConfirm({ onFinish, onUndo: undo });
 
   const livesDisplay = (n) => {
     const full = Math.max(0, n);
@@ -152,6 +157,7 @@ export default function PlayKiller({ game, resume, onProgress, onFinish, onQuit,
 
   return (
     <div className="fade">
+      {confirmBar}
       <div className="between mb-12">
         <div className="display" style={{ fontSize: "calc(17px * var(--fs))" }}>
           Killer

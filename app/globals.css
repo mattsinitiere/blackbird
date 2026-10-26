@@ -192,6 +192,11 @@ select {
   text-transform: uppercase;
   color: var(--muted);
 }
+/* a .tag in sentence case: secondary lines under a title */
+.tag.tag-plain {
+  text-transform: none;
+  letter-spacing: 0;
+}
 .section-title {
   font-family: var(--font-display-stack);
   font-weight: 500;

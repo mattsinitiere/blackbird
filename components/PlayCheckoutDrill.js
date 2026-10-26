@@ -1,6 +1,8 @@
 import { feedback } from "@/lib/feedback";
 import { useState, useEffect } from "react";
 import DartBoard from "./DartBoard";
+import { useFinishConfirm } from "./FinishConfirm";
+import { dartsAfterUndo } from "@/lib/undo";
 import { dartLabel } from "@/lib/darts";
 import { PlayerBadge, UndoIcon } from "./ui";
 import { createRecorder, ensureRecorder, stamp, recordVisit, recordEvent, finishRecorder, stripDarts } from "@/lib/recorder";
@@ -65,7 +67,7 @@ export default function PlayCheckoutDrill({ game, resume, onProgress, onFinish, 
     });
     const rank = (u) => ns[u].hit * 10000 - ns[u].darts;
     const winner = [...players].sort((a, b) => rank(b) - rank(a))[0];
-    onFinish({ id: game.id, gameType: "checkoutDrill", config, players, winner, perPlayer, completedAt });
+    confirmFinish({ id: game.id, gameType: "checkoutDrill", config, players, winner, perPlayer, completedAt });
   };
 
   /** Close the current finish for `p` (hit or out of darts) and load the next. */
@@ -82,7 +84,7 @@ export default function PlayCheckoutDrill({ game, resume, onProgress, onFinish, 
 
   /** Commit a visit (1–3 darts). `outcome` is 'open' | 'hit' | 'bust'. */
   const commit = (darts, outcome) => {
-    setHistory((h) => [...h, { state: JSON.parse(JSON.stringify(state)), turn, msg }]);
+    setHistory((h) => [...h, { state: JSON.parse(JSON.stringify(state)), turn, darts, msg }]);
     const ns = JSON.parse(JSON.stringify(state));
     const p = ns[cur];
     const finishIdx = p.idx;
@@ -152,10 +154,13 @@ export default function PlayCheckoutDrill({ game, resume, onProgress, onFinish, 
       const last = h[h.length - 1];
       setState(last.state);
       setTurn(last.turn);
+      setTurnDarts(dartsAfterUndo(last.darts));
       setMsg(last.msg || "");
       return h.slice(0, -1);
     });
   };
+  // the game-ending visit waits for one tap before the result saves
+  const { finish: confirmFinish, confirmBar } = useFinishConfirm({ onFinish, onUndo: undo });
 
   // live remaining for the current visit
   let liveRem = me.visitStart;
@@ -167,6 +172,7 @@ export default function PlayCheckoutDrill({ game, resume, onProgress, onFinish, 
 
   return (
     <div className="fade">
+      {confirmBar}
       <div className="between mb-12">
         <div className="display" style={{ fontSize: "calc(17px * var(--fs))" }}>Checkout Drill</div>
         <button className="btn btn-danger" style={{ padding: "7px 12px" }} onClick={onQuit}>Quit</button>

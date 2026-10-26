@@ -5,7 +5,9 @@ import { markSymbol } from "@/lib/darts";
 import DartBoard from "./DartBoard";
 import Celebration from "./Celebration";
 import { PlayerBadge, UndoIcon } from "./ui";
-import { botFor, playerLabel } from "@/lib/bots";
+import { botFor, playerLabel, isBot } from "@/lib/bots";
+import { undoDepth, dartsAfterUndo } from "@/lib/undo";
+import { useFinishConfirm } from "./FinishConfirm";
 import { pickCricketTarget, botThrow } from "@/lib/botStrategy";
 import { useBotTurn } from "@/lib/useBotTurn";
 import { ALTER_EGO_ID, botFromConfig } from "@/lib/alterEgo";
@@ -61,6 +63,15 @@ export default function PlayCricket({ game, resume, onProgress, onFinish, onQuit
   };
   const removeDart = (i) => setDarts((d) => d.filter((_, idx) => idx !== i));
 
+  // the game-winning turn waits for one tap before the result saves
+  const { finish: confirmFinish, confirmBar, confirming } = useFinishConfirm({
+    onFinish,
+    onUndo: () => {
+      doneRef.current = false;
+      undo();
+    },
+  });
+
   const finish = (ns, winner) => {
     doneRef.current = true;
     const completedAt = new Date().toISOString();
@@ -77,7 +88,7 @@ export default function PlayCricket({ game, resume, onProgress, onFinish, onQuit
         ...finishRecorder(ns.rec, u, completedAt),
       };
     });
-    onFinish({
+    confirmFinish({
       id: game.id,
       gameType: "cricket",
       config: game.config?.alterEgo ? { variant, alterEgo: game.config.alterEgo } : { variant },
@@ -89,7 +100,7 @@ export default function PlayCricket({ game, resume, onProgress, onFinish, onQuit
   };
 
   const endTurn = () => {
-    setHistory((h) => [...h, { state: JSON.parse(JSON.stringify(state)), turn }]);
+    setHistory((h) => [...h, { state: JSON.parse(JSON.stringify(state)), turn, darts }]);
     const ns = JSON.parse(JSON.stringify(state));
     const me = ns[cur];
 
@@ -169,25 +180,32 @@ export default function PlayCricket({ game, resume, onProgress, onFinish, onQuit
   };
 
   const undo = () => {
-    if (darts.length > 0) {
+    if (darts.length > 0 && !isBot(cur)) {
       setDarts((d) => d.slice(0, -1));
       return;
     }
-    setHistory((h) => {
-      if (!h.length) return h;
-      const last = h[h.length - 1];
-      setState(last.state);
-      setTurn(last.turn);
-      return h.slice(0, -1);
-    });
+    // back to the last turn a person threw (a bot's turn is never re-rolled)
+    const depth = undoDepth(history, players, isBot);
+    setBotThrows(0);
+    if (!depth) {
+      if (darts.length) setDarts([]);
+      return;
+    }
+    const back = history[history.length - depth];
+    setState(back.state);
+    setTurn(back.turn);
+    setDarts(dartsAfterUndo(back.darts));
+    setRing(1);
+    setHistory(history.slice(0, -depth));
   };
+  const canUndo = (darts.length > 0 && !isBot(cur)) || undoDepth(history, players, isBot) > 0;
 
   // a bot at the oche throws three darts (misses count) then ends its turn
   // the Alter Ego is rebuilt from the profile frozen into the game when it
   // started (lib/alterEgo.js); it's never recomputed mid-game or on resume
   const bot = cur === ALTER_EGO_ID ? botFromConfig(game.config?.alterEgo) : botFor(cur);
   useBotTurn({
-    active: !!bot && !celeb && !doneRef.current,
+    active: !!bot && !celeb && !doneRef.current && !confirming,
     key: `${turn}:${botThrows}`,
     throwOne: () => {
       if (botThrows >= 3) {
@@ -221,6 +239,10 @@ export default function PlayCricket({ game, resume, onProgress, onFinish, onQuit
   return (
     <div className="fade">
       {celeb && <Celebration type={celeb.type} label={celeb.label} onDone={() => setCeleb(null)} />}
+      {confirmBar}
+      <div className="sr-only" aria-live="polite">
+        {`${playerLabel(cur)} to throw, ${darts.length} of 3 darts entered.`}
+      </div>
       <div className="between mb-12">
         <div>
           <div className="display" style={{ fontSize: "calc(17px * var(--fs))" }}>
@@ -261,7 +283,7 @@ export default function PlayCricket({ game, resume, onProgress, onFinish, onQuit
                   </td>
                 ))}
                 {variant !== "noscore" && (
-                  <td className="num" style={{ color: "var(--amber)" }}>
+                  <td className="num" style={{ color: "var(--ink)", fontWeight: 700 }}>
                     {state[u].points}
                   </td>
                 )}
@@ -284,6 +306,7 @@ export default function PlayCricket({ game, resume, onProgress, onFinish, onQuit
               key={rr}
               className={`btn ${ring === rr ? "btn-primary" : ""}`}
               style={{ flex: 1 }}
+              aria-pressed={ring === rr}
               onClick={() => setRing(rr)}
             >
               {rr === 1 ? "Single" : rr === 2 ? "Double" : "Triple"}
@@ -317,8 +340,9 @@ export default function PlayCricket({ game, resume, onProgress, onFinish, onQuit
             <button
               key={i}
               className="btn"
-              style={{ padding: "5px 10px", fontSize: "calc(13px * var(--fs))" }}
+              style={{ padding: "10px 14px", fontSize: "calc(14px * var(--fs))", minHeight: 44 }}
               onClick={() => removeDart(i)}
+              aria-label={`Remove ${d.target === "M" ? "miss" : `${d.ring === 1 ? "single" : d.ring === 2 ? "double" : "triple"} ${d.target === "B" ? "bull" : d.target}`}`}
             >
               {d.target === "M" ? "Miss" : `${d.ring === 1 ? "S" : d.ring === 2 ? "D" : "T"}${d.target}`} ✕
             </button>
@@ -326,14 +350,15 @@ export default function PlayCricket({ game, resume, onProgress, onFinish, onQuit
           {darts.length === 0 && <span className="tag">no darts entered yet</span>}
         </div>
 
+        </div>
+        {/* undo sits outside the bot lock: it goes back past a bot's turn to yours */}
         <div className="row mt-12">
-          <button className="chip chip-undo" style={{ flex: 1, width: "auto", marginTop: 0 }} onClick={undo} disabled={!darts.length && !history.length}>
+          <button className="chip chip-undo" style={{ flex: 1, width: "auto", marginTop: 0 }} onClick={undo} disabled={!canUndo}>
             <UndoIcon /> Undo
           </button>
-          <button className="btn btn-primary" style={{ flex: 2 }} onClick={endTurn}>
+          <button className="btn btn-primary" style={{ flex: 2 }} onClick={endTurn} disabled={!!bot}>
             End turn
           </button>
-        </div>
         </div>
 
         {!castActive && (

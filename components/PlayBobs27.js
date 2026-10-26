@@ -1,5 +1,7 @@
 import { useState, useEffect } from "react";
 import DartBoard from "./DartBoard";
+import { useFinishConfirm } from "./FinishConfirm";
+import { dartsAfterUndo } from "@/lib/undo";
 import { PlayerBadge, UndoIcon } from "./ui";
 import { createRecorder, ensureRecorder, stamp, recordVisit, recordEvent, finishRecorder, stripDarts } from "@/lib/recorder";
 import { playerLabel } from "@/lib/bots";
@@ -52,11 +54,11 @@ export default function PlayBobs27({ game, resume, onProgress, onFinish, onQuit,
     // highest score wins; a busted player never beats a standing one
     const rank = (u) => (ns[u].busted ? -1e6 : 0) + ns[u].score;
     const winner = [...players].sort((a, b) => rank(b) - rank(a))[0];
-    onFinish({ id: game.id, gameType: "bobs27", config, players, winner, perPlayer, completedAt });
+    confirmFinish({ id: game.id, gameType: "bobs27", config, players, winner, perPlayer, completedAt });
   };
 
   const commit = (darts) => {
-    setHistory((h) => [...h, { state: JSON.parse(JSON.stringify(state)), turn }]);
+    setHistory((h) => [...h, { state: JSON.parse(JSON.stringify(state)), turn, darts }]);
     const ns = JSON.parse(JSON.stringify(state));
     const p = ns[cur];
     const { hits, delta } = bobsRoundScore(p.round, darts);
@@ -98,14 +100,18 @@ export default function PlayBobs27({ game, resume, onProgress, onFinish, onQuit,
       const last = h[h.length - 1];
       setState(last.state);
       setTurn(last.turn);
+      setTurnDarts(dartsAfterUndo(last.darts));
       return h.slice(0, -1);
     });
   };
+  // the game-ending visit waits for one tap before the result saves
+  const { finish: confirmFinish, confirmBar } = useFinishConfirm({ onFinish, onUndo: undo });
 
   const turnHits = turnDarts.filter((d) => isBobsHit(me.round, d)).length;
 
   return (
     <div className="fade">
+      {confirmBar}
       <div className="between mb-12">
         <div className="display" style={{ fontSize: "calc(17px * var(--fs))" }}>Bob&apos;s 27</div>
         <button className="btn btn-danger" style={{ padding: "7px 12px" }} onClick={onQuit}>Quit</button>

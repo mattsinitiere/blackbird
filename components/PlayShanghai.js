@@ -1,5 +1,7 @@
 import { useState, useEffect } from "react";
 import DartBoard from "./DartBoard";
+import { useFinishConfirm } from "./FinishConfirm";
+import { dartsAfterUndo } from "@/lib/undo";
 import { dartLabel } from "@/lib/darts";
 import Celebration from "./Celebration";
 import { PlayerBadge, UndoIcon } from "./ui";
@@ -60,11 +62,11 @@ export default function PlayShanghai({ game, resume, onProgress, onFinish, onQui
         ...finishRecorder(ns.rec, u, completedAt),
       };
     });
-    onFinish({ id: game.id, gameType: "shanghai", config, players, winner, perPlayer, completedAt });
+    confirmFinish({ id: game.id, gameType: "shanghai", config, players, winner, perPlayer, completedAt });
   };
 
   const commit = (darts) => {
-    setHistory((h) => [...h, { s: JSON.parse(JSON.stringify(s)), turn }]);
+    setHistory((h) => [...h, { s: JSON.parse(JSON.stringify(s)), turn, darts }]);
     const ns = JSON.parse(JSON.stringify(s));
     ns.darts[cur] += darts.length;
     ns.log[cur] = [...ns.log[cur], ...stripDarts(darts)];
@@ -122,10 +124,13 @@ export default function PlayShanghai({ game, resume, onProgress, onFinish, onQui
       const last = h[h.length - 1];
       setS(last.s);
       setTurn(last.turn);
+      setTurnDarts(dartsAfterUndo(last.darts));
       setMsg("");
       return h.slice(0, -1);
     });
   };
+  // the game-ending visit waits for one tap before the result saves
+  const { finish: confirmFinish, confirmBar } = useFinishConfirm({ onFinish, onUndo: undo });
 
   // live scoring for current turn
   const liveRoundScore = turnDarts.reduce(
@@ -144,6 +149,7 @@ export default function PlayShanghai({ game, resume, onProgress, onFinish, onQui
 
   return (
     <div className="fade">
+      {confirmBar}
       {celeb && <Celebration type={celeb.type} label={celeb.label} onDone={() => setCeleb(null)} />}
       <div className="between mb-12">
         <div>

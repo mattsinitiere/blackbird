@@ -1,6 +1,8 @@
 import { feedback as haptic } from "@/lib/feedback";
 import { useState, useEffect } from "react";
 import DartBoard from "./DartBoard";
+import { useFinishConfirm } from "./FinishConfirm";
+import { dartsAfterUndo } from "@/lib/undo";
 import { dartValue, dartLabel } from "@/lib/darts";
 import Celebration from "./Celebration";
 import { PlayerBadge, UndoIcon } from "./ui";
@@ -34,7 +36,7 @@ export default function PlayGotcha({ game, resume, onProgress, onFinish, onQuit,
   const turnSum = turnDarts.reduce((a, d) => a + dartValue(d), 0);
 
   const commit = (darts, kind) => {
-    setHistory((h) => [...h, { s: JSON.parse(JSON.stringify(s)), turn }]);
+    setHistory((h) => [...h, { s: JSON.parse(JSON.stringify(s)), turn, darts }]);
     const sum = darts.reduce((a, d) => a + dartValue(d), 0);
     const ns = JSON.parse(JSON.stringify(s));
     ns.darts[cur] += darts.length;
@@ -80,7 +82,7 @@ export default function PlayGotcha({ game, resume, onProgress, onFinish, onQuit,
           ...finishRecorder(ns.rec, u, completedAt),
         };
       });
-      onFinish({
+      confirmFinish({
         id: game.id,
         gameType: "gotcha",
         config,
@@ -128,15 +130,19 @@ export default function PlayGotcha({ game, resume, onProgress, onFinish, onQuit,
       const last = h[h.length - 1];
       setS(last.s);
       setTurn(last.turn);
+      setTurnDarts(dartsAfterUndo(last.darts));
       setMsg("");
       return h.slice(0, -1);
     });
   };
+  // the game-ending visit waits for one tap before the result saves
+  const { finish: confirmFinish, confirmBar } = useFinishConfirm({ onFinish, onUndo: undo });
 
   const pct = (u) => Math.round((s.scores[u] / target) * 100);
 
   return (
     <div className="fade">
+      {confirmBar}
       {celeb && <Celebration type={celeb.type} label={celeb.label} onDone={() => setCeleb(null)} />}
       <div className="between mb-12">
         <div className="display" style={{ fontSize: "calc(17px * var(--fs))" }}>
