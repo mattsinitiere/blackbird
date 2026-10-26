@@ -79,10 +79,12 @@ single source of truth for game data.
   Colors are deterministic by default (a hash of the username) and can be
   customized in Account settings. The signed-in player's own badge is the
   far-right tab of the bottom bar and opens their profile.
-- **Bottom bar**: line-icon tabs for Home, Play (a dot while a game is in
-  progress), Stats, Matchup and Merlin, then your avatar for your
-  profile. Your profile holds Following / Followers, Find friends and the
-  settings gear.
+- **Bottom bar**: labeled tabs for Home, Play (a dot while a game is in
+  progress), Practice, Stats (standings, records and the Matchup
+  predictor) and Merlin, then your avatar ("Me") for your profile. Your
+  profile holds Following / Followers, Find friends and the settings
+  gear. The phone's back gesture steps back through screens, and simple
+  screens open from a link (`/app#leaderboard`).
 - **TV scoreboard (cast mode)**: tap Cast to TV during any game, put the
   app's `/tv` page on a TV (AirPlay a Safari window, a smart TV browser, or
   a Chromecast tab-cast), enter the 4-character code, and the TV shows a
@@ -92,7 +94,8 @@ single source of truth for game data.
   tablets/desktop (wider layout, two-column charts), and TVs (`/tv`).
 - **Launch splash**: every open starts with the Blackbird wordmark and a
   spinning mini dartboard as the loading wheel — a simple 8-section board
-  drawn in one color per theme — held for 1–3 seconds. Seasonal touches:
+  drawn in one color per theme — held for 0.7 s (2 s on a seasonal day, and
+  not at all when a game in progress is waiting). Seasonal touches:
   confetti and a party hat on the wordmark every September 11, falling
   snow all December (preview any day with `?occasion=birthday|snow`).
 - **Games**: X01 with optional double-out and best-of legs, Cricket (3
@@ -137,8 +140,9 @@ single source of truth for game data.
   own games (form, checkouts, records, rivals, trends, practice). Ask for
   a chart and the app draws one from its own numbers. Needs an AI provider
   key on the server (see [step 3](#3-pick-an-ai-provider-for-the-blackbird-ai-tab)).
-- **Elo**: every multi-player game updates a shared Elo rating; the Matchup tab
-  predicts win probability between any two players.
+- **Elo**: every multi-player game updates a shared Elo rating, computed on
+  the server when the game is saved; Matchup (under Stats) predicts win
+  probability between any two players. Standings need 5 games in a mode.
 - **Player card export**: a canvas-rendered PNG stat card with player avatar,
   Elo, record, and key stats — auto-downloads on desktop and opens the
   share sheet on mobile.
@@ -191,9 +195,6 @@ theming, security — end to end.)*
 │    → Supabase service role   │  service_role key; only the
 │                              │  ADMIN_EMAIL account may call it
 │                              │
-│  app/api/link-players/       │  server-only: links unclaimed
-│    route.js                  │  player rows to their accounts
-│                              │
 │  app/tv/page.js ── TV        │  no login; live over Realtime
 └──────────────┬──────────────┘
                │ supabase-js (anon key + RLS)
@@ -214,24 +215,29 @@ Key design points:
   Practice, Standings, Records, Profile, Match report, Matchup, Friends,
   Blackbird AI, Account, Admin). Live game state lives in React state and
   is checkpointed in-memory so you can navigate away and resume.
-- **Scoring math runs in the browser.** When a game finishes, one row per
-  player is written to `game_results` with that player's full game stats as
-  JSONB, and each player's new Elo is written back to `players`.
+- **Scoring runs in the browser; saving runs in the database.** When a game
+  finishes the phone sends it to `record_game()`
+  (`supabase/migration-record-game.sql`), which checks the caller played
+  (or follows everyone who did), writes one `game_results` row per player
+  with their stats as JSONB, and computes the new Elo from current ratings
+  in the same transaction. A winning dart waits for "Save Result" first,
+  so a mis-entered finish can still be undone.
 - **Aggregation happens at read time.** `lib/stats.js` and the stats engine
   in `lib/gamestats/` recompute career stats, timelines, records,
   achievements and head-to-head records from the raw `game_results` rows
   on every load — there are no denormalized aggregate tables to migrate.
 - **Server routes exist only to protect secrets**: the AI key
   (`/api/insights`, behind the Blackbird AI tab) and the Supabase
-  service-role key (`/api/admin`, `/api/signup`, `/api/link-players`).
+  service-role key (`/api/admin`, `/api/signup`, `/api/plans`).
   Each verifies the caller's Supabase session token or the invite code
   first.
 
 ## How the app works
 
 1. **Open the app** — a branded splash (the Blackbird wordmark with a
-   spinning mini dartboard as the loading wheel) shows for 1–3 seconds on
-   every launch while auth and data load behind it.
+   spinning mini dartboard as the loading wheel) shows briefly while auth
+   and data load behind it, and not at all when a game in progress is
+   waiting to resume.
 2. **Sign up and sign in** — Sign Up on the website asks for the shared
    invite code, a name and an @handle and emails you an invite (a link and
    a six-digit code); set a password and you're in. Your display name is
@@ -362,12 +368,13 @@ Because `stats` is JSONB, adding new per-game fields requires **no SQL
 migration** — old rows simply lack the new keys and the stats engine
 tolerates that (and says so through its quality flags).
 
-**Row Level Security**: any authenticated user in your Supabase project can
-read, insert and update players (Elo writes) and insert results. Result
-rows are only *readable* for yourself and the players you follow, and a
-trigger keeps profile fields owner-only. Nobody can delete or rewrite
-history through the anon key; destructive actions go through the admin
-route with the service-role key.
+**Row Level Security**: any authenticated user can read players, add
+an unlinked guest, and edit only their own player row (or an unlinked
+guest's). Results are written only by `record_game()`, and Elo changes
+only through it. Result rows are only *readable* for yourself and the
+players you follow, and triggers keep profile fields owner-only. Nobody
+can delete or rewrite history through the anon key; destructive actions
+go through the admin route with the service-role key.
 
 ## Environment variables
 
@@ -396,11 +403,11 @@ Push this repo to GitHub. Every later `git push` to `main` redeploys Vercel.
 ## 2. Supabase (database + login)
 1. https://supabase.com → **New project** (set + save a DB password).
 2. **SQL Editor → New query** → paste all of `supabase/schema.sql` → **Run**.
-3. Run `supabase/migration-add-profile.sql` (@handles and the owner-only
-   profile guard) and then `migration-follows-tags.sql` (friends, name
-   tags, follow-scoped result visibility). A database created before those
-   columns existed also needs `migration-add-color.sql` and
-   `migration-add-auth-id.sql` first; every migration is safe to re-run. The last one seeds follows between every pair of accounts
+3. Run the migrations in the order listed in
+   [`supabase/README.md`](supabase/README.md) (the same order
+   `npm run test:sql` applies them in); every migration is safe to re-run.
+   `migration-record-game.sql` goes last and only after the app version
+   that calls `record_game` is deployed. The last one seeds follows between every pair of accounts
    that have a login, so nobody's standings go empty; guest rows without a
    login show up once someone follows them. Until it is run the app
    behaves as before: everyone sees everyone and the Friends screen says
@@ -440,10 +447,10 @@ without one the tab shows "Blackbird AI isn't switched on yet".
 
 | Provider | Cost | Get a key | Default model |
 |----------|------|-----------|---------------|
-| **OpenAI** | Paid | https://platform.openai.com/api-keys | `gpt-4o-mini` |
+| **OpenAI** | Paid | https://platform.openai.com/api-keys | `gpt-6-luna` |
 | **Gemini** | Free | https://aistudio.google.com/apikey | `gemini-2.5-flash` |
 | **Groq** | Free | https://console.groq.com/keys | `llama-3.3-70b-versatile` |
-| **Anthropic** | Paid | https://console.anthropic.com | `claude-3-5-haiku-latest` |
+| **Anthropic** | Paid | https://console.anthropic.com | `claude-haiku-5-5` |
 
 Model names drift; if a default ever errors, set `AI_MODEL` to a current one.
 
@@ -452,7 +459,9 @@ Model names drift; if a default ever errors, set `AI_MODEL` to a current one.
 cp .env.example .env.local   # fill in Supabase values + AI_PROVIDER + the key
 npm install
 npm run dev                  # http://localhost:3000
-npm test                     # scoring-core + parser + conformance suite
+npm test                     # unit tests: rules, stats, bots, data layer
+npm run lint                 # ESLint (next/core-web-vitals)
+npm run test:sql             # migrations + RLS against a throwaway Postgres
 ```
 
 ## 5. Deploy to Vercel
@@ -532,7 +541,6 @@ app/
   api/signup/route.js     invite-code check + Supabase admin invite
   api/insights/route.js   server-side AI call (secret key lives here)
   api/admin/route.js      admin actions via Supabase service role
-  api/link-players/       links unclaimed player rows to their accounts
   tv/page.js              TV scoreboard: code entry + live big-screen views
   robots.js / sitemap.js  crawl rules: only / is indexable
 components/

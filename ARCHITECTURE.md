@@ -197,9 +197,9 @@ hand-rolled. This is deliberate: no supply-chain surface, no bundle bloat.
 1. **Static HTML arrives** from Vercel (the page is client-rendered; the
    prerendered shell shows the splash).
 2. **Splash** (`LoadingScreen`): Blackbird wordmark + one-color 8-section
-   dartboard spinner. `page.js` starts a timer of `1000 + rand(0..2000)` ms;
-   the splash is held until BOTH the timer elapses and auth resolves, so
-   every launch has 1–3 s of branded "perceived loading" even when cached.
+   dartboard spinner. `page.js` holds it until auth resolves and a short
+   timer elapses: 0.7 s, 2 s on a seasonal day, and 0 when a game in
+   progress is waiting in localStorage (reopening at the board is instant).
    After mount the splash checks `lib/occasions.js` — Sep 11 adds confetti
    + a party hat on the wordmark; any December day adds falling snow;
    `?occasion=birthday|snow` previews them (effects render post-mount so
@@ -235,8 +235,11 @@ hand-rolled. This is deliberate: no supply-chain surface, no bundle bloat.
 ## 5. Identity & authorization model
 
 - **Login accounts** (Supabase Auth) and **players** (rows in `players`)
-  are distinct: a player is just a name that appears in games; an account
-  gets linked to a player by its `display_name`. Guests can be added as
+  are distinct: a player is just a name that appears in games. On first
+  sign-in an account claims the unlinked row with its `display_name` or
+  creates its own; a row already linked to another account is never
+  treated as yours (the old name-matching backfill route is gone, and the
+  admin links rows explicitly). Guests can be added as
   players without accounts (optionally `hidden` from standings).
 - **Per-user preferences** live in `user_metadata` (theme, fontScale,
   display_name, handle) — updated via `supabase.auth.updateUser`, no
@@ -260,11 +263,14 @@ hand-rolled. This is deliberate: no supply-chain surface, no bundle bloat.
   @handle and follows/unfollows; `app/app/page.js` derives `following`,
   `followers`, `social` and `circlePlayers` (me + who I follow), which is
   what Home, Setup and the AI coach receive as `players`.
-- **RLS posture** (see `supabase/schema.sql` and
-  `migration-follows-tags.sql`): any *authenticated* account may read
-  players, insert players/game_results and update players (needed for Elo
-  write-back), and may read only its own follows (plus follows of its own
-  player row). `game_results` SELECT is restricted to rows whose username
+- **RLS posture** (see `supabase/schema.sql`, `migration-follows-tags.sql`
+  and `migration-record-game.sql`): any *authenticated* account may read
+  players, add an unlinked guest, update only its own row or an unlinked
+  guest's (never `elo`), and may read only its own follows (plus follows
+  of its own player row). Results are inserted only by the
+  `record_game(p_game)` security-definer function, which validates the
+  game, requires the caller to have played or to follow everyone who did,
+  locks the players' rows and computes Elo in one transaction. `game_results` SELECT is restricted to rows whose username
   is the caller's own player or a player the caller follows, so every
   screen is friends-only without a single client-side filter. Before the
   migration runs `getFollows()` returns null and the app treats everyone
@@ -367,7 +373,8 @@ Play*.js            receives { game, resume, onProgress, onFinish, onQuit,
   onProgress(state)   fired on EVERY state change (entire state as JSON)
   onFinish(match)     match = { id, gameType, config, players, winner,
                                 perPlayer, completedAt }
-page.js.finishMatch  computes Elo, writes rows, refreshes, resets view
+page.js.finishMatch  shows the summary, saves via record_game (Elo is
+                     computed there), refreshes
 ```
 
 - `onProgress` feeds two consumers: a `useRef` (`liveProgress`) used to
@@ -387,9 +394,18 @@ page.js.finishMatch  computes Elo, writes rows, refreshes, resets view
   saved with `result = 'practice'` and the player's Elo unchanged; the
   shell splits fetched rows into competitive and practice lists so stats,
   standings and Elo never see them.
-- All three engines share an **undo pattern**: a `history` array of
-  deep-cloned state snapshots per committed turn; undo pops the current
-  uncommitted dart first, then restores the last snapshot.
+- Every engine shares an **undo pattern**: a `history` array of
+  deep-cloned state snapshots per committed visit, each keeping that
+  visit's darts; undo pops the current uncommitted dart first, then
+  restores the last snapshot with its darts minus the last one, so one tap
+  always takes back one dart (`lib/undo.js`). In bot games undo skips back
+  past the bot's visit to the last one a person threw, so a bot's darts
+  are never re-rolled. X01 snapshots also carry the leg score, so undo
+  crosses a finished leg.
+- **Confirming a win** (`components/FinishConfirm.js`): a play screen
+  calls `finish(match)` instead of `onFinish`; a person's game-ending
+  visit opens "Save Result / Undo Last Dart" before anything is saved. A
+  bot's win saves straight away.
 
 ### X01 (`PlayX01.js`)
 
@@ -419,8 +435,9 @@ in the scoreboard during play and on the TV.
 A bot is a player id with the `bot:` prefix (`lib/bots.js`), so it rides
 through `players`, `perPlayer`, the turn cursor and the cast payload like
 anyone else; `PlayerBadge` and the summaries render it by name. When the
-current player is a bot, `lib/useBotTurn.js` fires one throw after 0.75 s
-each time the visit key (turn + darts thrown) changes. The throw picks a
+current player is a bot, `lib/useBotTurn.js` fires one throw after about
+0.75 s (jittered ±20%, longer before a finishing double) each time the
+visit key (turn + darts thrown) changes. The throw picks a
 target (`lib/botStrategy.js`: the out-chart in X01 with a per-bot chance
 of "not knowing" the setup shot, the highest open number then scoring
 numbers in cricket, the inning's triple in baseball), samples a landing
@@ -429,7 +446,10 @@ with the bot's `sigma` through the real board geometry
 `addDart`, so busts, checkouts, legs, undo snapshots and the TV cast all
 behave exactly as for a person. The keypad is locked while the bot
 throws. Each bot's `sigma` was fitted so aiming at T20 reproduces its
-nominal 3-dart average; `tests/simulator.test.mjs` re-checks that by
+nominal scoring average, and `sigmaFinish` (used on a dart at a finishing
+double, `botThrowX01`) to a per-dart double rate from 8% to 40%; the app
+shows `legAvg`, what the bot really averages over whole 501 legs.
+`tests/simulator.test.mjs` and `tests/bots.test.mjs` re-check both by
 Monte Carlo. The ladder (`botLadder`) is derived from practice rows: a
 bot unlocks once the one below it has been beaten.
 
@@ -500,8 +520,10 @@ preference.
 
 `applyEloUpdate` (`lib/stats.js`): K=24, base 1000. The winner is updated
 pairwise against each loser (`expected = 1/(1+10^((Rl−Rw)/400))`); losers
-move only versus the winner, not each other. Each result row stores
-`elo_after` for the timeline; current ratings live on `players.elo`. The
+move only versus the winner, not each other. The same update runs in SQL
+inside `record_game` (the client copy is used for the summary screen and
+for databases without the function). Each result row stores `elo_after`
+for the timeline; current ratings live on `players.elo`. The
 Matchup tab converts a rating gap to a win probability with the same
 logistic. The admin "rebuild" action can replay legacy `matches`
 chronologically to regenerate rows and ratings.
@@ -634,9 +656,11 @@ stays off, so nothing bypasses the code.
   Supabase REST and Realtime hosts; `'unsafe-inline'` only where Next's
   hydration scripts and React's style attributes require it), nosniff,
   frame denial, referrer and permissions policies on every response.
-- The Supabase schema is applied once by pasting `supabase/schema.sql`
-  into the SQL editor; day-to-day feature work needs no DB changes thanks
-  to the JSONB stats design.
+- The Supabase schema is applied by running `supabase/schema.sql` and then
+  the migrations in the order in `supabase/README.md`; day-to-day feature
+  work needs no DB changes thanks to the JSONB stats design.
+- CI (`.github/workflows/ci.yml`) runs unit tests, lint, the build and the
+  SQL suite on every pull request and on pushes to `main` / `experimental`.
 
 ## 14. Testing & verification approach
 
@@ -689,9 +713,9 @@ websockets — that gets a manual smoke test after deploy.
 - Full-table reads on load (fine at league scale; see §7). With follows
   installed the read is "my rows plus my followees' rows", never the whole
   table.
-- Any member can insert `game_results` rows under any username (the scorer
-  writes every participant's row); the follow policy limits reads, not
-  writes. Tightening writes needs a server route.
+- `record_game` lets a member save games among friends they follow, so a
+  game against a guest (an unlinked row) is still on trust; claiming an
+  unlinked row needs only a matching name.
 - One leg per match; double-out is trusted, not verified.
 - Cast codes are 4 characters and channels are public: a guessed code can
   watch a scoreboard (read-only, no data access) — acceptable here.

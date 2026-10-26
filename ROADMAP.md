@@ -399,3 +399,61 @@ the TV is worth watching.
 - Also out of scope for the training release: camera scoring, throw-mechanics
   analysis, match replay, editing saved training plans, automatic rewriting
   of plans, push notifications or scheduled emails, and paid model tiers.
+
+## System review — October 2026 (`experimental` branch)
+
+A full review (data model and security, bots and rules, stats and AI,
+UI/UX) and the fixes made on the `experimental` branch.
+
+**Done**
+- Rules: Halve It never recorded a winner (Elo went to an "undefined"
+  key); cutthroat ended as soon as anyone closed out, even with the most
+  points.
+- Stats: highest checkout counted only the final leg; best leg compared
+  301 legs with 501 legs; two First 9 engines disagreed and counted bust
+  darts; Merlin's checkout-by-range missed legs.
+- Scoring safety: Save Result / Undo Last Dart on every game-ending visit;
+  one-dart undo after a visit commits; undo across X01 legs; bot-safe
+  undo (no re-rolling a bot's visit); starting a game asks before
+  discarding one in progress; Home Resume card; screen wake lock.
+- Data integrity: `record_game()` saves games and Elo in one server-side
+  transaction; direct result inserts, Elo writes, edits to other
+  accounts' rows and legacy `matches` inserts closed; visit days can't be
+  back-filled; name-based account linking removed; offline queue parks
+  games the server refuses instead of blocking the rest.
+- Scale: realtime merges new result rows instead of reloading everything;
+  players list paged; no reload on the hourly token refresh.
+- Bots: per-bot finishing accuracy (8% → 40% at doubles), honest leg
+  averages on screen, jittered pacing, last-visit line.
+- UI: labeled tabs with Practice up front, Matchup under Stats, back
+  gesture inside the app, System theme without a light flash, pinch zoom
+  back, minimum 5 games for standings, shorter splash.
+- Platform: CI (tests, lint, build, SQL), ESLint, service worker with a
+  network timeout and capped caches, AI routes `maxDuration`.
+
+**Still open (need a product decision or a bigger piece of work)**
+1. Turn-total entry for X01 (type 100 instead of three taps): the stats
+   engine needs a "total-only visit" with its own quality flag first.
+2. One rules engine per game in `packages/scoring-core` driving every
+   Play screen through a shared `useGameEngine` hook; rule tests for
+   Killer, Shanghai, Gotcha, Tic-Tac-Toe and Around the Clock.
+3. Elo v2: provisional K for the first 10 games, rating multiplayer games
+   from finishing places, per-mode ratings for Matchup, an admin
+   "recompute from history", and a calibration (Brier) check.
+4. Games against guests without a login count fully (Elo, records,
+   badges); quitting a losing game leaves no trace. Decide: flag as
+   unverified / record a forfeit.
+5. Tie rules (draw or sudden death) for Shanghai, cutthroat, Halve It and
+   the drills; today throw order breaks ties.
+6. Single-use invite codes in a table, and a database-backed sign-up rate
+   limit (the in-memory limiter does little on serverless).
+7. Merlin: token budget per user per day and a global spend cap; switch
+   the Anthropic adapter to the official SDK with prompt caching if
+   Anthropic becomes the provider.
+8. Product telemetry: game start / finish / quit, save failures, cast
+   usage, Merlin feedback; retention and activation panels in Admin;
+   error monitoring (Sentry).
+9. Private, authorized cast channels (or longer codes) so only the phone
+   can publish to a TV.
+10. Key `game_results` by `player_id` instead of username; transactional
+    rename/delete for the admin.
