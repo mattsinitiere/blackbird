@@ -99,7 +99,7 @@ function ModePicker({ mode, onMode, practiceGames }) {
  * practice games by lib/practiceStats.js. No Elo anywhere: practice never
  * moves it. `data` is null when the chosen range holds no practice.
  */
-function PracticeStats({ data, label, onPeriod }) {
+function PracticeStats({ data, label, onPeriod, deep = null }) {
   if (!data) {
     return (
       <div className="card pf-empty-card mb-12">
@@ -169,6 +169,8 @@ function PracticeStats({ data, label, onPeriod }) {
         </div>
       )}
 
+      {deep}
+
       <CareerCards career={career} />
 
       {stats && stats.bestWinStreak > 0 && (
@@ -192,7 +194,7 @@ function PracticeStats({ data, label, onPeriod }) {
  * both kinds of game) swaps every block between the two; a player with
  * only practice games lands on Practice.
  */
-export default function ProfileStats({ onAskAI = null, user, player, stats, allStats = stats, elo, timeline, career, practiceRows, practiceStats = null, practiceGames = 0, hasPractice = false, mode = "ranked", onMode = null, period = "all", bounds = {}, custom = {}, onPeriod, onCustom, onOpenPractice, openGame, playerColors, rivalryCard, empty }) {
+export default function ProfileStats({ onAskAI = null, user, player, stats, allStats = stats, elo, timeline, career, practiceRows, practiceStats = null, deepRanked = null, deepPractice = null, practiceGames = 0, hasPractice = false, mode = "ranked", onMode = null, period = "all", bounds = {}, custom = {}, onPeriod, onCustom, onOpenPractice, openGame, playerColors, rivalryCard, empty }) {
   const label = periodLabel(period, bounds);
   // with an odd number of charts, Elo spans both desktop columns so the grid has no gap
   const eloWide = !!stats && (2 + (stats.x01?.games > 0 ? 1 : 0) + (stats.cricket?.games > 0 ? 1 : 0)) % 2 === 1;
@@ -204,7 +206,7 @@ export default function ProfileStats({ onAskAI = null, user, player, stats, allS
       <>
         {allStats && onMode && <ModePicker mode="practice" onMode={onMode} practiceGames={practiceGames} />}
         {onPeriod && <PeriodPicker period={period} custom={custom} onPeriod={onPeriod} onCustom={onCustom} />}
-        <PracticeStats data={practiceStats} label={label} onPeriod={onPeriod} />
+        <PracticeStats data={practiceStats} label={label} onPeriod={onPeriod} deep={deepPractice} />
         {practiceCard}
       </>
     );
@@ -270,6 +272,8 @@ export default function ProfileStats({ onAskAI = null, user, player, stats, allS
       ) : allStats ? null : (
         empty
       )}
+
+      {deepRanked}
 
       <CareerCards career={career} />
 
