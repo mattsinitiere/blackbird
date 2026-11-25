@@ -193,7 +193,22 @@ export default function CareerCards({ career }) {
       {c.baseball && <BaseballCard c={c.baseball} />}
       {c.aroundTheClock && <ClockCard c={c.aroundTheClock} />}
       {c.killer && (
-        <SimpleCard title="Killer" c={c.killer} items={[["Kills", c.killer.kills], ["Lives taken", c.killer.livesTaken], ["Lives lost", c.killer.livesLost], ["Self hits", c.killer.selfHits], ["Darts to killer", n1(c.killer.avgDartsToKiller)], ["Double rate", pc(c.killer.doubleHitRate)]]} />
+        <SimpleCard title="Killer" c={c.killer} items={[["Kills", c.killer.kills], ["Lives taken", c.killer.livesTaken], ["Lives lost", c.killer.livesLost], ["Self hits", c.killer.selfHits], ["Darts to killer", n1(c.killer.avgDartsToKiller)], ["Double rate", pc(c.killer.doubleHitRate)]]}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 260px), 1fr))", gap: "0 16px" }}>
+          {[
+            ["dartsToKiller", "Darts to become a killer by game (fewer is better)", "var(--accent)"],
+            ["livesLeft", "Lives left by game", "var(--live)"],
+            ["kills", "Kills by game", "var(--red)"],
+          ].map(([key, title, color]) =>
+            c.killer.series?.[key]?.length > 1 ? (
+              <div key={key} style={{ marginTop: 10 }}>
+                <div className="tag" style={{ marginBottom: 4 }}>{title}</div>
+                <LineChart data={c.killer.series[key]} color={color} />
+              </div>
+            ) : null
+          )}
+          </div>
+        </SimpleCard>
       )}
       {c.shanghai && (
         <SimpleCard title="Shanghai" c={c.shanghai} items={[["Avg score", n1(c.shanghai.avgScore)], ["Best game", c.shanghai.bestGame ?? "—"], ["Best round", c.shanghai.bestRound ?? "—"], ["Shanghais", c.shanghai.shanghais], ["Hit rate", pc(c.shanghai.hitRate)]]} />
