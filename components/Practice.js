@@ -99,7 +99,7 @@ export default function Practice({ practice, me, onStart, back, playerColors, op
       <div className="card mb-12">
         <h3 className="section-title">Bot Ladder</h3>
         <p className="tag mb-12" style={{ textTransform: "none", letterSpacing: 0 }}>
-          X01, Cricket or Baseball against a bot. Beat one to unlock the next. Never counts toward stats or Elo.
+          X01, Cricket, Baseball or Killer against a bot. Beat one to unlock the next. Never counts toward stats or Elo.
         </p>
         <div className="stack-8">
           {p.bots.ladder.map(({ bot, wins, losses, unlocked }, i) => (

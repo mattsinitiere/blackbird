@@ -100,7 +100,7 @@ single source of truth for game data.
   Clock, Killer, Shanghai, Halve It, Gotcha, and Tic-Tac-Toe.
 - **Practice**: solo games, three drills (Bob's 27; a checkout drill of
   random 41–170 finishes with the out-chart shown; a scoring drill at one
-  number) and **bots** for X01, Cricket and Baseball. Eight bots, Rook
+  number) and **bots** for X01, Cricket, Baseball and Killer. Eight bots, Rook
   (32 average) to Blackbird (100), throw one dart every 0.75 s through a
   real-geometry simulator, so the weak ones spray into 1 and 5 and the
   strong ones find triples and doubles. Beat a bot to unlock the next. A

@@ -5,6 +5,7 @@ import { computeCareer } from "@/lib/gamestats/career";
 import { computeAchievements, readSeen, writeSeen, seenKey } from "@/lib/achievements";
 import { playerTimeline, rivalry, computeStats } from "@/lib/stats";
 import { DEFAULT_PERIOD, periodBounds, filterByPeriod } from "@/lib/period";
+import { computePracticeStats, practiceCounts } from "@/lib/practiceStats";
 import { matchFeed, achievementFeed, mergeFeed, circleFor } from "@/lib/activity";
 import ProfileCover from "./profile/ProfileCover";
 import ProfileIdentity from "./profile/ProfileIdentity";
@@ -53,6 +54,12 @@ export default function Profile({
   onAskAI = null,
 }) {
   const [tab, setTab] = useState("activity");
+  // Statistics tab: ranked games or practice games
+  const [statsMode, setStatsMode] = useState("ranked");
+  const openPracticeStats = () => {
+    setStatsMode("practice");
+    setTab("stats");
+  };
   const follow = { isFollowing, onFollow, onUnfollow };
 
   const career = useMemo(() => computeCareer({ results, practice }, user), [results, practice, user]);
@@ -81,6 +88,13 @@ export default function Profile({
   const pTimeline = useMemo(() => (pStats ? playerTimeline(pResults, user) : null), [pStats, pResults, user]);
   const pCareer = useMemo(() => computeCareer({ results: pResults, practice: pPractice }, user), [pResults, pPractice, user]);
   const pMyPractice = useMemo(() => pPractice.filter((r) => r.username === user), [pPractice, user]);
+  // practice shown like ranked play: counts for the header, stats for the range
+  const practiceCount = useMemo(() => practiceCounts(myPractice, user), [myPractice, user]);
+  const pPracticeStats = useMemo(() => computePracticeStats(pMyPractice, user), [pMyPractice, user]);
+  const practiceLine = [
+    practiceCount.games > 0 && `${practiceCount.games} practice ${practiceCount.games === 1 ? "game" : "games"}`,
+    practiceCount.drills > 0 && `${practiceCount.drills} ${practiceCount.drills === 1 ? "drill" : "drills"}`,
+  ].filter(Boolean).join(" · ");
   const timeline = useMemo(() => (stats ? playerTimeline(results, user) : null), [stats, results, user]);
   const feed = useMemo(() => mergeFeed(matchFeed(results, user), achievementFeed(badges)), [results, user, badges]);
   const circle = useMemo(
@@ -111,7 +125,7 @@ export default function Profile({
         <p className="pf-empty">
           {myPractice.length} practice {myPractice.length === 1 ? "session is" : "sessions are"} logged under Statistics. Practice, bot games and drills never count toward ranked stats.
         </p>
-        <button type="button" className="btn btn-sm" onClick={() => setTab("stats")}>
+        <button type="button" className="btn btn-sm" onClick={openPracticeStats}>
           See practice
         </button>
       </div>
@@ -148,6 +162,8 @@ export default function Profile({
       onOpenFriends={isMe ? onOpenFriends : null}
       setTab={setTab}
       unavailable={unavailable}
+      practiceCount={practiceCount}
+      onOpenPracticeStats={openPracticeStats}
     />
   );
 
@@ -178,6 +194,14 @@ export default function Profile({
                 <Mini label="Matches" value={stats.games} />
               </div>
             )}
+            {stats && practiceLine && (
+              <button type="button" className="pf-practice-line" onClick={openPracticeStats} aria-label={`${practiceLine}. Open practice statistics`}>
+                <span>
+                  <strong className="num">{practiceLine}</strong> · not ranked
+                </span>
+                <span className="pf-practice-go">Practice stats</span>
+              </button>
+            )}
             <ProfileTabs tab={tab} setTab={setTab} />
           </section>
 
@@ -205,6 +229,11 @@ export default function Profile({
                 timeline={pTimeline}
                 career={pCareer}
                 practiceRows={pMyPractice}
+                practiceStats={pPracticeStats}
+                practiceGames={practiceCount.games}
+                hasPractice={myPractice.length > 0}
+                mode={statsMode}
+                onMode={setStatsMode}
                 period={period}
                 bounds={bounds}
                 custom={custom}

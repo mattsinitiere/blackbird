@@ -84,3 +84,24 @@ export function BaseballNote() {
     </p>
   );
 }
+
+export const KILLER_LIVES = [3, 5, 7];
+
+export function KillerOptions({ lives, setLives }) {
+  return (
+    <div className="mt-12">
+      <div className="tag" style={{ marginBottom: 6 }}>Lives</div>
+      <div className="row">
+        {KILLER_LIVES.map((v) => (
+          <button key={v} type="button" className={`btn ${lives === v ? "btn-toggle-on" : ""}`} style={{ flex: 1 }} onClick={() => setLives(v)} aria-pressed={lives === v}>
+            {v}
+          </button>
+        ))}
+      </div>
+      <p className="tag" style={{ marginTop: 8, textTransform: "none", letterSpacing: 0 }}>
+        Each player gets a random number. Hit your own double to become a killer,
+        then hit opponents&apos; doubles to take their lives. Last one standing wins.
+      </p>
+    </div>
+  );
+}

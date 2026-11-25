@@ -6,7 +6,7 @@ import { SCORING_TARGETS, SCORING_TURNS, scoringTargetLabel } from "@/lib/drills
 import { BOT_GAMES } from "@/lib/bots";
 import BotAvatar from "./BotAvatar";
 import { ChevronIcon } from "./profile/icons";
-import { X01Options, CricketOptions, BaseballNote } from "./GameOptions";
+import { X01Options, CricketOptions, BaseballNote, KillerOptions } from "./GameOptions";
 
 function useDragReorder(selected, setSelected) {
   const dragIdx = useRef(null);
@@ -278,27 +278,7 @@ export default function Setup({ players, onStart, back, me, playerColors, initia
           </p>
         )}
 
-        {gameType === "killer" && (
-          <div className="mt-12">
-            <div className="tag" style={{ marginBottom: 6 }}>Lives</div>
-            <div className="row">
-              {[3, 5, 7].map((v) => (
-                <button
-                  key={v}
-                  className={`btn ${killerLives === v ? "btn-toggle-on" : ""}`}
-                  style={{ flex: 1 }}
-                  onClick={() => setKillerLives(v)}
-                >
-                  {v}
-                </button>
-              ))}
-            </div>
-            <p className="tag" style={{ marginTop: 8, textTransform: "none", letterSpacing: 0 }}>
-              Each player gets a random number. Hit your own double to become a killer,
-              then hit opponents&apos; doubles to take their lives. Last one standing wins.
-            </p>
-          </div>
-        )}
+        {gameType === "killer" && <KillerOptions lives={killerLives} setLives={setKillerLives} />}
 
         {gameType === "shanghai" && (
           <div className="mt-12">

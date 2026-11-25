@@ -25,13 +25,15 @@ const LinkButton = ActionLink;
  * The three compact sidebar sections. Every figure is lifetime ranked,
  * and each section says so.
  */
-export default function ProfileSidebar({ user, isMe, stats, elo, timeline, badges, circle, circleNote, playerColors, openProfile, onOpenFriends, setTab, unavailable }) {
+export default function ProfileSidebar({ user, isMe, stats, elo, timeline, badges, circle, circleNote, playerColors, openProfile, onOpenFriends, setTab, unavailable, practiceCount = null, onOpenPracticeStats = null }) {
   const [openBadge, setOpenBadge] = useState(null);
   const unlocked = (badges || []).filter((b) => b.unlocked).sort((a, b) => new Date(b.earnedAt) - new Date(a.earnedAt));
   const avg = stats?.x01?.darts > 0 ? stats.x01.threeDartAvg.toFixed(1) : "—";
+  const practiceTotal = (practiceCount?.games || 0) + (practiceCount?.drills || 0);
+  const practiceLink = practiceTotal > 0 && onOpenPracticeStats && <LinkButton onClick={onOpenPracticeStats}>Practice Statistics</LinkButton>;
   return (
     <>
-      <SideCard title={isMe ? "Your Game" : `${user}'s Game`} meta={stats ? "All time · ranked" : null} action={stats && <LinkButton onClick={() => setTab("stats")}>All Statistics</LinkButton>}>
+      <SideCard title={isMe ? "Your Game" : `${user}'s Game`} meta={stats ? "All time · ranked" : null} action={stats ? <div className="pf-side-actions"><LinkButton onClick={() => setTab("stats")}>All Statistics</LinkButton>{practiceLink}</div> : practiceLink}>
         {stats ? (
           <>
             <div className="pf-elo">
@@ -56,6 +58,18 @@ export default function ProfileSidebar({ user, isMe, stats, elo, timeline, badge
                 <dt>Matches</dt>
                 <dd className="num">{stats.games}</dd>
               </div>
+              {practiceCount?.games > 0 && (
+                <div>
+                  <dt>Practice games</dt>
+                  <dd className="num">{practiceCount.games}</dd>
+                </div>
+              )}
+              {practiceCount?.drills > 0 && (
+                <div>
+                  <dt>Drills</dt>
+                  <dd className="num">{practiceCount.drills}</dd>
+                </div>
+              )}
             </dl>
           </>
         ) : (

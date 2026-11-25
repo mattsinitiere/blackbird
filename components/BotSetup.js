@@ -2,14 +2,15 @@ import { useState, useEffect, useRef } from "react";
 import { BackBar } from "./ui";
 import BotAvatar from "./BotAvatar";
 import Icon from "./Icon";
-import { X01Options, CricketOptions, BaseballNote } from "./GameOptions";
+import { X01Options, CricketOptions, BaseballNote, KillerOptions } from "./GameOptions";
 import { BOT_GAMES } from "@/lib/bots";
-import { newGameId } from "@/lib/games";
+import { newGameId, assignKillerNumbers } from "@/lib/games";
 
 const GAMES = [
   ["x01", "X01"],
   ["cricket", "Cricket"],
   ["baseball", "Baseball"],
+  ["killer", "Killer"],
 ].filter(([k]) => BOT_GAMES.has(k));
 
 /**
@@ -28,6 +29,7 @@ export default function BotSetup({ me, ladder, initial = null, onStart, back }) 
   const [doubleOut, setDoubleOut] = useState(true);
   const [legs, setLegs] = useState(1);
   const [variant, setVariant] = useState("standard");
+  const [killerLives, setKillerLives] = useState(3);
   const [meFirst, setMeFirst] = useState(true);
   // "Play Magpie" right after the win that unlocked her can arrive before
   // the saved game refreshes the ladder: select her once she opens, unless
@@ -49,11 +51,13 @@ export default function BotSetup({ me, ladder, initial = null, onStart, back }) 
     let config = {};
     if (gameType === "x01") config = { startScore, doubleOut, legs };
     else if (gameType === "cricket") config = { variant };
+    const players = meFirst ? [me, bot.id] : [bot.id, me];
+    if (gameType === "killer") config = { numbers: assignKillerNumbers(players), lives: killerLives };
     config.bot = { id: bot.id, level: bot.level };
     onStart({
       id: newGameId(),
       gameType,
-      players: meFirst ? [me, bot.id] : [bot.id, me],
+      players,
       config,
       startedAt: new Date().toISOString(),
     });
@@ -136,6 +140,7 @@ export default function BotSetup({ me, ladder, initial = null, onStart, back }) 
         {gameType === "x01" && <X01Options startScore={startScore} setStartScore={setStartScore} doubleOut={doubleOut} setDoubleOut={setDoubleOut} legs={legs} setLegs={setLegs} />}
         {gameType === "cricket" && <CricketOptions variant={variant} setVariant={setVariant} />}
         {gameType === "baseball" && <BaseballNote />}
+        {gameType === "killer" && <KillerOptions lives={killerLives} setLives={setKillerLives} />}
 
         <div className="tag" style={{ marginTop: 14, marginBottom: 6 }}>Throws First</div>
         <div className="row">
