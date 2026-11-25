@@ -90,7 +90,15 @@ export default function Profile({
   const pMyPractice = useMemo(() => pPractice.filter((r) => r.username === user), [pPractice, user]);
   // practice shown like ranked play: counts for the header, stats for the range
   const practiceCount = useMemo(() => practiceCounts(myPractice, user), [myPractice, user]);
-  const pPracticeStats = useMemo(() => computePracticeStats(pMyPractice, user), [pMyPractice, user]);
+  // the Practice view keeps its own date range and opens on All Time:
+  // practice comes in bursts, so a 30-day window is often empty
+  const [practicePeriod, setPracticePeriod] = useState("all");
+  const [practiceCustom, setPracticeCustom] = useState({ from: "", to: "" });
+  const practiceBounds = useMemo(() => periodBounds(practicePeriod, new Date(), practiceCustom), [practicePeriod, practiceCustom]);
+  const rMyPractice = useMemo(() => filterByPeriod(myPractice, practiceBounds), [myPractice, practiceBounds]);
+  const pPracticeStats = useMemo(() => computePracticeStats(rMyPractice, user), [rMyPractice, user]);
+  // mirrors ProfileStats: a player with only practice games lands on Practice
+  const practiceView = myPractice.length > 0 && (statsMode === "practice" || !stats);
   const practiceLine = [
     practiceCount.games > 0 && `${practiceCount.games} practice ${practiceCount.games === 1 ? "game" : "games"}`,
     practiceCount.drills > 0 && `${practiceCount.drills} ${practiceCount.drills === 1 ? "drill" : "drills"}`,
@@ -228,17 +236,17 @@ export default function Profile({
                 elo={elo}
                 timeline={pTimeline}
                 career={pCareer}
-                practiceRows={pMyPractice}
+                practiceRows={practiceView ? rMyPractice : pMyPractice}
                 practiceStats={pPracticeStats}
                 practiceGames={practiceCount.games}
                 hasPractice={myPractice.length > 0}
                 mode={statsMode}
                 onMode={setStatsMode}
-                period={period}
-                bounds={bounds}
-                custom={custom}
-                onPeriod={setPeriod}
-                onCustom={setCustom}
+                period={practiceView ? practicePeriod : period}
+                bounds={practiceView ? practiceBounds : bounds}
+                custom={practiceView ? practiceCustom : custom}
+                onPeriod={practiceView ? setPracticePeriod : setPeriod}
+                onCustom={practiceView ? setPracticeCustom : setCustom}
                 onOpenPractice={onOpenPractice}
                 openGame={openGame}
                 playerColors={playerColors}
