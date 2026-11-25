@@ -5,7 +5,15 @@ import { X01_TARGETS } from "@/lib/constants";
 const n1 = (v) => (v == null ? "—" : Number(v).toFixed(1));
 const n2 = (v) => (v == null ? "—" : Number(v).toFixed(2));
 const pc = (v) => (v == null ? "—" : `${Math.round(v)}%`);
-const wl = (c) => (c.wins != null ? `${c.wins}-${c.games - c.wins}` : `${c.sessions} sessions`);
+// solo practice games have no opponent: they sit beside the record, not in it
+const wl = (c) => {
+  if (c.wins == null) return `${c.sessions} sessions`;
+  const solo = c.solo || 0;
+  const decided = c.games - solo;
+  const record = `${c.wins}-${decided - c.wins}`;
+  if (!solo) return record;
+  return decided ? `${record} · ${solo} solo` : `${solo} solo`;
+};
 
 function Coverage({ c, what = "full dart logs" }) {
   const cov = c.coverage || {};

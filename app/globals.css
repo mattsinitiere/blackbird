@@ -2272,9 +2272,37 @@ html:not([data-theme="dark"]) .app.is-profile {
   letter-spacing: 0.02em;
   overflow-wrap: normal;
 }
+/* practice games under the ranked strip: a tap opens the practice statistics */
+.pf-practice-line {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  width: calc(100% - 32px);
+  margin: 8px 16px 0;
+  padding: 9px 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+  color: var(--ink-soft);
+  font: inherit;
+  font-size: calc(13px * var(--fs));
+  text-align: left;
+  cursor: pointer;
+}
+.pf-practice-line strong {
+  color: var(--ink);
+  font-weight: 600;
+}
+.pf-practice-go {
+  flex: none;
+  color: var(--accent);
+  font-weight: 600;
+}
 /* the sidebar carries these on wide screens */
 @media (min-width: 1024px) {
-  .pf-strip {
+  .pf-strip,
+  .pf-practice-line {
     display: none;
   }
 }
@@ -5338,4 +5366,9 @@ html:not([data-theme="dark"]) .app.is-profile {
   text-align: center;
   font-size: calc(12.5px * var(--fs));
   color: var(--muted);
+}
+.pf-side-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 8px;
 }

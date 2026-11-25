@@ -1,7 +1,11 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import DartBoard from "./DartBoard";
 import { dartLabel } from "@/lib/darts";
 import { PlayerBadge, UndoIcon } from "./ui";
+import { applyKillerDart, previewKillerVisit } from "@/lib/killer";
+import { botFor, playerLabel } from "@/lib/bots";
+import { pickKillerTarget, botThrow } from "@/lib/botStrategy";
+import { useBotTurn } from "@/lib/useBotTurn";
 import { createRecorder, ensureRecorder, stamp, recordVisit, recordEvent, finishRecorder, stripDarts } from "@/lib/recorder";
 
 export default function PlayKiller({ game, resume, onProgress, onFinish, onQuit, castActive, playerColors }) {
@@ -22,6 +26,8 @@ export default function PlayKiller({ game, resume, onProgress, onFinish, onQuit,
   const [turnDarts, setTurnDarts] = useState(() => resume?.turnDarts ?? []);
   const [mult, setMult] = useState(() => resume?.mult ?? 1);
   const [history, setHistory] = useState(() => resume?.history ?? []);
+  const doneRef = useRef(false);
+  const rules = { players, numbers };
 
   useEffect(() => {
     onProgress && onProgress({ s, turn, turnDarts, mult, history });
@@ -54,43 +60,9 @@ export default function PlayKiller({ game, resume, onProgress, onFinish, onQuit,
     let ev = 0;
 
     for (const d of darts) {
-      if (d.n === 0) continue;
-
-      // check if this dart is a double on someone's number
-      if (d.mult === 2) {
-        // becoming a killer: hit double of own number
-        if (d.n === numbers[cur] && !ns.killer[cur]) {
-          ns.killer[cur] = true;
-          recordEvent(ns.rec, { t: "killer", by: cur, turn });
-          ev++;
-          continue;
-        }
-
-        // self-hit penalty: killer hits own double
-        if (d.n === numbers[cur] && ns.killer[cur]) {
-          ns.lives[cur] = Math.max(0, ns.lives[cur] - 1);
-          recordEvent(ns.rec, { t: "self", by: cur, turn });
-          ev++;
-          if (ns.lives[cur] === 0) {
-            recordEvent(ns.rec, { t: "elim", by: cur, on: cur, turn });
-            ev++;
-          }
-          continue;
-        }
-
-        // killing: killer hits another player's double
-        if (ns.killer[cur]) {
-          const victim = players.find((u) => u !== cur && numbers[u] === d.n);
-          if (victim && ns.lives[victim] > 0) {
-            ns.lives[victim] = Math.max(0, ns.lives[victim] - 1);
-            recordEvent(ns.rec, { t: "hit", by: cur, on: victim, turn });
-            ev++;
-            if (ns.lives[victim] === 0) {
-              recordEvent(ns.rec, { t: "elim", by: cur, on: victim, turn });
-              ev++;
-            }
-          }
-        }
+      for (const e of applyKillerDart(ns, cur, d, rules)) {
+        recordEvent(ns.rec, { ...e, turn });
+        ev++;
       }
     }
     recordVisit(ns.rec, cur, { r: Math.floor(turn / players.length), s0, darts, out: { l: ns.lives[cur], k: ns.killer[cur], ev } });
@@ -101,6 +73,7 @@ export default function PlayKiller({ game, resume, onProgress, onFinish, onQuit,
     const alive = players.filter((u) => ns.lives[u] > 0);
     if (alive.length <= 1) {
       const winner = alive[0] || cur;
+      doneRef.current = true;
       const completedAt = new Date().toISOString();
       const perPlayer = {};
       players.forEach((u) => {
@@ -144,6 +117,25 @@ export default function PlayKiller({ game, resume, onProgress, onFinish, onQuit,
       return h.slice(0, -1);
     });
   };
+
+  // the visit in progress, applied: the header and the bot both need to
+  // know what the darts already thrown this turn have done
+  const live = previewKillerVisit(s, cur, turnDarts, rules);
+
+  // a bot at the oche throws at its own double until it is a killer, then
+  // at the weakest opponent's; it stops early once nobody is left to hit
+  const bot = botFor(cur);
+  useBotTurn({
+    active: !!bot && !doneRef.current,
+    key: `${turn}:${turnDarts.length}`,
+    throwOne: () => {
+      const target = pickKillerTarget({ me: cur, players, numbers, lives: live.lives, killer: live.killer });
+      if (!target) return endTurn();
+      const land = botThrow(bot, target);
+      addDart({ n: land.n, mult: land.mult });
+    },
+  });
+  const botLock = bot ? { opacity: 0.5, pointerEvents: "none" } : undefined;
 
   const livesDisplay = (n) => {
     const full = Math.max(0, n);
@@ -220,8 +212,9 @@ export default function PlayKiller({ game, resume, onProgress, onFinish, onQuit,
       <div className="card">
         <div className="between" style={{ marginBottom: 8 }}>
           <span className="tag">
-            {cur} — {s.killer[cur] ? "killer" : "become a killer (D" + numbers[cur] + ")"}
+            {playerLabel(cur)} — {live.killer[cur] ? "killer" : "become a killer (D" + numbers[cur] + ")"}
             {castActive ? ` · #${numbers[cur]}` : ""}
+            {bot ? " · throwing…" : ""}
           </span>
         </div>
 
@@ -234,6 +227,7 @@ export default function PlayKiller({ game, resume, onProgress, onFinish, onQuit,
           ))}
         </div>
 
+        <div style={botLock}>
         <div className="row mb-12">
           {[1, 2, 3].map((m) => (
             <button
@@ -268,6 +262,7 @@ export default function PlayKiller({ game, resume, onProgress, onFinish, onQuit,
           <button className="btn btn-primary" style={{ flex: 1 }} onClick={() => endTurn()}>
             End turn
           </button>
+        </div>
         </div>
 
         {!castActive && (
