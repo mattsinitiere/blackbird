@@ -2474,6 +2474,23 @@ html:not([data-theme="dark"]) .app.is-profile {
   background: var(--surface-2);
   color: var(--ink-soft);
 }
+/* a match card opens its report (components/profile/ActivityFeed.js) */
+.pf-post.is-open {
+  cursor: pointer;
+}
+.pf-post.is-open:active {
+  background: var(--surface-2);
+}
+.pf-post-head .pf-post-title {
+  margin-top: 0;
+}
+.pf-post-go {
+  display: inline-flex;
+  flex: none;
+  margin-right: -4px;
+  color: var(--muted);
+  font-size: calc(18px * var(--fs));
+}
 .pf-post-title {
   margin-top: 12px;
   font-family: var(--font-display-stack);
@@ -2553,13 +2570,6 @@ html:not([data-theme="dark"]) .app.is-profile {
   background: var(--pf-mint);
   color: var(--pf-positive);
   font-size: calc(12px * var(--fs));
-}
-.pf-post-foot {
-  display: flex;
-  justify-content: flex-end;
-  margin-top: 12px;
-  border-top: 1px solid var(--line);
-  padding-top: 12px;
 }
 .pf-action-link {
   display: inline-flex;
