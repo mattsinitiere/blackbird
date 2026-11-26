@@ -1,0 +1,28 @@
+# Unit tests, SQL tests (every migration against a real, throwaway Postgres)
+# and a production build, on every pull request and push to main. The SQL
+# tests and tests/saveGame.test.mjs exist so a database change and the app
+# can't drift apart unnoticed again.
+name: CI
+on:
+  pull_request:
+  push:
+    branches: [main]
+jobs:
+  test:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Unit tests
+        run: npm test
+      - name: Install PostgreSQL server binaries
+        run: sudo apt-get update -q && sudo apt-get install -y -q postgresql
+      - name: SQL tests
+        run: npm run test:sql
+      - name: Build
+        run: npx next build

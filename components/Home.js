@@ -98,7 +98,7 @@ function HighlightIcon({ type }) {
   return <svg {...props}><circle cx="9" cy="9" r="7" /><path d="M6 6l6 6M12 6l-6 6" /></svg>;
 }
 
-export default function Home({ setView, openSetup, stats, elo, players, results, me, openProfile, playerColors, practice = [], social = null, following = [], userId = null, onPlayAgain = null, pendingCount = 0, onSyncNow = null, merlin = null, onMerlinAction = null }) {
+export default function Home({ setView, openSetup, stats, elo, players, results, me, openProfile, playerColors, practice = [], social = null, following = [], userId = null, onPlayAgain = null, pendingCount = 0, syncInfo = null, onSyncNow = null, onRetrySetAside = null, onDownloadQueue = null, merlin = null, onMerlinAction = null }) {
   const visible = players.filter((p) => !p.hidden);
   // the signed-in player's own ranked games, one bar per week
   const weekly = useMemo(() => gamesPerWeek((results || []).filter((r) => r.username === me)), [results, me]);
@@ -116,6 +116,56 @@ export default function Home({ setView, openSetup, stats, elo, players, results,
 
   return (
     <div className="fade">
+      {/* games that haven't reached the server come first: nothing on Home
+          (Elo, record, standings) includes them until they do */}
+      {pendingCount > 0 && (
+        <div className="sync-note" role="status">
+          <span>
+            <strong>
+              {pendingCount} {pendingCount === 1 ? "game" : "games"} waiting to sync
+            </strong>
+            {/* never a silent failure: say why the last try didn't get through */}
+            {syncInfo?.lastError && <span className="sync-note-why">{syncInfo.lastError} {pendingCount === 1 ? "It's" : "They're"} safe on this device.</span>}
+          </span>
+          <span className="sync-note-actions">
+            {onSyncNow && (
+              <button type="button" className="btn btn-sm" onClick={onSyncNow}>
+                Sync Now
+              </button>
+            )}
+            {syncInfo?.lastError && onDownloadQueue && (
+              <button type="button" className="btn btn-sm" onClick={onDownloadQueue}>
+                Save a Backup
+              </button>
+            )}
+          </span>
+        </div>
+      )}
+      {syncInfo?.parked > 0 && (
+        <div className="sync-note is-parked" role="alert">
+          <span>
+            <strong>
+              {syncInfo.parked} {syncInfo.parked === 1 ? "game" : "games"} couldn&apos;t be saved
+            </strong>
+            <span className="sync-note-why">
+              {syncInfo.parkedError} {syncInfo.parked === 1 ? "It's" : "They're"} kept on this device, nothing was deleted.
+            </span>
+          </span>
+          <span className="sync-note-actions">
+            {onRetrySetAside && (
+              <button type="button" className="btn btn-sm" onClick={onRetrySetAside}>
+                Try Again
+              </button>
+            )}
+            {onDownloadQueue && (
+              <button type="button" className="btn btn-sm" onClick={onDownloadQueue}>
+                Save a Backup
+              </button>
+            )}
+          </span>
+        </div>
+      )}
+
       <WelcomeCard
         me={me}
         userId={userId}
@@ -142,19 +192,6 @@ export default function Home({ setView, openSetup, stats, elo, players, results,
         </button>
       </div>
       {merlin && onMerlinAction && <MerlinCard card={merlin} onAction={onMerlinAction} />}
-      {pendingCount > 0 && (
-        <div className="sync-note" role="status">
-          <span>
-            {pendingCount} {pendingCount === 1 ? "game" : "games"} waiting to sync
-          </span>
-          {onSyncNow && (
-            <button type="button" className="btn btn-sm" onClick={onSyncNow}>
-              Sync Now
-            </button>
-          )}
-        </div>
-      )}
-
       <div className="card mb-12">
         <h3 className="section-title">Your Games · Last 3 Months</h3>
         <BarChart data={weekly} />

@@ -23,7 +23,7 @@ import { isRankedMatch, splitResults, botLadder, buildResultRows, humanPlayers, 
 import { computeAchievements, diffUnlocked, seenKey, readSeen, writeSeen } from "@/lib/achievements";
 import { botColors, isBot } from "@/lib/bots";
 import { rematchGame } from "@/lib/games";
-import { readPending, enqueuePending, flushPending } from "@/lib/pendingGames";
+import { readPending, enqueuePending, flushPending, syncStatus, retryParked, queueBackup, describeSaveError } from "@/lib/pendingGames";
 import { activityFromEvents, profileEventsToRecord, todayKey } from "@/lib/playerEvents";
 import { Logo, CastIcon, PlayerBadge, Modal, pressProps, PlayerLookContext, HomeIcon, PlayIcon, StatsIcon, MatchupIcon, SparkleIcon, SearchIcon } from "@/components/ui";
 import Search from "@/components/Search";
@@ -190,6 +190,8 @@ export default function Page() {
   const [finished, setFinished] = useState(null); // { summary, match, game, eloAfter }
   const [saveState, setSaveState] = useState("idle"); // idle | saving | saved | queued | error
   const [pendingCount, setPendingCount] = useState(0);
+  // why unsynced games are waiting, and any the server refused (lib/pendingGames.js)
+  const [syncInfo, setSyncInfo] = useState(null);
   const [saveError, setSaveError] = useState("");
   const lastFinishedRef = useRef(null);
   const [profileUser, setProfileUser] = useState(null);
@@ -563,23 +565,37 @@ export default function Page() {
     } catch (e) {
       // keep it on this phone and send it later, instead of losing the game
       setPendingCount(enqueuePending(userId, { match, ranked }));
+      setSyncInfo(syncStatus(userId));
       setSaveState("queued");
-      setSaveError(typeof navigator !== "undefined" && navigator.onLine === false ? "" : e?.message || "");
+      setSaveError(typeof navigator !== "undefined" && navigator.onLine === false ? "" : describeSaveError(e));
     }
   }, [refresh, elo, userId, completePlanItem]);
 
   // send games that couldn't be saved: on open, when the connection
   // returns, and when the app comes back to the foreground
   const finishedIdRef = useRef(null);
-  const flushQueue = useCallback(async () => {
-    if (!userId || !readPending(userId).length) return;
-    if (typeof navigator !== "undefined" && navigator.onLine === false) return;
+  // `manual` is the Sync Now button: it always says what happened, so a
+  // sync that can't get through is never silent
+  const flushQueue = useCallback(async (manual = false) => {
+    if (!userId) return;
+    if (!readPending(userId).length) {
+      setSyncInfo(syncStatus(userId));
+      return;
+    }
+    if (typeof navigator !== "undefined" && navigator.onLine === false) {
+      if (manual === true) setNotice("No internet connection. Your games are safe on this device and will sync when you're back online.");
+      return;
+    }
     const record = async (args) => {
       await recordGame(args);
       await completePlanItem({ gameId: args.gameId, config: args.config });
     };
     const { saved, parked, left } = await flushPending(userId, { existingRows: getGameRowsForSync, currentElo: getEloFor, record });
     setPendingCount(left);
+    const info = syncStatus(userId);
+    setSyncInfo(info);
+    if (manual === true && !saved.length && left) setNotice(`Still couldn't sync. ${info.lastError || "Please try again shortly."} Your games are safe on this device.`);
+    else if (manual === true && saved.length) setNotice(`${saved.length} ${saved.length === 1 ? "game" : "games"} synced${left ? `, ${left} still waiting` : ""}.`);
     if (parked.length) {
       setNotice(`${parked.length === 1 ? "A game" : `${parked.length} games`} couldn't be saved and ${parked.length === 1 ? "was" : "were"} set aside on this phone so the others could sync.`);
       if (parked.includes(finishedIdRef.current)) setSaveState("error");
@@ -595,6 +611,7 @@ export default function Page() {
   useEffect(() => {
     if (!userId) return;
     setPendingCount(readPending(userId).length);
+    setSyncInfo(syncStatus(userId));
     flushQueue();
     const onVisible = () => document.visibilityState === "visible" && flushQueue();
     window.addEventListener("online", flushQueue);
@@ -604,6 +621,23 @@ export default function Page() {
       document.removeEventListener("visibilitychange", onVisible);
     };
   }, [userId, flushQueue]);
+
+  // set-aside games: put them back in the queue and try again, or download a copy
+  const retrySetAside = useCallback(async () => {
+    if (!userId) return;
+    setPendingCount(retryParked(userId));
+    setSyncInfo(syncStatus(userId));
+    await flushQueue(true);
+  }, [userId, flushQueue]);
+  const downloadQueue = useCallback(() => {
+    if (!userId || typeof document === "undefined") return;
+    const url = URL.createObjectURL(new Blob([queueBackup(userId)], { type: "application/json" }));
+    const a = Object.assign(document.createElement("a"), { href: url, download: `blackbird-unsynced-games-${new Date().toISOString().slice(0, 10)}.json` });
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }, [userId]);
 
   const finishMatch = useCallback(async (match) => {
     // block the play component's trailing onProgress (it re-renders while
@@ -935,7 +969,7 @@ export default function Page() {
         )}
 
         {view === "home" && (
-          <Home setView={setView} openSetup={openSetup} stats={stats} elo={elo} players={circlePlayers} results={results} me={myName} openProfile={openProfile} playerColors={playerColors} practice={practice} social={social} following={following ? [...following] : []} userId={session.user?.id} onPlayAgain={(g) => startGame(rematchGame(g))} pendingCount={pendingCount} onSyncNow={flushQueue} merlin={merlinCard} onMerlinAction={onMerlinAction} />
+          <Home setView={setView} openSetup={openSetup} stats={stats} elo={elo} players={circlePlayers} results={results} me={myName} openProfile={openProfile} playerColors={playerColors} practice={practice} social={social} following={following ? [...following] : []} userId={session.user?.id} onPlayAgain={(g) => startGame(rematchGame(g))} pendingCount={pendingCount} syncInfo={syncInfo} onSyncNow={() => flushQueue(true)} onRetrySetAside={retrySetAside} onDownloadQueue={downloadQueue} merlin={merlinCard} onMerlinAction={onMerlinAction} />
         )}
         {view === "setup" && (
           <Setup

@@ -3737,6 +3737,42 @@ html:not([data-theme="dark"]) .app.is-profile {
   font-size: calc(14px * var(--fs));
   font-weight: 600;
 }
+/* the reason a sync is stuck, and set-aside games (components/Home.js) */
+.sync-note > span:first-child {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+.sync-note-why {
+  font-weight: 500;
+  font-size: calc(13px * var(--fs));
+  color: var(--ink-soft);
+  line-height: 1.35;
+}
+.sync-note-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  justify-content: flex-end;
+  flex: none;
+}
+.fade > .sync-note:first-child,
+.fade > .sync-note + .sync-note {
+  margin: 0 0 10px;
+}
+.sync-note.is-parked {
+  border-color: color-mix(in srgb, var(--red) 45%, transparent);
+  background: color-mix(in srgb, var(--red) 8%, transparent);
+}
+@media (max-width: 480px) {
+  .sync-note {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .sync-note-actions {
+    justify-content: flex-start;
+  }
+}
 .sr-only {
   position: absolute;
   width: 1px;

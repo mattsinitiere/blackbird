@@ -57,6 +57,17 @@ export default function AdminAnalytics() {
         </div>
       )}
       {!d && loading && <p className="tag plans-note">Loading analytics…</p>}
+      {d?.saveHealth?.warn && (
+        <div className="card mb-12" role="alert" style={{ borderColor: "var(--red)" }}>
+          <h3 className="section-title" style={{ margin: "0 0 4px", color: "var(--red)" }}>Games may not be saving</h3>
+          <p className="subtle" style={{ margin: 0 }}>
+            {d.saveHealth.lastGameAt
+              ? `The newest saved game is from ${new Date(d.saveHealth.lastGameAt).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}, ${d.saveHealth.daysSince} days ago, but members opened the app on ${d.saveHealth.visitDaysSince} days since then.`
+              : `No games were saved in this period, but members opened the app on ${d.saveHealth.visitDaysSince} days.`}{" "}
+            If people have been playing, their games are probably waiting on their devices: check the database logs for refused saves.
+          </p>
+        </div>
+      )}
       {d && (
         <>
           <Section title="Users" note={`Sign-ups ${per}. Times in ${d.range.tz}.`}>
