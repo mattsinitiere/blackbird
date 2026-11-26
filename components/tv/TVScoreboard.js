@@ -193,7 +193,9 @@ function TVGeneric({ game, snapshot, title }) {
   // with per-player maps inside it
   const state = snapshot.state ?? snapshot.s;
   if (!state) return null;
-  const cur = players[turn % players.length];
+  // Shanghai / Halve It tiebreak (lib/tiebreak.js): only the tied leaders throw
+  const tb = state.tb || null;
+  const cur = tb ? tb.players[tb.i] : players[turn % players.length];
   const round = Math.floor(turn / players.length) + 1;
   const scoreKey = (u) => {
     const s = state[u];
@@ -212,7 +214,7 @@ function TVGeneric({ game, snapshot, title }) {
 
   return (
     <div className="tv-board">
-      <TVHeader left={title} right={`Round ${round}`} />
+      <TVHeader left={title} right={tb ? "Tiebreak" : `Round ${round}`} />
       <div className="tv-x01-grid" style={{ "--tv-players": Math.min(players.length, 4), padding: "2vw" }}>
         {players.map((u) => {
           const active = u === cur;

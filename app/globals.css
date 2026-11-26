@@ -4985,6 +4985,33 @@ html:not([data-theme="dark"]) .app.is-profile {
   gap: 10px;
   margin-top: 8px;
 }
+/* Build My Own: does the schedule match the sessions built? */
+.plan-fit {
+  margin-top: 10px;
+  padding: 9px 12px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--amber);
+  background: color-mix(in srgb, var(--amber) 10%, transparent);
+}
+.plan-fit.is-ok {
+  border-color: var(--line);
+  background: var(--surface-2);
+}
+.plan-fit-text {
+  font-size: calc(13px * var(--fs));
+  font-weight: 700;
+  color: var(--ink);
+}
+.plan-fit-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+.plan-fit-hint {
+  font-size: calc(12px * var(--fs));
+  color: var(--ink-soft);
+}
 .plan-build-session {
   display: flex;
   flex-direction: column;
@@ -5198,6 +5225,155 @@ html:not([data-theme="dark"]) .app.is-profile {
 .plan-chip:disabled {
   opacity: 0.45;
   cursor: default;
+}
+.ae-min {
+  margin: 0 0 8px;
+  font-size: calc(12px * var(--fs));
+  color: var(--muted);
+}
+
+/* ---------- Party games (components/PlayKiller.js, PlayShanghai.js,
+   PlayHalveIt.js, PlayTicTacToe.js) ---------- */
+/* Killer: one tap per double in play, above the full pad */
+.killer-quick {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, calc(96px * var(--fs))), 1fr));
+  gap: 8px;
+  margin-bottom: 12px;
+}
+.killer-quick-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 9px 4px;
+  border-color: var(--accent);
+  min-width: 0;
+}
+.killer-quick-btn.is-own {
+  border-color: var(--red);
+}
+/* not a killer yet: an opponent's double does nothing this dart */
+.killer-quick-btn.is-idle {
+  border-color: var(--line);
+  opacity: 0.6;
+}
+.killer-quick-d {
+  font-size: calc(17px * var(--fs));
+  line-height: 1.1;
+}
+.killer-quick-note {
+  font-family: var(--font-body-stack);
+  font-size: calc(11px * var(--fs));
+  font-weight: 500;
+  color: var(--muted);
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+/* a number someone in play owns */
+.chip.killer-num {
+  border-color: var(--accent);
+  box-shadow: inset 0 0 0 1px var(--accent);
+}
+/* lives the visit in progress has taken */
+.killer-lost {
+  display: inline-block;
+  margin-left: 8px;
+  font-size: 0.55em;
+  letter-spacing: 0;
+  color: var(--red);
+  vertical-align: middle;
+  animation: pop 0.3s ease-out;
+}
+/* what the previous thrower's visit did */
+.killer-last {
+  margin: 0 0 8px;
+  padding: 7px 10px;
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+  font-size: calc(13px * var(--fs));
+  line-height: 1.4;
+  color: var(--ink-soft);
+}
+.killer-last b {
+  color: var(--ink);
+}
+/* Tic-Tac-Toe: the grid is the keypad */
+.ttt-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  max-width: calc(320px * var(--fs));
+  margin: 0 auto;
+}
+.ttt-cell {
+  aspect-ratio: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  border-radius: var(--radius-sm);
+  border: 2px solid var(--line);
+  background: var(--surface);
+  color: var(--ink);
+  font-family: var(--font-display-stack);
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, transform 0.1s;
+}
+.ttt-cell:active {
+  transform: scale(0.96);
+}
+.ttt-cell:disabled {
+  cursor: default;
+}
+/* a claim or cancel the visit in progress would make */
+.ttt-cell.is-pending {
+  border-style: dashed;
+  background: color-mix(in srgb, var(--ttt-color) 18%, transparent);
+}
+.ttt-cell.is-cancel {
+  border-style: dashed;
+}
+.ttt-num {
+  font-size: calc(26px * var(--fs));
+  font-weight: 700;
+  line-height: 1;
+}
+.ttt-owner {
+  min-height: 1.2em;
+  font-size: calc(12px * var(--fs));
+  font-weight: 700;
+}
+.ttt-actions {
+  display: grid;
+  max-width: calc(320px * var(--fs));
+  margin: 10px auto 0;
+}
+/* Shanghai / Halve It: the sudden-death tiebreak line on a card */
+.tiebreak-line {
+  margin-top: 4px;
+  color: var(--amber);
+  font-weight: 600;
+}
+
+/* ---------- Practice hub Quick Start (components/Practice.js) ---------- */
+.quick-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.quick-blurb {
+  text-transform: none;
+  letter-spacing: 0;
+  margin-top: 2px;
+}
+
+/* ---------- recap chart leg picker (components/MatchChart.js) ---------- */
+.chart-legs {
+  margin-bottom: 8px;
 }
 
 /* ---------- Admin analytics (components/AdminAnalytics.js) ---------- */

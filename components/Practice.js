@@ -64,6 +64,10 @@ export default function Practice({ practice, me, onStart, back, playerColors, op
     if (s.pb) pbTiles.push({ label: `${d.name} best`, value: s.label === "per visit" ? s.pb.value.toFixed(1) : s.pb.value });
   }
   if (p.x01.bestAvg > 0) pbTiles.push({ label: "Solo X01 avg", value: p.x01.bestAvg.toFixed(1) });
+  // the next rung to climb: the first open bot not beaten yet, else the
+  // top open one
+  const open = p.bots.ladder.filter((l) => l.unlocked);
+  const nextBot = (open.find((l) => l.wins === 0) || open[open.length - 1])?.bot || null;
   const trends = [
     { title: "Bob's 27 Score", data: p.drills.bobs27.series },
     { title: "Checkouts Hit", data: p.drills.checkoutDrill.series },
@@ -79,6 +83,36 @@ export default function Practice({ practice, me, onStart, back, playerColors, op
         <Stat label="Sessions" value={p.count} />
         <Stat label="This week" value={p.thisWeek} />
         <Stat label="Bot level" value={p.bots.level} />
+      </div>
+
+      {/* the quickest things to throw, before the plans, Alter Ego and the ladder */}
+      <div className="card mb-12">
+        <h3 className="section-title">Quick Start</h3>
+        <div className="stack-8">
+          {DRILLS.map((d) => {
+            const s = p.drills[d.type];
+            return (
+              <div key={d.type} className="card pad-sm clickable quick-row" {...pressProps(() => onStart({ gameType: d.type }))}>
+                <span style={{ color: "var(--accent)" }}><TargetIcon size="1.3em" /></span>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontWeight: 700 }}>{d.name}</div>
+                  <div className="tag quick-blurb">{d.blurb}</div>
+                </div>
+                <span className="tag" style={{ letterSpacing: 0 }}>{s.count ? `${s.count}×` : "new"}</span>
+              </div>
+            );
+          })}
+          {nextBot && (
+            <div className="card pad-sm clickable quick-row" {...pressProps(() => onStart({ gameType: "x01", bot: nextBot.id }))}>
+              <PlayerBadge username={nextBot.id} color={nextBot.color} size={26} showName={false} />
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontWeight: 700 }}>Play {nextBot.name}</div>
+                <div className="tag quick-blurb">Next on the ladder · X01, Cricket, Baseball or Killer</div>
+              </div>
+              <span className="tag" style={{ letterSpacing: 0 }}>L{nextBot.level}</span>
+            </div>
+          )}
+        </div>
       </div>
 
       {plans && (
@@ -129,25 +163,6 @@ export default function Practice({ practice, me, onStart, back, playerColors, op
               )}
             </div>
           ))}
-        </div>
-      </div>
-
-      <div className="card mb-12">
-        <h3 className="section-title">Drills</h3>
-        <div className="stack-8">
-          {DRILLS.map((d) => {
-            const s = p.drills[d.type];
-            return (
-              <div key={d.type} className="card pad-sm clickable" style={{ display: "flex", alignItems: "center", gap: 10 }} {...pressProps(() => onStart({ gameType: d.type }))}>
-                <span style={{ color: "var(--accent)" }}><TargetIcon size="1.4em" /></span>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontWeight: 700 }}>{d.name}</div>
-                  <div className="tag" style={{ textTransform: "none", letterSpacing: 0, marginTop: 2 }}>{d.blurb}</div>
-                </div>
-                <span className="tag" style={{ letterSpacing: 0 }}>{s.count ? `${s.count}×` : "new"}</span>
-              </div>
-            );
-          })}
         </div>
       </div>
 

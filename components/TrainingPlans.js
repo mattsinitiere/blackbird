@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Modal } from "./ui";
 import { supabase } from "@/lib/supabase";
 import { MERLIN } from "@/lib/merlin";
-import { GOALS, SESSION_MINUTES, ITEM_KINDS, MAX_PLANS, LIMIT_MESSAGE, PLAN_BOUNDS, itemLabel, planProgress, validatePlanDefinition, sessionMinutes } from "@/lib/trainingPlans";
+import { GOALS, SESSION_MINUTES, ITEM_KINDS, MAX_PLANS, LIMIT_MESSAGE, PLAN_BOUNDS, itemLabel, planProgress, validatePlanDefinition, sessionMinutes, plannedSessions, scheduleFor } from "@/lib/trainingPlans";
 import { BOTS } from "@/lib/bots";
 import { WINDOW_LABELS } from "@/lib/alterEgo";
 
@@ -429,9 +429,27 @@ function PlanBuilder({ unlocked, alterEgoOk, onClose, onSaved }) {
   const [sessions, setSessions] = useState([{ title: "Session 1", items: [defaultItem("checkoutDrill", unlocked)] }]);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
+  const [confirmShort, setConfirmShort] = useState(false);
   const [key] = useState(newKey);
   const kinds = KIND_OPTIONS.filter((k) => k.value !== "alterEgo" || alterEgoOk);
-  const maxSessions = Math.min(PLAN_BOUNDS.sessions[1], weeks * perWeek);
+  const maxSessions = plannedSessions(weeks, perWeek);
+  // the schedule and the sessions built have to agree: say how they
+  // differ and offer the one-tap fix either way
+  const built = sessions.length;
+  const fit = built !== maxSessions ? scheduleFor(built, perWeek) : null;
+  const setSchedule = (w, p) => {
+    setWeeks(w);
+    setPerWeek(p);
+    setConfirmShort(false);
+  };
+  const fillSessions = () => {
+    setSessions((ss) => {
+      const like = ss[ss.length - 1];
+      const more = Array.from({ length: maxSessions - ss.length }, (_, i) => ({ title: `Session ${ss.length + i + 1}`, items: like.items.map((it) => ({ ...it, config: { ...it.config } })) }));
+      return [...ss, ...more];
+    });
+    setConfirmShort(false);
+  };
 
   const upd = (si, fn) => setSessions((ss) => ss.map((s, i) => (i === si ? fn(s) : s)));
   const move = (arr, i, d) => {
@@ -443,6 +461,10 @@ function PlanBuilder({ unlocked, alterEgoOk, onClose, onSaved }) {
   };
 
   const save = async () => {
+    if (built < maxSessions && !confirmShort) {
+      setConfirmShort(true);
+      return;
+    }
     const def = { title: title.trim() || "My Plan", goal, weeks, perWeek, sessions };
     const v = validatePlanDefinition(def);
     if (!v.ok) {
@@ -477,7 +499,7 @@ function PlanBuilder({ unlocked, alterEgoOk, onClose, onSaved }) {
         <div className="plan-row2">
           <div>
             <label className="plan-label" htmlFor="plan-weeks">Weeks</label>
-            <select id="plan-weeks" className="select" value={weeks} onChange={(e) => setWeeks(+e.target.value)}>
+            <select id="plan-weeks" className="select" value={weeks} onChange={(e) => setSchedule(+e.target.value, perWeek)}>
               {[1, 2, 3, 4, 5, 6].map((n) => (
                 <option key={n} value={n}>{n}</option>
               ))}
@@ -485,12 +507,37 @@ function PlanBuilder({ unlocked, alterEgoOk, onClose, onSaved }) {
           </div>
           <div>
             <label className="plan-label" htmlFor="plan-per">Sessions a week</label>
-            <select id="plan-per" className="select" value={perWeek} onChange={(e) => setPerWeek(+e.target.value)}>
+            <select id="plan-per" className="select" value={perWeek} onChange={(e) => setSchedule(weeks, +e.target.value)}>
               {[1, 2, 3, 4, 5].map((n) => (
                 <option key={n} value={n}>{n}</option>
               ))}
             </select>
           </div>
+        </div>
+
+        <div className={`plan-fit${built === maxSessions ? " is-ok" : ""}`} role="status">
+          <div className="plan-fit-text">
+            {built === maxSessions
+              ? `${maxSessions} session${maxSessions === 1 ? "" : "s"} in this plan · all built`
+              : built < maxSessions
+                ? `${maxSessions} sessions in this plan · ${built} built`
+                : `${built} sessions built · ${weeks} × ${perWeek} holds ${maxSessions}`}
+          </div>
+          {built !== maxSessions && (
+            <div className="plan-fit-actions">
+              {built < maxSessions && (
+                <button type="button" className="btn btn-sm" onClick={fillSessions}>
+                  Fill {maxSessions - built} more like {sessions[built - 1].title || `Session ${built}`}
+                </button>
+              )}
+              {fit && (
+                <button type="button" className="btn btn-sm" onClick={() => setSchedule(fit.weeks, fit.perWeek)}>
+                  Make it {built} session{built === 1 ? "" : "s"} ({fit.weeks} × {fit.perWeek})
+                </button>
+              )}
+              {built > maxSessions && !fit && <span className="plan-fit-hint">Remove {built - maxSessions} or choose more weeks.</span>}
+            </div>
+          )}
         </div>
 
         <div className="plan-build-sessions">
@@ -545,12 +592,17 @@ function PlanBuilder({ unlocked, alterEgoOk, onClose, onSaved }) {
               Add Session
             </button>
           )}
-          <p className="tag plans-note">Up to {maxSessions} sessions ({weeks} × {perWeek}). You can rearrange everything until you save; saved plans can't be edited.</p>
+          <p className="tag plans-note">You can rearrange everything until you save; saved plans can't be edited.</p>
         </div>
         {err && <p className="plans-error" role="alert">{err}</p>}
+        {confirmShort && built < maxSessions && (
+          <p className="plans-limit" role="alert">
+            Only {built} of the {maxSessions} sessions are built, so this saves as a {built}-session plan. Fill the rest first, or save it as it is.
+          </p>
+        )}
         <div className="plan-modal-actions">
           <button type="button" className="btn btn-primary" disabled={busy} onClick={save}>
-            {busy ? "Saving…" : "Save Plan"}
+            {busy ? "Saving…" : confirmShort && built < maxSessions ? `Save ${built}-Session Plan` : "Save Plan"}
           </button>
         </div>
       </div>

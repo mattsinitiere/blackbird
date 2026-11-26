@@ -1,23 +1,10 @@
 import { useState, useEffect } from "react";
 import DartBoard from "./DartBoard";
 import { dartLabel } from "@/lib/darts";
-import { PlayerBadge, UndoIcon } from "./ui";
-import { createRecorder, ensureRecorder, stamp, recordVisit, recordEvent, finishRecorder, stripDarts } from "@/lib/recorder";
-
-const GRID = [20, 19, 18, 17, 16, 15, 14, 13, 12];
-const LINES = [
-  [0, 1, 2], [3, 4, 5], [6, 7, 8], // rows
-  [0, 3, 6], [1, 4, 7], [2, 5, 8], // cols
-  [0, 4, 8], [2, 4, 6],            // diags
-];
-
-function checkWinner(board) {
-  for (const line of LINES) {
-    const [a, b, c] = line;
-    if (board[a] && board[a] === board[b] && board[b] === board[c]) return { winner: board[a], line };
-  }
-  return null;
-}
+import { UndoIcon } from "./ui";
+import { TTT_GRID as GRID, applyTicTacToeVisit } from "@/lib/gamestats/tictactoe";
+import { visitEntry, undoVisit } from "@/lib/visitUndo";
+import { createRecorder, ensureRecorder, stamp, recordVisit, finishRecorder, stripDarts } from "@/lib/recorder";
 
 export default function PlayTicTacToe({ game, resume, onProgress, onFinish, onQuit, castActive, playerColors }) {
   const { players, config } = game;
@@ -41,43 +28,27 @@ export default function PlayTicTacToe({ game, resume, onProgress, onFinish, onQu
   }, [s, turn, turnDarts, history, onProgress]);
 
   const cur = players[turn % players.length];
-  const opp = players[(turn + 1) % players.length];
 
+  // the grid is the keypad: a tap is a dart at that number. The third dart
+  // ends the visit, as in the other games, and so does the dart that
+  // completes a line
   const addDart = (raw) => {
     if (turnDarts.length >= 3) return;
-    const dart = stamp(raw, game.startedAt);
-    setTurnDarts((d) => [...d, dart]);
+    const next = [...turnDarts, stamp(raw, game.startedAt)];
+    if (next.length === 3 || applyTicTacToeVisit(s.board, cur, next).won) return endTurn(next);
+    setTurnDarts(next);
   };
-  const removeDart = (i) => setTurnDarts((d) => d.filter((_, idx) => idx !== i));
 
-  const endTurn = () => {
-    setHistory((h) => [...h, { s: JSON.parse(JSON.stringify(s)), turn }]);
+  const endTurn = (darts) => {
+    setHistory((h) => [...h, visitEntry({ s, turn, by: cur, darts })]);
     const ns = JSON.parse(JSON.stringify(s));
-    ns.darts[cur] += turnDarts.length;
-    ns.log[cur] = [...ns.log[cur], ...stripDarts(turnDarts)];
+    ns.darts[cur] += darts.length;
+    ns.log[cur] = [...ns.log[cur], ...stripDarts(darts)];
     const s0 = boardStr(s.board);
-    const claimed = [];
-    const cancelled = [];
+    const { board, claimed, cancelled, won } = applyTicTacToeVisit(ns.board, cur, darts);
+    ns.board = board;
+    recordVisit(ns.rec, cur, { r: Math.floor(turn / players.length), s0, darts, out: { b: boardStr(ns.board), c: claimed, x: cancelled } });
 
-    for (const dart of turnDarts) {
-      const idx = GRID.indexOf(dart.n);
-      if (idx === -1) continue; // miss or off-grid
-      if (ns.board[idx] === cur) {
-        // already ours, no effect
-      } else if (ns.board[idx] === opp) {
-        // cancel opponent's claim
-        ns.board[idx] = null;
-        cancelled.push(idx);
-      } else {
-        // unclaimed, claim it
-        ns.board[idx] = cur;
-        claimed.push(idx);
-      }
-    }
-    recordVisit(ns.rec, cur, { r: Math.floor(turn / players.length), s0, darts: turnDarts, out: { b: boardStr(ns.board), c: claimed, x: cancelled } });
-
-    // Check for winner
-    const won = checkWinner(ns.board);
     if (won) {
       const completedAt = new Date().toISOString();
       const perPlayer = {};
@@ -117,14 +88,17 @@ export default function PlayTicTacToe({ game, resume, onProgress, onFinish, onQu
       setTurnDarts((d) => d.slice(0, -1));
       return;
     }
-    setHistory((h) => {
-      if (!h.length) return h;
-      const last = h[h.length - 1];
-      setS(last.s);
-      setTurn(last.turn);
-      return h.slice(0, -1);
-    });
+    // reopen the last visit with only its final dart removed
+    const back = undoVisit(history);
+    if (!back) return;
+    setS(back.entry.s);
+    setTurn(back.entry.turn);
+    setTurnDarts(back.entry.darts);
+    setHistory(back.history);
   };
+
+  // the visit so far, applied: pending claims and cancels show on the grid
+  const preview = applyTicTacToeVisit(s.board, cur, turnDarts);
 
   const p1 = players[0];
   const p2 = players[1];
@@ -151,142 +125,79 @@ export default function PlayTicTacToe({ game, resume, onProgress, onFinish, onQu
         </button>
       </div>
 
-      {!castActive && (
-        <div className="card pad-sm mb-12">
-          <div className="between" style={{ marginBottom: 10 }}>
-            <span style={{ fontWeight: 700, color: cur === p1 ? p1Color : p2Color }}>
-              {cur}'s turn
-            </span>
-            <span className="tag">
-              <span style={{ color: p1Color }}>{p1}</span>
-              {" vs "}
-              <span style={{ color: p2Color }}>{p2}</span>
-            </span>
-          </div>
-
-          {/* 3x3 grid */}
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(3, 1fr)",
-              gap: 6,
-              maxWidth: "calc(280px * var(--fs))",
-              margin: "0 auto",
-            }}
-          >
-            {GRID.map((num, idx) => {
-              const owner = s.board[idx];
-              return (
-                <div
-                  key={idx}
-                  style={{
-                    aspectRatio: "1",
-                    display: "flex",
-                    flexDirection: "column",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    borderRadius: "var(--radius-sm)",
-                    border: `2px solid ${owner ? cellColor(owner) : "var(--line)"}`,
-                    background: owner ? `${cellColor(owner)}18` : "var(--surface)",
-                    transition: "all 0.15s",
-                  }}
-                >
-                  <div
-                    style={{
-                      fontSize: "calc(22px * var(--fs))",
-                      fontWeight: 700,
-                      color: owner ? cellColor(owner) : "var(--ink)",
-                    }}
-                  >
-                    {num}
-                  </div>
-                  {owner && (
-                    <div
-                      style={{
-                        fontSize: "calc(11px * var(--fs))",
-                        fontWeight: 600,
-                        color: cellColor(owner),
-                        marginTop: 2,
-                      }}
-                    >
-                      {cellInitial(owner)}
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-
-          <div className="tag" style={{ textAlign: "center", marginTop: 8 }}>
-            {p1}: {s.darts[p1]} darts · {p2}: {s.darts[p2]} darts
-          </div>
-        </div>
-      )}
-
-      <div className="card">
-        <div className="tag" style={{ marginBottom: 10 }}>
-          {cur} — tap a grid number ({turnDarts.length}/3 darts)
+      <div className="card mb-12">
+        <div className="between" style={{ marginBottom: 10 }}>
+          <span style={{ fontWeight: 700, color: cur === p1 ? p1Color : p2Color }}>
+            {cur} — dart {Math.min(turnDarts.length + 1, 3)} of 3
+          </span>
+          <span className="tag">
+            <span style={{ color: p1Color }}>{p1}</span>
+            {" vs "}
+            <span style={{ color: p2Color }}>{p2}</span>
+          </span>
         </div>
 
-        <div className="grid-5">
-          {Array.from({ length: 20 }, (_, i) => i + 1).map((n) => {
-            const onGrid = GRID.includes(n);
+        <div className="tag" style={{ marginBottom: 8 }}>tap the number each dart hit</div>
+
+        {/* 3x3 grid: the input */}
+        <div className="ttt-grid" role="group" aria-label="Tic-Tac-Toe grid">
+          {GRID.map((num, idx) => {
+            const owner = preview.board[idx];
+            const was = s.board[idx];
+            const pendingClaim = preview.claimed.includes(idx) && owner === cur;
+            const pendingCancel = was && !owner;
+            const color = cellColor(owner || (pendingCancel ? was : null));
             return (
               <button
-                key={n}
-                className="chip"
+                key={idx}
+                type="button"
+                className={`ttt-cell${pendingClaim ? " is-pending" : ""}${pendingCancel ? " is-cancel" : ""}`}
                 style={{
-                  fontSize: "calc(15px * var(--fs))",
-                  padding: "12px 0",
-                  opacity: onGrid && turnDarts.length < 3 ? 1 : 0.3,
+                  borderColor: owner || pendingCancel ? color : undefined,
+                  background: owner && !pendingClaim ? `color-mix(in srgb, ${color} 10%, transparent)` : undefined,
+                  "--ttt-color": color,
                 }}
-                disabled={!onGrid || turnDarts.length >= 3}
-                onClick={() => addDart({ n, mult: 1 })}
+                disabled={turnDarts.length >= 3}
+                onClick={() => addDart({ n: num, mult: 1 })}
+                aria-label={`${num}${owner ? `, ${owner}'s` : ""}${pendingClaim ? " (claiming)" : ""}${pendingCancel ? " (cancelling)" : ""}`}
               >
-                {n}
+                <span className="ttt-num" style={{ color: owner ? color : undefined }}>{num}</span>
+                <span className="ttt-owner" style={{ color }}>
+                  {pendingCancel ? "✕" : pendingClaim ? `+${cellInitial(owner)}` : cellInitial(owner)}
+                </span>
               </button>
             );
           })}
         </div>
 
-        <div className="grid-3 mt-12">
-          <button className="chip" disabled style={{ opacity: 0.3 }}>25</button>
-          <button className="chip" disabled style={{ opacity: 0.3 }}>Bull</button>
+        <div className="ttt-actions">
           <button className="chip" onClick={() => addDart({ n: 0, mult: 0 })} disabled={turnDarts.length >= 3}>
             Miss
           </button>
         </div>
+
+        <div className="flex-wrap" style={{ marginTop: 10, minHeight: 30 }}>
+          {turnDarts.map((d, i) => (
+            <span key={i} className="btn" style={{ padding: "5px 10px", fontSize: "calc(13px * var(--fs))" }}>
+              {dartLabel(d)}
+            </span>
+          ))}
+          {turnDarts.length === 0 && <span className="tag">a number off the grid is a miss</span>}
+        </div>
+
         <button className="chip chip-undo" onClick={undo} disabled={!turnDarts.length && !history.length}>
           <UndoIcon /> Undo
         </button>
 
-        <div className="flex-wrap" style={{ marginTop: 10, minHeight: 30 }}>
-          {turnDarts.map((d, i) => (
-            <button
-              key={i}
-              className="btn"
-              style={{ padding: "5px 10px", fontSize: "calc(13px * var(--fs))" }}
-              onClick={() => removeDart(i)}
-            >
-              {dartLabel(d)} ✕
-            </button>
-          ))}
-          {turnDarts.length === 0 && <span className="tag">no darts entered yet</span>}
-        </div>
-
-        <div className="row mt-12">
-          <button className="btn" style={{ flex: 1 }} onClick={undo} disabled={!turnDarts.length && !history.length}>
-            Undo
-          </button>
-          <button className="btn btn-primary" style={{ flex: 2 }} onClick={endTurn}>
-            End turn
-          </button>
-        </div>
-
         {!castActive && (
-          <div style={{ marginTop: 14 }}>
-            <DartBoard highlight={GRID} hits={turnDarts} />
-          </div>
+          <>
+            <div className="tag" style={{ textAlign: "center", marginTop: 10 }}>
+              {p1}: {s.darts[p1]} darts · {p2}: {s.darts[p2]} darts
+            </div>
+            <div style={{ marginTop: 14 }}>
+              <DartBoard highlight={GRID} hits={turnDarts} />
+            </div>
+          </>
         )}
       </div>
     </div>

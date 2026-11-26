@@ -2,8 +2,9 @@ import { useState, useEffect, useRef } from "react";
 import DartBoard from "./DartBoard";
 import { dartLabel } from "@/lib/darts";
 import { PlayerBadge, UndoIcon } from "./ui";
-import { applyKillerDart, previewKillerVisit } from "@/lib/killer";
-import { botFor, playerLabel } from "@/lib/bots";
+import { applyKillerDart, previewKillerVisit, killerAlive, killerVisitOver, describeKillerVisit } from "@/lib/killer";
+import { visitEntry, undoVisit } from "@/lib/visitUndo";
+import { botFor, playerLabel, isBot } from "@/lib/bots";
 import { pickKillerTarget, botThrow } from "@/lib/botStrategy";
 import { useBotTurn } from "@/lib/useBotTurn";
 import { createRecorder, ensureRecorder, stamp, recordVisit, recordEvent, finishRecorder, stripDarts } from "@/lib/recorder";
@@ -46,31 +47,37 @@ export default function PlayKiller({ game, resume, onProgress, onFinish, onQuit,
     if (turnDarts.length >= 3) return;
     const next = [...turnDarts, stamp(raw, game.startedAt)];
     setMult(1); // back to Single after every dart
-    if (next.length === 3) return endTurn(next);
+    // the third dart ends the visit, and so does the one that leaves a
+    // single player standing: the game is over on that dart
+    if (killerVisitOver(s, cur, next, rules)) return endTurn(next, true);
     setTurnDarts(next);
   };
 
-  const endTurn = (darts = turnDarts) => {
-    setHistory((h) => [...h, { s: JSON.parse(JSON.stringify(s)), turn }]);
+  // `auto`: the visit ended on a dart rather than the End turn button, so
+  // Undo takes back just that dart (lib/visitUndo.js)
+  const endTurn = (darts = turnDarts, auto = false) => {
+    setHistory((h) => [...h, visitEntry({ s, turn, by: cur, darts, auto })]);
     const ns = JSON.parse(JSON.stringify(s));
 
     ns.darts[cur] += darts.length;
     ns.log[cur] = [...ns.log[cur], ...stripDarts(darts)];
     const s0 = { l: ns.lives[cur], k: ns.killer[cur] };
-    let ev = 0;
+    const evs = [];
 
     for (const d of darts) {
       for (const e of applyKillerDart(ns, cur, d, rules)) {
         recordEvent(ns.rec, { ...e, turn });
-        ev++;
+        evs.push(e);
       }
     }
-    recordVisit(ns.rec, cur, { r: Math.floor(turn / players.length), s0, darts, out: { l: ns.lives[cur], k: ns.killer[cur], ev } });
+    recordVisit(ns.rec, cur, { r: Math.floor(turn / players.length), s0, darts, out: { l: ns.lives[cur], k: ns.killer[cur], ev: evs.length } });
+    // the visit just thrown, for the "last visit" line the next thrower sees
+    ns.last = { by: cur, darts: stripDarts(darts), ev: evs };
 
     setTurnDarts([]);
     setMult(1);
 
-    const alive = players.filter((u) => ns.lives[u] > 0);
+    const alive = killerAlive(ns, players);
     if (alive.length <= 1) {
       const winner = alive[0] || cur;
       doneRef.current = true;
@@ -104,18 +111,23 @@ export default function PlayKiller({ game, resume, onProgress, onFinish, onQuit,
     setTurn(t);
   };
 
+  // a person's Undo passes over a bot's visit: taking it back would only
+  // make the bot throw again
+  const skipBots = (e) => isBot(e.by);
+  const canUndo = turnDarts.length > 0 || !!undoVisit(history, { skip: skipBots });
   const undo = () => {
     if (turnDarts.length > 0) {
       setTurnDarts((d) => d.slice(0, -1));
       return;
     }
-    setHistory((h) => {
-      if (!h.length) return h;
-      const last = h[h.length - 1];
-      setS(last.s);
-      setTurn(last.turn);
-      return h.slice(0, -1);
-    });
+    // reopen the last visit with only its final dart removed
+    const back = undoVisit(history, { skip: skipBots });
+    if (!back) return;
+    setS(back.entry.s);
+    setTurn(back.entry.turn);
+    setTurnDarts(back.entry.darts);
+    setMult(1);
+    setHistory(back.history);
   };
 
   // the visit in progress, applied: the header and the bot both need to
@@ -136,6 +148,16 @@ export default function PlayKiller({ game, resume, onProgress, onFinish, onQuit,
     },
   });
   const botLock = bot ? { opacity: 0.5, pointerEvents: "none" } : undefined;
+
+  // the cards follow the darts as they land; the lives a visit has taken
+  // so far show as a "−1" beside the victim
+  const lost = (u) => Math.max(0, s.lives[u] - live.lives[u]);
+  const inPlay = killerAlive(live, players);
+  const quick = [cur, ...inPlay.filter((u) => u !== cur)];
+  const playNums = new Set(inPlay.map((u) => numbers[u]));
+  const myDarts = (u) => s.darts[u] + (u === cur ? turnDarts.length : 0);
+  // what the previous thrower's visit did, until this visit's first dart
+  const last = s.last && s.last.by !== cur && turnDarts.length === 0 && !bot ? s.last : null;
 
   const livesDisplay = (n) => {
     const full = Math.max(0, n);
@@ -164,7 +186,7 @@ export default function PlayKiller({ game, resume, onProgress, onFinish, onQuit,
         >
           {players.map((u) => {
             const active = u === cur;
-            const dead = s.lives[u] <= 0;
+            const dead = live.lives[u] <= 0;
             return (
               <div
                 key={u}
@@ -183,9 +205,9 @@ export default function PlayKiller({ game, resume, onProgress, onFinish, onQuit,
                   <span className="tag">#{numbers[u]}</span>
                   <span
                     className="tag"
-                    style={{ color: s.killer[u] ? "var(--red)" : "var(--muted)", fontWeight: 600 }}
+                    style={{ color: live.killer[u] ? "var(--red)" : "var(--muted)", fontWeight: 600 }}
                   >
-                    {s.killer[u] ? "KILLER" : "not killer"}
+                    {live.killer[u] ? "KILLER" : "not killer"}
                   </span>
                 </div>
                 <div
@@ -195,13 +217,14 @@ export default function PlayKiller({ game, resume, onProgress, onFinish, onQuit,
                     lineHeight: 1.1,
                     marginTop: 4,
                     letterSpacing: 4,
-                    color: s.lives[u] <= 1 ? "var(--red)" : "var(--ink)",
+                    color: live.lives[u] <= 1 ? "var(--red)" : "var(--ink)",
                   }}
                 >
-                  {livesDisplay(s.lives[u])}
+                  {livesDisplay(live.lives[u])}
+                  {lost(u) > 0 && <span key={lost(u)} className="killer-lost">−{lost(u)}</span>}
                 </div>
                 <div className="tag" style={{ marginTop: 4 }}>
-                  {s.lives[u]} {s.lives[u] === 1 ? "life" : "lives"} · {s.darts[u]} darts
+                  {dead ? "out" : `${live.lives[u]} ${live.lives[u] === 1 ? "life" : "lives"}`} · {myDarts(u)} darts
                 </div>
               </div>
             );
@@ -218,8 +241,14 @@ export default function PlayKiller({ game, resume, onProgress, onFinish, onQuit,
           </span>
         </div>
 
+        {last && (
+          <div className="killer-last" role="status">
+            <b>{playerLabel(last.by)}</b>'s last visit: {last.darts.length ? last.darts.map(dartLabel).join(" · ") : "no darts"} — {describeKillerVisit(last.ev, { me: cur, label: playerLabel })}
+          </div>
+        )}
+
         <div className="flex-wrap" style={{ minHeight: 34, marginBottom: 8 }}>
-          {turnDarts.length === 0 && <span className="tag">tap a multiplier, then a number</span>}
+          {turnDarts.length === 0 && <span className="tag">tap a double below, or a multiplier then a number</span>}
           {turnDarts.map((d, i) => (
             <span key={i} className="btn" style={{ padding: "5px 10px", fontSize: "calc(13px * var(--fs))" }}>
               {dartLabel(d)}
@@ -228,6 +257,26 @@ export default function PlayKiller({ game, resume, onProgress, onFinish, onQuit,
         </div>
 
         <div style={botLock}>
+        {/* only doubles count in Killer: the ones in play, one tap each */}
+        <div className="killer-quick" role="group" aria-label="Doubles in play">
+          {quick.map((u) => {
+            const own = u === cur;
+            const note = own ? (live.killer[cur] ? "own · −1 life" : "become killer") : playerLabel(u);
+            const idle = !own && !live.killer[cur];
+            return (
+              <button
+                key={u}
+                type="button"
+                className={`chip killer-quick-btn${own ? " is-own" : ""}${idle ? " is-idle" : ""}`}
+                onClick={() => addDart({ n: numbers[u], mult: 2 })}
+              >
+                <span className="killer-quick-d">D{numbers[u]}</span>
+                <span className="killer-quick-note">{note}</span>
+              </button>
+            );
+          })}
+        </div>
+
         <div className="row mb-12">
           {[1, 2, 3].map((m) => (
             <button
@@ -243,7 +292,7 @@ export default function PlayKiller({ game, resume, onProgress, onFinish, onQuit,
 
         <div className="grid-5">
           {Array.from({ length: 20 }, (_, i) => i + 1).map((n) => (
-            <button key={n} className="chip" style={{ fontSize: "calc(15px * var(--fs))", padding: "12px 0" }} onClick={() => addDart({ n, mult })}>
+            <button key={n} className={`chip${playNums.has(n) ? " killer-num" : ""}`} style={{ fontSize: "calc(15px * var(--fs))", padding: "12px 0" }} onClick={() => addDart({ n, mult })}>
               {n}
             </button>
           ))}
@@ -254,7 +303,7 @@ export default function PlayKiller({ game, resume, onProgress, onFinish, onQuit,
           <button className="chip" onClick={() => addDart({ n: 25, mult: 2 })}>Bull</button>
           <button className="chip" onClick={() => addDart({ n: 0, mult: 0 })}>Miss</button>
         </div>
-        <button className="chip chip-undo" onClick={undo} disabled={!turnDarts.length && !history.length}>
+        <button className="chip chip-undo" onClick={undo} disabled={!canUndo}>
           <UndoIcon /> Undo
         </button>
 
@@ -267,7 +316,7 @@ export default function PlayKiller({ game, resume, onProgress, onFinish, onQuit,
 
         {!castActive && (
           <div style={{ marginTop: 14 }}>
-            <DartBoard highlight={[numbers[cur]]} hits={turnDarts} />
+            <DartBoard highlight={inPlay.map((u) => numbers[u])} hits={turnDarts} />
           </div>
         )}
       </div>

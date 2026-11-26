@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { buildProfile, describeProfile, frozenConfig, MODES, MODE_LABELS, WINDOWS, WINDOW_LABELS, ALTER_EGO_ID, ALTER_EGO_MIN, ALTER_EGO_MIN_ROUNDS } from "@/lib/alterEgo";
+import { buildProfile, describeProfile, frozenConfig, MODES, MODE_LABELS, WINDOWS, windowChipLabel, ALTER_EGO_ID, ALTER_EGO_MIN, ALTER_EGO_MIN_ROUNDS } from "@/lib/alterEgo";
 import { newGameId } from "@/lib/games";
 
 const INTRO = {
@@ -70,10 +70,11 @@ export default function AlterEgoCard({ rows, me, onStartGame }) {
           <div className="plan-choice" role="radiogroup" aria-label="Which of your games">
             {WINDOWS.map((w) => (
               <button key={w} type="button" role="radio" aria-checked={active === w} className={`plan-chip${active === w ? " is-on" : ""}`} onClick={() => setWin(w)} disabled={!profiles[w].ok}>
-                {WINDOW_LABELS[w]}
+                {windowChipLabel(profiles[w])}
               </button>
             ))}
           </div>
+          {okWindows.length < WINDOWS.length && <p className="ae-min">Each choice needs {needText(mode)}.</p>}
           <p className="ae-desc">{describeProfile(p)}</p>
           {cov && <p className="ae-cov">{cov}</p>}
           <button type="button" className="btn btn-primary" style={{ width: "100%", minHeight: 46 }} disabled={!p.ok} onClick={start}>
