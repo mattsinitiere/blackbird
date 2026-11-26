@@ -4219,6 +4219,17 @@ html:not([data-theme="dark"]) .app.is-profile {
 }
 
 /* Achievements: each category its own section (components/Achievements.js) */
+.badge-fresh {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 6px 0 0;
+  color: var(--ink-soft);
+  font-size: calc(13px * var(--fs));
+}
+.badge-fresh .badge-new {
+  position: static;
+}
 .badge-section {
   margin-top: 18px;
   padding-top: 16px;

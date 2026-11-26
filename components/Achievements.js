@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { CATEGORIES, progressText } from "@/lib/achievements";
+import { CATEGORIES, progressText, isNewBadge } from "@/lib/achievements";
 import BadgeDetail from "./BadgeDetail";
 import BadgeMedal from "./BadgeMedal";
 
@@ -21,12 +21,18 @@ export default function AchievementsCard({ badges, isMe, seen }) {
   const [open, setOpen] = useState(null);
   if (!badges || !badges.length) return null;
   const unlocked = badges.filter((b) => b.unlocked).length;
+  const fresh = isMe ? badges.filter((b) => isNewBadge(b, seen)).length : 0;
   return (
     <div className="card mb-12">
       <div className="between" style={{ marginBottom: 6 }}>
         <h3 className="section-title" style={{ margin: 0 }}>Achievements</h3>
         <span className="tag">{unlocked} / {badges.length}</span>
       </div>
+      {fresh > 0 && (
+        <p className="badge-fresh">
+          <span className="badge-new">New</span> {fresh} {fresh === 1 ? "badge" : "badges"} since your last visit
+        </p>
+      )}
       {CATEGORIES.map((cat) => {
         const list = badges.filter((b) => b.category === cat);
         if (!list.length) return null;
@@ -40,7 +46,7 @@ export default function AchievementsCard({ badges, isMe, seen }) {
             </div>
             <div className="badge-grid">
               {list.map((b) => {
-                const isNew = isMe && b.unlocked && seen && !seen.has(b.id);
+                const isNew = isMe && isNewBadge(b, seen);
                 const pct = b.progress && b.progress.target ? Math.round((b.progress.value / b.progress.target) * 100) : 0;
                 return (
                   <button type="button" key={b.id} className={`badge-tile${b.unlocked ? "" : " locked"}`} onClick={() => setOpen(b)} aria-label={`${b.title}: ${b.unlocked ? "unlocked" : "locked"}. Details`}>

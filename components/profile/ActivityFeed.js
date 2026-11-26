@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { PlayerBadge, pressProps } from "../ui";
 import { playerLabel } from "@/lib/bots";
+import { isNewBadge } from "@/lib/achievements";
 import { ChevronIcon } from "./icons";
 import BadgeMedal from "../BadgeMedal";
 import BadgeDetail from "../BadgeDetail";
@@ -143,7 +144,7 @@ function AchievementPost({ group, user, playerColors, seen, isMe }) {
               <div className="pf-post-title" style={{ margin: 0 }}>{a.badge.title}</div>
               <div className="pf-post-note" style={{ margin: 0 }}>{a.badge.description}</div>
             </div>
-            {isMe && seen && !seen.has(a.badge.id) && <span className="badge-new pf-badge-new">New</span>}
+            {isMe && isNewBadge(a.badge, seen) && <span className="badge-new pf-badge-new">New</span>}
           </li>
         ))}
       </ul>
