@@ -9,6 +9,8 @@ import { PlayerBadge, UndoIcon } from "./ui";
 import { botFor, playerLabel } from "@/lib/bots";
 import { pickCricketTarget, botThrow } from "@/lib/botStrategy";
 import { useBotTurn } from "@/lib/useBotTurn";
+import { lastVisitToShow, describeCricketVisit } from "@/lib/lastVisit";
+import LastVisit from "./LastVisit";
 import { ALTER_EGO_ID, botFromConfig } from "@/lib/alterEgo";
 import { createRecorder, ensureRecorder, stamp, recordVisit, finishRecorder } from "@/lib/recorder";
 
@@ -98,6 +100,14 @@ export default function PlayCricket({ game, resume, onProgress, onFinish, onQuit
       darts: recDarts,
       out: { marks: roundMarks, pts: ns[cur].points - s0.p, dead },
     });
+    // the visit just thrown, for the "last visit" line after a bot's visit
+    // (Cutthroat points land on the others, so count everyone's)
+    ns.lastVisit = {
+      by: cur,
+      darts: recDarts.map(({ n, mult }) => ({ n, mult })),
+      marks: roundMarks,
+      pts: players.reduce((a, o) => a + ns[o].points - state[o].points, 0),
+    };
     setState(ns);
     setDarts([]);
 
@@ -147,6 +157,8 @@ export default function PlayCricket({ game, resume, onProgress, onFinish, onQuit
     },
   });
   const botLock = bot ? { opacity: 0.5, pointerEvents: "none" } : undefined;
+  // a bot's visit stays readable until the person's first dart
+  const lastShown = lastVisitToShow(state.lastVisit, { cur, thrown: darts.length, botAtOche: !!bot, botsOnly: true });
 
   const variantLabel =
     variant === "cutthroat" ? "Cutthroat" : variant === "noscore" ? "No-score" : "Score";
@@ -277,7 +289,12 @@ export default function PlayCricket({ game, resume, onProgress, onFinish, onQuit
               {d.target === "M" ? "Miss" : `${d.ring === 1 ? "S" : d.ring === 2 ? "D" : "T"}${d.target}`} ✕
             </button>
           ))}
-          {darts.length === 0 && <span className="tag">no darts yet (a dart off the numbers is a Miss)</span>}
+          {darts.length === 0 &&
+            (lastShown ? (
+              <LastVisit last={lastShown} outcome={describeCricketVisit({ ...lastShown, variant })} inline />
+            ) : (
+              <span className="tag">no darts yet (a dart off the numbers is a Miss)</span>
+            ))}
         </div>
 
         <div className="row mt-12">

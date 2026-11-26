@@ -4,9 +4,12 @@ import { dartLabel } from "@/lib/darts";
 import { PlayerBadge, UndoIcon } from "./ui";
 import { applyKillerDart, previewKillerVisit, killerAlive, killerVisitOver, describeKillerVisit } from "@/lib/killer";
 import { visitEntry, undoVisit } from "@/lib/visitUndo";
+import { canEndTurn } from "@/lib/cricket";
 import { botFor, playerLabel, isBot } from "@/lib/bots";
 import { pickKillerTarget, botThrow } from "@/lib/botStrategy";
 import { useBotTurn } from "@/lib/useBotTurn";
+import { lastVisitToShow } from "@/lib/lastVisit";
+import LastVisit from "./LastVisit";
 import { createRecorder, ensureRecorder, stamp, recordVisit, recordEvent, finishRecorder, stripDarts } from "@/lib/recorder";
 
 export default function PlayKiller({ game, resume, onProgress, onFinish, onQuit, castActive, playerColors }) {
@@ -53,9 +56,19 @@ export default function PlayKiller({ game, resume, onProgress, onFinish, onQuit,
     setTurnDarts(next);
   };
 
+  const lastEndRef = useRef(0); // when the last turn ended, to drop a double tap on End turn
+  // the End turn button, guarded as in Cricket: a visit needs a dart (Miss
+  // counts), and a tap right after a turn ends is a double tap, not the
+  // next player's empty turn
+  const tapEndTurn = () => {
+    if (doneRef.current || !canEndTurn(turnDarts.length, lastEndRef.current, Date.now())) return;
+    endTurn();
+  };
+
   // `auto`: the visit ended on a dart rather than the End turn button, so
   // Undo takes back just that dart (lib/visitUndo.js)
   const endTurn = (darts = turnDarts, auto = false) => {
+    lastEndRef.current = Date.now();
     setHistory((h) => [...h, visitEntry({ s, turn, by: cur, darts, auto })]);
     const ns = JSON.parse(JSON.stringify(s));
 
@@ -157,7 +170,7 @@ export default function PlayKiller({ game, resume, onProgress, onFinish, onQuit,
   const playNums = new Set(inPlay.map((u) => numbers[u]));
   const myDarts = (u) => s.darts[u] + (u === cur ? turnDarts.length : 0);
   // what the previous thrower's visit did, until this visit's first dart
-  const last = s.last && s.last.by !== cur && turnDarts.length === 0 && !bot ? s.last : null;
+  const last = lastVisitToShow(s.last, { cur, thrown: turnDarts.length, botAtOche: !!bot });
 
   const livesDisplay = (n) => {
     const full = Math.max(0, n);
@@ -241,11 +254,7 @@ export default function PlayKiller({ game, resume, onProgress, onFinish, onQuit,
           </span>
         </div>
 
-        {last && (
-          <div className="killer-last" role="status">
-            <b>{playerLabel(last.by)}</b>'s last visit: {last.darts.length ? last.darts.map(dartLabel).join(" · ") : "no darts"} — {describeKillerVisit(last.ev, { me: cur, label: playerLabel })}
-          </div>
-        )}
+        {last && <LastVisit last={last} outcome={describeKillerVisit(last.ev, { me: cur, label: playerLabel })} />}
 
         <div className="flex-wrap" style={{ minHeight: 34, marginBottom: 8 }}>
           {turnDarts.length === 0 && <span className="tag">tap a double below, or a multiplier then a number</span>}
@@ -308,7 +317,7 @@ export default function PlayKiller({ game, resume, onProgress, onFinish, onQuit,
         </button>
 
         <div className="row mt-12">
-          <button className="btn btn-primary" style={{ flex: 1 }} onClick={() => endTurn()}>
+          <button className="btn btn-primary" style={{ flex: 1 }} onClick={tapEndTurn} disabled={!turnDarts.length}>
             End turn
           </button>
         </div>

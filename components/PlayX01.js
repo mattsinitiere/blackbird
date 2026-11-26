@@ -11,6 +11,9 @@ import { X01Hint } from "./StrategyHint";
 import { useBotTurn } from "@/lib/useBotTurn";
 import { createRecorder, ensureRecorder, stamp, recordVisit, finishRecorder, stripDarts } from "@/lib/recorder";
 import { x01VisitOutcome, checkoutConfirmation } from "@/lib/x01log";
+import { visitEntry, undoVisit } from "@/lib/visitUndo";
+import { lastVisitToShow, describeX01Visit } from "@/lib/lastVisit";
+import LastVisit from "./LastVisit";
 
 export default function PlayX01({ game, resume, onProgress, onFinish, onQuit, castActive, playerColors, hints = null, me = null }) {
   const { players, config } = game;
@@ -107,6 +110,8 @@ export default function PlayX01({ game, resume, onProgress, onFinish, onQuit, ca
       darts,
       out: { k: kind, s: counted ? sum : 0, rem: counted ? scoreBefore - sum : scoreBefore },
     });
+    // the visit just thrown, for the "last visit" line after a bot's visit
+    ns.last = { by: cur, darts: stripDarts(darts), k: kind, s: counted ? sum : 0, rem: counted ? scoreBefore - sum : scoreBefore };
     darts.forEach((d, i) => {
       if (i > 2) return;
       ns.dartPos[cur][i].count += 1;
@@ -142,6 +147,7 @@ export default function PlayX01({ game, resume, onProgress, onFinish, onQuit, ca
         // keep the finished leg (per player) and the recorder; fresh scores
         const nb = blank();
         nb.rec = ns.rec;
+        nb.last = ns.last;
         players.forEach((u) => {
           nb.legs[u] = [
             ...((ns.legs && ns.legs[u]) || []),
@@ -150,8 +156,10 @@ export default function PlayX01({ game, resume, onProgress, onFinish, onQuit, ca
         });
         const legsPlayed = nb.legs[cur].length;
         setS(nb);
-        // only the finishing visit stays undoable, so Undo can reopen the leg
-        setHistory([{ s: JSON.parse(JSON.stringify(s)), turn, legsWon, legHistory }]);
+        // only the finishing visit stays undoable, so Undo can reopen the
+        // leg: with its darts back minus the finishing one, the dart Undo
+        // is meant to fix
+        setHistory([{ ...visitEntry({ s, turn, darts }), legsWon, legHistory }]);
         // the throw alternates each leg
         setTurn(legsPlayed % players.length);
         setMsg(`${playerLabel(cur)} wins leg ${newLegsWon[cur]}!`);
@@ -210,17 +218,19 @@ export default function PlayX01({ game, resume, onProgress, onFinish, onQuit, ca
       setTurnDarts((d) => d.slice(0, -1));
       return;
     }
-    setHistory((h) => {
-      if (!h.length) return h;
-      const last = h[h.length - 1];
-      setS(last.s);
-      setTurn(last.turn);
-      // undoing a leg's finishing visit reopens that leg
-      if (last.legsWon) setLegsWon(last.legsWon);
-      if (last.legHistory) setLegHistory(last.legHistory);
-      setMsg("");
-      return h.slice(0, -1);
-    });
+    const back = undoVisit(history);
+    if (!back) return;
+    const last = back.entry;
+    setS(last.s);
+    setTurn(last.turn);
+    // a scored visit reopens empty; a leg's finishing visit reopens that
+    // leg with its darts before the finishing one
+    setTurnDarts(last.darts);
+    setMult(1);
+    if (last.legsWon) setLegsWon(last.legsWon);
+    if (last.legHistory) setLegHistory(last.legHistory);
+    setMsg("");
+    setHistory(back.history);
   };
 
   // a bot at the oche throws by itself through addDart, one dart at a time
@@ -237,6 +247,8 @@ export default function PlayX01({ game, resume, onProgress, onFinish, onQuit, ca
     },
   });
   const botLock = bot ? { opacity: 0.5, pointerEvents: "none" } : undefined;
+  // a bot's visit stays readable until the person's first dart
+  const lastShown = lastVisitToShow(s.last, { cur, thrown: turnDarts.length, botAtOche: !!bot, botsOnly: true });
 
   const avg = (u) => (s.darts[u] ? ((s.points[u] / s.darts[u]) * 3).toFixed(1) : "0.0");
 
@@ -311,7 +323,9 @@ export default function PlayX01({ game, resume, onProgress, onFinish, onQuit, ca
       )}
 
       {!bot && !doneRef.current && !pendingWin && turnDarts.length < 3 && (
-        <X01Hint remaining={remaining} dartsLeft={3 - turnDarts.length} doubleOut={!!config.doubleOut} prefs={hints?.prefs} evidence={cur === me ? hints?.evidence : null} />
+        <div className="x01-hint">
+          <X01Hint remaining={remaining} dartsLeft={3 - turnDarts.length} doubleOut={!!config.doubleOut} prefs={hints?.prefs} evidence={cur === me ? hints?.evidence : null} />
+        </div>
       )}
 
       <div className="card">
@@ -325,16 +339,20 @@ export default function PlayX01({ game, resume, onProgress, onFinish, onQuit, ca
         </div>
 
         <div className="flex-wrap" style={{ minHeight: 34, marginBottom: 8, alignItems: "center" }}>
-          {turnDarts.length === 0 && <span className="tag">tap a multiplier, then a number</span>}
+          {turnDarts.length === 0 &&
+            (lastShown ? <LastVisit last={lastShown} outcome={describeX01Visit(lastShown)} inline /> : <span className="tag">tap a multiplier, then a number</span>)}
           {turnDarts.map((d, i) => (
-            <span key={i} className="btn" style={{ padding: "5px 10px", fontSize: "calc(13px * var(--fs))" }}>
+            <span key={i} className="btn x01-dart">
               {dartLabel(d)}
             </span>
           ))}
-          {/* beside the darts, so it stays on screen above the keypad */}
-          <button className="chip chip-undo" style={{ width: "auto", margin: "0 0 0 auto", padding: "8px 14px" }} onClick={undo} disabled={!!bot || (!turnDarts.length && !history.length)}>
-            <UndoIcon /> Undo
-          </button>
+          {/* beside the darts, so it stays on screen above the keypad; while a
+              checkout waits for its confirm, Undo lives in the confirm panel */}
+          {!pendingWin && (
+            <button className="chip chip-undo" style={{ width: "auto", margin: "0 0 0 auto", padding: "8px 14px" }} onClick={undo} disabled={!!bot || (!turnDarts.length && !history.length)}>
+              <UndoIcon /> Undo
+            </button>
+          )}
         </div>
 
         {pendingWin && (

@@ -6,6 +6,8 @@ import { PlayerBadge, UndoIcon } from "./ui";
 import { botFor, playerLabel } from "@/lib/bots";
 import { pickBaseballTarget, botThrow } from "@/lib/botStrategy";
 import { useBotTurn } from "@/lib/useBotTurn";
+import { lastVisitToShow, describeBaseballVisit } from "@/lib/lastVisit";
+import LastVisit from "./LastVisit";
 import { ALTER_EGO_ID, botFromConfig } from "@/lib/alterEgo";
 import { createRecorder, ensureRecorder, stamp, recordVisit, finishRecorder, stripDarts } from "@/lib/recorder";
 
@@ -51,6 +53,8 @@ export default function PlayBaseball({ game, resume, onProgress, onFinish, onQui
     ns[cur].innings = [...ns[cur].innings, runs];
     ns[cur].total += runs;
     ns[cur].log = [...ns[cur].log, ...stripDarts(darts)];
+    // the visit just thrown, for the "last visit" line after a bot's visit
+    ns.lastVisit = { by: cur, darts: stripDarts(darts), runs };
     setState(ns);
     setTurnDarts([]);
 
@@ -105,6 +109,8 @@ export default function PlayBaseball({ game, resume, onProgress, onFinish, onQui
     },
   });
   const botLock = bot ? { opacity: 0.5, pointerEvents: "none" } : undefined;
+  // a bot's visit stays readable until the person's first dart
+  const lastShown = lastVisitToShow(state.lastVisit, { cur, thrown: turnDarts.length, botAtOche: !!bot, botsOnly: true });
 
   const contenders = baseballContenders(state, players, inning);
   const colCount = Math.max(inning, BASEBALL_INNINGS);
@@ -179,9 +185,12 @@ export default function PlayBaseball({ game, resume, onProgress, onFinish, onQui
         </div>
 
         <div className="flex-wrap" style={{ marginTop: 10, minHeight: 30 }}>
-          {turnDarts.length === 0 && (
-            <span className="tag">aim at {target} — log each dart</span>
-          )}
+          {turnDarts.length === 0 &&
+            (lastShown ? (
+              <LastVisit last={lastShown} outcome={describeBaseballVisit(lastShown)} inline />
+            ) : (
+              <span className="tag">aim at {target} — log each dart</span>
+            ))}
           {turnDarts.map((d, i) => (
             <span key={i} className="btn" style={{ padding: "5px 10px", fontSize: "calc(13px * var(--fs))" }}>
               {d.n === 0 ? "Miss" : d.mult === 1 ? "Single" : d.mult === 2 ? "Double" : "Triple"}

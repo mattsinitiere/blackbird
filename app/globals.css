@@ -447,6 +447,38 @@ a:focus-visible {
   from { transform: scaleX(1); }
   to { transform: scaleX(0); }
 }
+/* X01's checkout hint on one line (route, alternative, Why), so the whole
+   keypad down to 25 / Bull / Miss stays above the bottom nav on a phone */
+.x01-hint .hint-card {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  column-gap: 10px;
+  padding: 6px 12px;
+  margin-bottom: 8px;
+}
+.x01-hint .hint-row {
+  display: contents;
+}
+.x01-hint .hint-alt {
+  order: 1;
+  margin-top: 0;
+}
+.x01-hint .hint-why {
+  order: 2;
+}
+.x01-hint .hint-explain {
+  order: 3;
+  flex-basis: 100%;
+}
+/* the darts entered so far: compact chips, the same height as Undo */
+.x01-dart {
+  display: inline-flex;
+  align-items: center;
+  min-height: 34px;
+  padding: 4px 10px;
+  font-size: calc(13px * var(--fs));
+}
 
 /* Around the Clock quick entry: one big Hit key and Miss */
 .atc-quick {
@@ -4469,6 +4501,19 @@ html:not([data-theme="dark"]) .app.is-profile {
 .summary-best.is-best {
   color: var(--live);
 }
+/* Shanghai / Halve It level on points: the tiebreak that decided it */
+.summary-tiebreak {
+  margin-top: 6px;
+  font-size: calc(14px * var(--fs));
+  font-weight: 600;
+  color: var(--ink-soft);
+}
+.summary-tiebreak-stat {
+  color: var(--accent);
+}
+.summary-tiebreak-stat > span {
+  font-variant-numeric: tabular-nums;
+}
 .summary-more {
   display: flex;
   flex-wrap: wrap;
@@ -5949,8 +5994,8 @@ html:not([data-theme="dark"]) .app.is-profile {
   vertical-align: middle;
   animation: pop 0.3s ease-out;
 }
-/* what the previous thrower's visit did */
-.killer-last {
+/* what the previous thrower's visit did (components/LastVisit.js: Killer, and a bot's visit in X01, Cricket and Baseball) */
+.last-visit {
   margin: 0 0 8px;
   padding: 7px 10px;
   border-radius: var(--radius-sm);
@@ -5959,8 +6004,18 @@ html:not([data-theme="dark"]) .app.is-profile {
   line-height: 1.4;
   color: var(--ink-soft);
 }
-.killer-last b {
+.last-visit b {
   color: var(--ink);
+}
+/* in place of the empty darts row (X01, Cricket, Baseball), so the keypad
+   doesn't move down */
+.last-visit.is-inline {
+  flex: 1 1 0;
+  min-width: 0;
+  margin: 0;
+  padding: 5px 9px;
+  font-size: calc(12px * var(--fs));
+  line-height: 1.35;
 }
 /* Tic-Tac-Toe: the grid is the keypad */
 .ttt-grid {
