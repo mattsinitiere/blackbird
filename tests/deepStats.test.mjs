@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { prepareGames, gameTypesPlayed, landingHeatmap, dartByDart, paceOfPlay, whenPlayed, underPressure, x01Opponents, rivalryTimelines, practiceVsRanked, botProgress } from "../lib/deepStats.js";
+import { prepareGames, gameTypesPlayed, landingHeatmap, dartByDart, paceOfPlay, whenPlayed, underPressure, x01Opponents, rivalryTimelines, practiceVsRanked, botProgress, rateZ, meanZ } from "../lib/deepStats.js";
 import { practiceAsMatches } from "../lib/practiceStats.js";
 import { computeCareer } from "../lib/gamestats/career.js";
 
@@ -51,7 +51,12 @@ test("landingHeatmap: beds from every game, legacy rows too; misses beside the b
   assert.deepEqual(h.cells["1"], { S: 4, D: 0, T: 0 });
   assert.deepEqual(h.cells["9"], { S: 1, D: 0, T: 0 });
   assert.deepEqual(h.top, { label: "S1", darts: 4 });
+  assert.equal(h.missKind, "target", "a Baseball miss is off the target number, not off the board");
   assert.equal(landingHeatmap(games, "x01").darts, 0);
+  const x01 = { v: 2, dartsThrown: 3, pointsScored: 60, visits: [{ i: 0, r: 0, s0: 101, darts: [{ n: 20, mult: 3 }, M, M], out: { k: "score", s: 60, rem: 41 } }] };
+  const xh = landingHeatmap(prepareGames([row("x01", "win", x01)], "Ann"));
+  assert.equal(xh.misses, 2);
+  assert.equal(xh.missKind, "board");
 });
 
 test("dartByDart: on-target rate per dart in target games, points per dart in X01", () => {
@@ -67,6 +72,27 @@ test("dartByDart: on-target rate per dart in target games, points per dart in X0
   assert.deepEqual(d.scoring.positions.map((p) => p.avg), [30, 3, 10]);
   assert.equal(dartByDart(games, "x01").target, null);
   assert.equal(dartByDart([]).scoring, null);
+  assert.equal(d.target.verdict, null, "one game is too few to name a best dart");
+});
+
+test("dartByDart: names a best and worst dart only for a real gap", () => {
+  const many = (runs, k = 5) => prepareGames(Array.from({ length: k }, () => row("baseball", "win", baseballStats(runs))), "Ann");
+  // 45/45, 15/45, 0/45 over five games: a real difference
+  assert.deepEqual(dartByDart(many([1, 1, 1, 1, 1, 1, 2, 2, 2])).target.verdict, { best: 0, worst: 2 });
+  // the same split over four games: not enough games
+  assert.equal(dartByDart(many([1, 1, 1, 1, 1, 1, 2, 2, 2], 4)).target.verdict, null);
+  // every dart on target: nothing to choose between them
+  assert.equal(dartByDart(many([3, 3, 3, 3, 3, 3, 3, 3, 3])).target.verdict, null);
+});
+
+test("rateZ and meanZ: about 2 for a borderline gap, 0 with nothing to compare", () => {
+  assert.equal(rateZ(52, 100, 51, 100) < 2, true, "52% against 51% is noise");
+  assert.equal(rateZ(600, 1000, 500, 1000) > 2, true);
+  assert.equal(rateZ(1, 0, 1, 10), 0);
+  const a = { n: 30, sum: 30 * 15, sq: 30 * (15 * 15 + 100) };
+  const b = { n: 30, sum: 30 * 14.5, sq: 30 * (14.5 * 14.5 + 100) };
+  assert.equal(Math.abs(meanZ(a, b)) < 2, true, "half a point a dart with a spread of 10 is noise");
+  assert.equal(meanZ({ n: 1, sum: 5, sq: 25 }, b), 0);
 });
 
 test("paceOfPlay: only timed games; quick and slow halves once there are enough", () => {
@@ -93,26 +119,44 @@ test("whenPlayed: games and win rate by day and block; solo practice is never a 
   const b = baseballStats([0, 0, 0, 0, 0, 0, 0, 0, 0]);
   // 2026-09-04 is a Friday, 2026-09-08 a Tuesday
   const rows = [
-    ...[0, 1, 2].map(() => row("baseball", "win", b, { completedAt: at(4, 21) })),
-    row("baseball", "loss", b, { completedAt: at(4, 22) }),
-    ...[0, 1, 2].map((i) => row("baseball", i ? "loss" : "win", b, { completedAt: at(8, 19) })),
+    ...[0, 1, 2, 3, 4].map(() => row("baseball", "win", b, { completedAt: at(4, 21) })),
+    row("baseball", "win", b, { completedAt: at(4, 22) }),
+    ...[0, 1, 2, 3, 4, 5].map((i) => row("baseball", i ? "loss" : "win", b, { completedAt: at(8, 19) })),
     row("baseball", "solo", b, { completedAt: at(8, 19) }),
   ];
   const w = whenPlayed(prepareGames(rows, "Ann"), null, utc);
-  assert.equal(w.total, 8);
-  assert.deepEqual(w.grid[4][7], { games: 4, decided: 4, wins: 3, winPct: 75 });
-  assert.deepEqual(w.grid[1][6], { games: 4, decided: 3, wins: 1, winPct: 33.3 });
-  assert.equal(w.max, 4);
+  assert.equal(w.total, 13);
+  assert.deepEqual(w.grid[4][7], { games: 6, decided: 6, wins: 6, winPct: 100 });
+  assert.deepEqual(w.grid[1][6], { games: 7, decided: 6, wins: 1, winPct: 16.7 });
+  assert.equal(w.max, 7);
   assert.equal(w.bestDay.label, "Fri");
   assert.equal(w.worstDay.label, "Tue");
   assert.equal(w.bestBlock.label, "9p");
   assert.equal(whenPlayed([], null, utc).bestDay, null);
 });
 
+test("whenPlayed: no best or worst from a handful of games or a small gap", () => {
+  const b = baseballStats([0, 0, 0, 0, 0, 0, 0, 0, 0]);
+  const games = (day, hour, wins, losses) => [...Array(wins).fill("win"), ...Array(losses).fill("loss")].map((r) => row("baseball", r, b, { completedAt: at(day, hour) }));
+  // 3 of 3 against 0 of 3: too few games to rank a day at all
+  let w = whenPlayed(prepareGames([...games(4, 21, 3, 0), ...games(8, 19, 0, 3)], "Ann"), null, utc);
+  assert.equal(w.bestDay, null);
+  assert.equal(w.worstDay, null);
+  assert.equal(w.bestBlock, null);
+  // 3 of 5 against 2 of 5: enough games, but the gap is luck
+  w = whenPlayed(prepareGames([...games(4, 21, 3, 2), ...games(8, 19, 2, 3)], "Ann"), null, utc);
+  assert.equal(w.bestDay, null);
+  assert.equal(w.bestBlock, null);
+});
+
 test("underPressure: baseball early, middle and late innings over full games", () => {
   const games = prepareGames([row("baseball", "win", baseballStats([1, 1, 1, 2, 2, 2, 3, 3, 3])), row("baseball", "loss", baseballStats([1, 1, 1, 0, 0, 0, 1, 1, 1], { v2: true }))], "Ann");
   const u = underPressure(games);
-  assert.deepEqual(u.baseball, { games: 2, early: 1, middle: 1, late: 2 });
+  assert.deepEqual(u.baseball, { games: 2, early: 1, middle: 1, late: 2, trend: null }, "two games are too few for a verdict");
+  const five = (runs) => prepareGames(Array.from({ length: 5 }, () => row("baseball", "win", baseballStats(runs))), "Ann");
+  assert.equal(underPressure(five([0, 1, 0, 1, 1, 1, 2, 3, 2])).baseball.trend, "late");
+  assert.equal(underPressure(five([2, 3, 2, 1, 1, 1, 0, 1, 0])).baseball.trend, "early");
+  assert.equal(underPressure(five([1, 0, 1, 1, 1, 1, 1, 1, 0])).baseball.trend, null, "the same early and late");
   assert.equal(u.x01, null);
 });
 
