@@ -3,7 +3,9 @@ import { PlayerBadge, TagPill } from "@/components/ui";
 /** Big-screen end-of-game summary, rendered on /tv from the phone's payload. */
 export default function TVSummary({ summary }) {
   if (!summary) return null;
-  const { winner, title, rows, highlights, durationMin, totalDarts } = summary;
+  // one-player games carry an outcome ("Drill complete", "0 of 5 finishes")
+  // in place of a winner: there is nobody to beat (lib/summary.js)
+  const { winner, title, rows, highlights, durationMin, totalDarts, outcome = null } = summary;
   const winRow = rows.find((r) => r.isWinner) || rows[0];
   const meta = [];
   if (durationMin != null) meta.push(`${durationMin} min`);
@@ -17,10 +19,11 @@ export default function TVSummary({ summary }) {
       </div>
 
       <div className="tv-summary-hero">
-        <div className="tv-winner-label">winner</div>
+        <div className="tv-winner-label">{outcome ? outcome.kicker : "winner"}</div>
         <div className="tv-winner-name">
           <PlayerBadge username={winner} color={winRow?.color || undefined} size={72} showName={false} /> {winRow?.name || winner} <TagPill tag={winRow?.tag} tagIcon={winRow?.tagIcon} />
         </div>
+        {outcome && <div className="tv-summary-elo">{outcome.headline}{outcome.best ? ` · ${outcome.best.text}` : ""}</div>}
         {winRow?.elo && (
           <div className="tv-summary-elo">
             {winRow.elo.before} → {winRow.elo.after}{" "}
