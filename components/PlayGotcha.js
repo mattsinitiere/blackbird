@@ -5,6 +5,7 @@ import { dartValue, dartLabel } from "@/lib/darts";
 import Celebration from "./Celebration";
 import { PlayerBadge, UndoIcon } from "./ui";
 import { createRecorder, ensureRecorder, stamp, recordVisit, recordEvent, finishRecorder, stripDarts } from "@/lib/recorder";
+import { visitEntry, undoVisit } from "@/lib/visitUndo";
 
 export default function PlayGotcha({ game, resume, onProgress, onFinish, onQuit, castActive, playerColors }) {
   const { players, config } = game;
@@ -34,7 +35,8 @@ export default function PlayGotcha({ game, resume, onProgress, onFinish, onQuit,
   const turnSum = turnDarts.reduce((a, d) => a + dartValue(d), 0);
 
   const commit = (darts, kind) => {
-    setHistory((h) => [...h, { s: JSON.parse(JSON.stringify(s)), turn }]);
+    // every Gotcha visit ends on a dart (the third, a bust or the winner)
+    setHistory((h) => [...h, visitEntry({ s, turn, by: cur, darts })]);
     const sum = darts.reduce((a, d) => a + dartValue(d), 0);
     const ns = JSON.parse(JSON.stringify(s));
     ns.darts[cur] += darts.length;
@@ -123,14 +125,15 @@ export default function PlayGotcha({ game, resume, onProgress, onFinish, onQuit,
       setTurnDarts((d) => d.slice(0, -1));
       return;
     }
-    setHistory((h) => {
-      if (!h.length) return h;
-      const last = h[h.length - 1];
-      setS(last.s);
-      setTurn(last.turn);
-      setMsg("");
-      return h.slice(0, -1);
-    });
+    // reopen the last visit with only its final dart removed
+    const back = undoVisit(history);
+    if (!back) return;
+    setS(back.entry.s);
+    setTurn(back.entry.turn);
+    setTurnDarts(back.entry.darts);
+    setMult(1);
+    setMsg("");
+    setHistory(back.history);
   };
 
   const pct = (u) => Math.round((s.scores[u] / target) * 100);

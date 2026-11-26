@@ -5,6 +5,8 @@ import Celebration from "./Celebration";
 import { PlayerBadge, UndoIcon } from "./ui";
 import { HALVEIT_TARGETS, HALVEIT_START, halveItTargetLabel, hitsTarget, scoreDart } from "@/lib/gamestats/halveit";
 import { createRecorder, ensureRecorder, stamp, recordVisit, recordEvent, finishRecorder, stripDarts } from "@/lib/recorder";
+import { visitEntry, undoVisit } from "@/lib/visitUndo";
+import { topScorers, startTiebreak, tiebreakThrower, tiebreakScore, addTiebreakVisit } from "@/lib/tiebreak";
 
 // rules live in lib/gamestats/halveit.js so the stats engine replays them
 const TARGETS = HALVEIT_TARGETS;
@@ -34,12 +36,54 @@ export default function PlayHalveIt({ game, resume, onProgress, onFinish, onQuit
     onProgress && onProgress({ s, turn, turnDarts, mult, msg, history });
   }, [s, turn, turnDarts, mult, msg, history, onProgress]);
 
-  const cur = players[turn % players.length];
-  const round = Math.floor(turn / players.length) + 1;
+  // after round 9 a shared top score goes to a sudden-death tiebreak
+  // (lib/tiebreak.js): only the tied leaders throw
+  const tb = s.tb || null;
+  const cur = tb ? tiebreakThrower(tb) : players[turn % players.length];
+  const round = Math.min(Math.floor(turn / players.length) + 1, 9);
   const target = TARGETS[round - 1]; // rounds 1-9
 
+  const finishGame = (ns, winner) => {
+    const completedAt = new Date().toISOString();
+    const perPlayer = {};
+    players.forEach((u) => {
+      perPlayer[u] = {
+        finalScore: ns.scores[u],
+        halves: ns.halves[u],
+        roundScores: ns.roundScores[u] || [],
+        dartsThrown: ns.darts[u],
+        ...(ns.tb && ns.tb.totals[u] ? { tiebreak: ns.tb.totals[u] } : {}),
+        darts: ns.log[u],
+        ...finishRecorder(ns.rec, u, completedAt),
+      };
+    });
+    onFinish({
+      id: game.id,
+      gameType: "halveit",
+      config,
+      players,
+      winner,
+      perPlayer,
+      completedAt,
+    });
+  };
+
+  // a tiebreak visit only counts toward the tiebreak: the nine rounds,
+  // scores and dart log (and so the stats) are already final
+  const commitTiebreak = (darts) => {
+    const ns = JSON.parse(JSON.stringify(s));
+    const out = addTiebreakVisit(ns.tb, darts);
+    ns.tb = out.tb;
+    setTurnDarts([]);
+    setMult(1);
+    if (out.winner) return finishGame(ns, out.winner);
+    setS(ns);
+    setMsg(out.tb.round > tb.round ? "Still level: go again" : "");
+  };
+
   const commit = (darts) => {
-    setHistory((h) => [...h, { s: JSON.parse(JSON.stringify(s)), turn }]);
+    setHistory((h) => [...h, visitEntry({ s, turn, by: cur, darts })]);
+    if (tb) return commitTiebreak(darts);
     const ns = JSON.parse(JSON.stringify(s));
     ns.darts[cur] += darts.length;
     ns.log[cur] = [...ns.log[cur], ...stripDarts(darts)];
@@ -73,30 +117,13 @@ export default function PlayHalveIt({ game, resume, onProgress, onFinish, onQuit
     const newTurn = turn + 1;
     const completedRounds = Math.floor(newTurn / players.length);
     if (newTurn % players.length === 0 && completedRounds >= 9) {
-      const max = Math.max(...players.map((u) => ns[u] !== undefined ? ns.scores[u] : 0));
-      const leaders = players.filter((u) => ns.scores[u] === max);
-      const winner = leaders[0];
-      const completedAt = new Date().toISOString();
-      const perPlayer = {};
-      players.forEach((u) => {
-        perPlayer[u] = {
-          finalScore: ns.scores[u],
-          halves: ns.halves[u],
-          roundScores: ns.roundScores[u] || [],
-          dartsThrown: ns.darts[u],
-          darts: ns.log[u],
-          ...finishRecorder(ns.rec, u, completedAt),
-        };
-      });
-      onFinish({
-        id: game.id,
-        gameType: "halveit",
-        config,
-        players,
-        winner,
-        perPlayer,
-        completedAt,
-      });
+      const leaders = topScorers(ns.scores, players);
+      if (leaders.length === 1) return finishGame(ns, leaders[0]);
+      // level at the top: nobody has won yet
+      ns.tb = startTiebreak(leaders);
+      setS(ns);
+      setMsg("Tiebreak!");
+      setTurn(newTurn);
       return;
     }
 
@@ -118,19 +145,23 @@ export default function PlayHalveIt({ game, resume, onProgress, onFinish, onQuit
       setTurnDarts((d) => d.slice(0, -1));
       return;
     }
-    setHistory((h) => {
-      if (!h.length) return h;
-      const last = h[h.length - 1];
-      setS(last.s);
-      setTurn(last.turn);
-      setMsg("");
-      return h.slice(0, -1);
-    });
+    // reopen the last visit with only its final dart removed
+    const back = undoVisit(history);
+    if (!back) return;
+    setS(back.entry.s);
+    setTurn(back.entry.turn);
+    setTurnDarts(back.entry.darts);
+    setMult(1);
+    setMsg("");
+    setHistory(back.history);
   };
 
+  const tbLive = tb ? tiebreakScore(turnDarts) : 0;
+
   // Highlight the target number on the dartboard when applicable
-  const highlight =
-    typeof target === "number"
+  const highlight = tb
+    ? []
+    : typeof target === "number"
       ? [target]
       : target === "B"
         ? [25]
@@ -145,7 +176,7 @@ export default function PlayHalveIt({ game, resume, onProgress, onFinish, onQuit
             Halve It
           </div>
           <div className="tag" style={{ marginTop: 2 }}>
-            Round {round} of 9
+            {tb ? `Tiebreak${tb.round ? ` · round ${tb.round + 1}` : ""}` : `Round ${round} of 9`}
           </div>
         </div>
         <button className="btn btn-danger" style={{ padding: "7px 12px" }} onClick={onQuit}>
@@ -164,6 +195,8 @@ export default function PlayHalveIt({ game, resume, onProgress, onFinish, onQuit
         >
           {players.map((u) => {
             const active = u === cur;
+            const outOfTb = tb && !tb.players.includes(u);
+            const tbTotals = tb ? tb.totals[u] || [] : [];
             return (
               <div
                 key={u}
@@ -171,6 +204,7 @@ export default function PlayHalveIt({ game, resume, onProgress, onFinish, onQuit
                 style={{
                   borderColor: active ? "var(--live)" : "var(--line)",
                   background: active ? "var(--live-soft)" : "var(--surface)",
+                  opacity: outOfTb ? 0.45 : 1,
                 }}
               >
                 <div className="between">
@@ -186,6 +220,11 @@ export default function PlayHalveIt({ game, resume, onProgress, onFinish, onQuit
                 <div className="tag" style={{ marginTop: 4 }}>
                   halved {s.halves[u]}x · {s.darts[u]} darts
                 </div>
+                {tb && !outOfTb && (
+                  <div className="tag tiebreak-line">
+                    Tiebreak: {[...tbTotals, ...(active && turnDarts.length ? [tbLive] : [])].join(" · ") || "to throw"}
+                  </div>
+                )}
               </div>
             );
           })}
@@ -219,7 +258,7 @@ export default function PlayHalveIt({ game, resume, onProgress, onFinish, onQuit
             color: "var(--amber)",
           }}
         >
-          Target: {targetLabel(target)}
+          {tb ? "Tiebreak: highest 3-dart total wins" : `Target: ${targetLabel(target)}`}
         </div>
 
         <div className="flex-wrap" style={{ minHeight: 34, marginBottom: 8 }}>
