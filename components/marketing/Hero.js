@@ -1,7 +1,7 @@
-import Link from "next/link";
 import DotGrid from "./DotGrid";
 import ProductPreview from "./ProductPreview";
 import Capabilities from "./Capabilities";
+import HeroActions from "./HeroActions";
 
 export default function Hero() {
   return (
@@ -20,14 +20,7 @@ export default function Hero() {
           Less counting. More playing. Score the match, sharpen your
           <br className="mk-desktop" /> throw, and keep the rivalry going with Blackbird.
         </p>
-        <div className="mk-hero-actions">
-          <Link className="mk-button" href="/app">
-            Open Blackbird
-          </Link>
-          <Link className="mk-button mk-secondary" href="/login">
-            Sign In
-          </Link>
-        </div>
+        <HeroActions />
       </div>
       <ProductPreview />
       <Capabilities />

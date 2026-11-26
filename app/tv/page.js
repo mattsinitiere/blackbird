@@ -5,6 +5,8 @@ import { useSearchParams } from "next/navigation";
 import { openCastChannel, normalizeCastCode, castAvailable } from "@/lib/cast";
 import TVScoreboard from "@/components/tv/TVScoreboard";
 import TVSummary from "@/components/tv/TVSummary";
+import { tvHasBoard } from "@/lib/tvLayout";
+import { applyThemePref } from "@/lib/prefs";
 import { Logo, PlayerLookContext } from "@/components/ui";
 
 /**
@@ -44,7 +46,8 @@ function TV() {
   const helloTimer = useRef(null);
 
   // display style: "board" (scoreboard + dartboard) or "score" (score
-  // only, extra large). Remembered per TV.
+  // only, extra large). Remembered per TV, but only layouts that have a
+  // dartboard offer (or use) it, so a game without one never opens broken.
   const [displayMode, setDisplayMode] = useState("board");
   useEffect(() => {
     try {
@@ -61,9 +64,9 @@ function TV() {
       return next;
     });
 
-  // TVs always render the dark theme
+  // TVs always render the dark theme (and stop following the device)
   useEffect(() => {
-    document.documentElement.dataset.theme = "dark";
+    applyThemePref("dark");
   }, []);
 
   const join = useCallback((raw) => {
@@ -137,16 +140,20 @@ function TV() {
   }, []);
 
   if (status === "live" && game && snapshot) {
+    const hasBoard = tvHasBoard(game.gameType);
+    const showBoard = hasBoard && displayMode === "board";
     return (
-      <main className={`tv ${displayMode === "score" ? "tv-scoreonly" : ""}`}>
+      <main className={`tv tv-live${hasBoard && !showBoard ? " tv-scoreonly" : ""}`}>
         <PlayerLookContext.Provider value={looks}>
-          <TVScoreboard game={game} snapshot={snapshot} />
+          <TVScoreboard game={game} snapshot={snapshot} showBoard={showBoard} />
         </PlayerLookContext.Provider>
         <div className="tv-footer">
           <span>Blackbird · code {code}</span>
-          <button className="tv-style-btn" onClick={toggleDisplay}>
-            {displayMode === "board" ? "hide board" : "show board"}
-          </button>
+          {hasBoard && (
+            <button className="tv-style-btn" onClick={toggleDisplay}>
+              {displayMode === "board" ? "hide board" : "show board"}
+            </button>
+          )}
         </div>
       </main>
     );

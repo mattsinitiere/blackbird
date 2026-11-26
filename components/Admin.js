@@ -447,14 +447,17 @@ export default function Admin({ stats, addPlayer, back, refreshData, playerColor
                             )}
                           </div>
                           <div style={{ display: "flex", gap: 6, marginTop: 3, flexWrap: "wrap" }}>
-                            {hasAccount && (
+                            {/* what the tags mean: a player who can sign in, a
+                                guest scored by others, or a sign-up with no
+                                player yet (never "logged in": that reads as online) */}
+                            {hasAccount && hasPlayer && (
                               <span className="tag" style={{ background: "var(--accent-soft)", color: "var(--accent)", padding: "2px 8px", borderRadius: "var(--radius-xs)", fontSize: "calc(10px * var(--fs-chrome))" }}>
-                                logged in
+                                has sign-in{acct.lastSignInAt ? ` · last seen ${new Date(acct.lastSignInAt).toLocaleDateString(undefined, { month: "short", day: "numeric" })}` : ""}
                               </span>
                             )}
                             {!hasAccount && hasPlayer && (
                               <span className="tag" style={{ background: "var(--surface-2)", border: "1px solid var(--line)", padding: "2px 8px", borderRadius: "var(--radius-xs)", fontSize: "calc(10px * var(--fs-chrome))" }}>
-                                no account
+                                guest · no sign-in
                               </span>
                             )}
                             {p?.hidden && (
@@ -464,7 +467,7 @@ export default function Admin({ stats, addPlayer, back, refreshData, playerColor
                             )}
                             {!hasPlayer && hasAccount && (
                               <span className="tag" style={{ background: "var(--surface-2)", border: "1px solid var(--line)", padding: "2px 8px", borderRadius: "var(--radius-xs)", fontSize: "calc(10px * var(--fs-chrome))" }}>
-                                account only
+                                signed up · no player yet
                               </span>
                             )}
                           </div>

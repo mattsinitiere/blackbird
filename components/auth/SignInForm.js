@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { supabase, isConfigured } from "@/lib/supabase";
 import { useSession } from "@/lib/useSession";
 import { safeNext } from "@/lib/authRedirect";
-import AuthCard, { NotConfigured, FormMessage } from "./AuthCard";
+import AuthCard, { NotConfigured, FormMessage, Field, PasswordInput } from "./AuthCard";
 
 export default function SignInForm() {
   const router = useRouter();
@@ -50,25 +50,26 @@ export default function SignInForm() {
         { href: "/signup", label: "Have an invite? Create account" },
       ]}
     >
-      <form onSubmit={submit} className="stack-8" noValidate>
-        <input
-          className="input"
-          type="email"
-          placeholder="email"
-          autoComplete="email"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          aria-label="Email"
-        />
-        <input
-          className="input"
-          type="password"
-          placeholder="password"
-          autoComplete="current-password"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          aria-label="Password"
-        />
+      <form onSubmit={submit} className="stack" noValidate>
+        <Field id="signin-email" label="Email">
+          <input
+            id="signin-email"
+            className="input"
+            type="email"
+            placeholder="you@example.com"
+            autoComplete="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+          />
+        </Field>
+        <Field id="signin-password" label="Password">
+          <PasswordInput
+            id="signin-password"
+            autoComplete="current-password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+          />
+        </Field>
         <FormMessage>{msg}</FormMessage>
         <button className="btn btn-primary mt-12" style={{ width: "100%", padding: 14 }} type="submit" disabled={busy || (ready && !!session)}>
           {busy ? "…" : "Sign in"}

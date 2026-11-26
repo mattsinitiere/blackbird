@@ -7,14 +7,14 @@ import { FONT_SCALES, PICKER_COLORS, defaultPlayerColor } from "@/lib/constants"
 import { COVERS, coverId } from "@/lib/covers";
 import TagEditor from "./TagEditor";
 import ProfileCover from "./profile/ProfileCover";
-import { applyFontScale } from "@/lib/prefs";
+import { applyFontScale, applyThemePref, themePref } from "@/lib/prefs";
 import { setFeedbackPrefs, feedback } from "@/lib/feedback";
 import { normalizeHandle, validateHandle, suggestHandle, validateTag, BIO_MAX, LOCATION_MAX } from "@/lib/profile";
 
-/** An on/off switch (role="switch"), used for the accessibility options. */
-function Switch({ on, onChange, label }) {
+/** An on/off switch (role="switch"), used for every on/off setting. */
+function Switch({ on, onChange, label, disabled }) {
   return (
-    <button type="button" role="switch" aria-checked={on} aria-label={label} className={`switch${on ? " is-on" : ""}`} onClick={() => onChange(!on)}>
+    <button type="button" role="switch" aria-checked={on} aria-label={label} className={`switch${on ? " is-on" : ""}`} disabled={disabled} onClick={() => onChange(!on)}>
       <span className="switch-knob" />
     </button>
   );
@@ -23,13 +23,15 @@ function Switch({ on, onChange, label }) {
 const SECTIONS = [
   { id: "profile", label: "Profile" },
   { id: "appearance", label: "Appearance" },
+  { id: "game", label: "Game" },
   { id: "accessibility", label: "Accessibility" },
   { id: "account", label: "Account" },
 ];
 
 /**
- * Settings, in three sections: Profile (who you are and how you look),
- * Appearance (theme and text size) and Account (friends, data, sign out).
+ * Settings, in five sections: Profile (who you are), Appearance (color,
+ * cover, theme), Game (hints, preferred double, sounds, haptics),
+ * Accessibility (text size) and Account (friends, data, sign out).
  *
  * Text edits (display name, @handle, bio, location, name tag) are held as
  * one set of unsaved changes: a bar docks just above the bottom nav with
@@ -41,7 +43,7 @@ export default function Account({ user, players, results, addPlayer, setPlayerHi
   const meta = user?.user_metadata || {};
   const savedName = meta.display_name || "";
   const [section, setSection] = useState("profile");
-  const [theme, setTheme] = useState(meta.theme === "dark" ? "dark" : "light");
+  const [theme, setTheme] = useState(themePref(meta.theme));
   const [fontScale, setFontScale] = useState(FONT_SCALES.some((f) => f.id === meta.fontScale) ? meta.fontScale : "normal");
   const [haptics, setHaptics] = useState(meta.haptics !== false);
   const [sounds, setSounds] = useState(meta.sounds === true);
@@ -124,6 +126,23 @@ export default function Account({ user, players, results, addPlayer, setPlayerHi
     }
   }, [focus]);
 
+  // "Pick your @handle" on Home: the suggestion goes in as a real value (not
+  // a grey placeholder), so the availability check and the Save bar show up
+  // and claiming it really is one tap
+  // (runs after the reset above, so it survives the draft being reloaded)
+  useEffect(() => {
+    if (focus !== "handle" || !myPlayer || myPlayer.handle) return;
+    setSection("profile");
+    setDraft((d) => (d.handle ? d : { ...d, handle: suggestHandle(myPlayer.username) }));
+    setTimeout(() => {
+      const el = document.getElementById("set-handle");
+      if (!el) return;
+      el.scrollIntoView({ block: "center" });
+      el.focus({ preventScroll: true });
+    }, 50);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [focus, myPlayer?.id]);
+
   const persist = async (patch) => {
     try {
       await supabase.auth.updateUser({ data: { ...(user.user_metadata || {}), ...patch } });
@@ -164,7 +183,7 @@ export default function Account({ user, players, results, addPlayer, setPlayerHi
 
   const applyTheme = (t) => {
     setTheme(t);
-    if (typeof document !== "undefined") document.documentElement.dataset.theme = t;
+    applyThemePref(t);
     persist({ theme: t });
   };
   const applyTextSize = (id) => {
@@ -242,7 +261,7 @@ export default function Account({ user, players, results, addPlayer, setPlayerHi
     <div className="fade" ref={topRef} style={{ scrollMarginTop: 16 }}>
       <BackBar back={goBack} title="Settings" />
 
-      <div className="seg mb-12" role="tablist" aria-label="Settings sections">
+      <div className="seg set-tabs mb-12" role="tablist" aria-label="Settings sections">
         {SECTIONS.map((s) => (
           <button key={s.id} type="button" role="tab" aria-selected={section === s.id} className="seg-btn" onClick={() => setSection(s.id)}>
             {s.label}
@@ -380,36 +399,25 @@ export default function Account({ user, players, results, addPlayer, setPlayerHi
           )}
         <div className="card mb-12">
           <div className="set-title">Theme</div>
-          <div className="row" style={{ marginTop: 8 }}>
-            <button className={`btn ${theme === "light" ? "btn-toggle-on" : ""}`} style={{ flex: 1 }} onClick={() => applyTheme("light")}>
-              Light
-            </button>
-            <button className={`btn ${theme === "dark" ? "btn-toggle-on" : ""}`} style={{ flex: 1 }} onClick={() => applyTheme("dark")}>
-              Dark
-            </button>
+          <p className="set-hint" style={{ marginTop: 2 }}>System follows your phone&apos;s dark mode.</p>
+          <div className="row" role="radiogroup" aria-label="Theme" style={{ marginTop: 8 }}>
+            {[
+              { id: "system", label: "System" },
+              { id: "light", label: "Light" },
+              { id: "dark", label: "Dark" },
+            ].map((t) => (
+              <button key={t.id} type="button" role="radio" aria-checked={theme === t.id} className={`btn ${theme === t.id ? "btn-toggle-on" : ""}`} style={{ flex: 1 }} onClick={() => applyTheme(t.id)}>
+                {t.label}
+              </button>
+            ))}
           </div>
 
         </div>
         </>
       )}
 
-      {section === "accessibility" && (
+      {section === "game" && (
         <>
-          <div className="card mb-12">
-          <div className="set-title">Text Size</div>
-          <div className="grid-4" style={{ marginTop: 8 }}>
-            {FONT_SCALES.map((f) => (
-              <button key={f.id} className={`btn ${fontScale === f.id ? "btn-toggle-on" : ""}`} onClick={() => applyTextSize(f.id)}>
-                {f.label}
-              </button>
-            ))}
-          </div>
-          <div className="card pad-sm mt-12" style={{ display: "flex", alignItems: "baseline", justifyContent: "center", gap: 10 }}>
-            <span className="num" style={{ fontSize: "calc(34px * var(--fs))", color: "var(--accent)" }}>180</span>
-            <span className="subtle">preview — how scores will look</span>
-          </div>
-          </div>
-
           <div className="card mb-12">
             <div className="set-toggle">
               <div>
@@ -455,6 +463,27 @@ export default function Account({ user, players, results, addPlayer, setPlayerHi
         </>
       )}
 
+      {section === "accessibility" && (
+        <>
+          <div className="card mb-12">
+          <div className="set-title">Text Size</div>
+          {/* four across at Normal, two by two once the labels grow */}
+          <div className={`set-sizes${fontScale === "normal" ? "" : " is-2x2"}`} style={{ marginTop: 8 }}>
+            {FONT_SCALES.map((f) => (
+              <button key={f.id} className={`btn ${fontScale === f.id ? "btn-toggle-on" : ""}`} onClick={() => applyTextSize(f.id)}>
+                {f.label}
+              </button>
+            ))}
+          </div>
+          <div className="card pad-sm mt-12" style={{ display: "flex", alignItems: "baseline", justifyContent: "center", gap: 10 }}>
+            <span className="num" style={{ fontSize: "calc(34px * var(--fs))", color: "var(--accent)" }}>180</span>
+            <span className="subtle">preview — how scores will look</span>
+          </div>
+          </div>
+
+        </>
+      )}
+
       {section === "account" && (
         <>
           <div className="card mb-12">
@@ -468,9 +497,7 @@ export default function Account({ user, players, results, addPlayer, setPlayerHi
                   <div className="set-title">Show on Leaderboard</div>
                   <div className="set-hint" style={{ marginTop: 2 }}>{myPlayer.hidden ? "You're hidden from the standings." : "You're visible in the standings."}</div>
                 </div>
-                <button className={`btn ${myPlayer.hidden ? "" : "btn-toggle-on"}`} style={{ minWidth: 92 }} onClick={toggleLeaderboard} disabled={hideBusy}>
-                  {hideBusy ? "…" : myPlayer.hidden ? "Show me" : "Hide me"}
-                </button>
+                <Switch on={!myPlayer.hidden} label="Show on Leaderboard" disabled={hideBusy} onChange={toggleLeaderboard} />
               </div>
           )}
 
