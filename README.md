@@ -427,6 +427,31 @@ Push this repo to GitHub. Every later `git push` to `main` redeploys Vercel.
    plus `http://localhost:3000/**` for local work. The invite and reset
    email templates must keep `{{ .ConfirmationURL }}`.
 
+### Changing the database later: ship the app first
+
+Games stopped saving for a month (October 25 to November 26, 2026) because
+`migration-record-game.sql`, which closes direct writes to `game_results`,
+was run in production while the app that saves through `record_game` was
+still sitting on an unmerged branch. Every save was refused and piled up in
+phones' offline queues. To keep that from happening again:
+
+1. **Merge and deploy the app change first.** An app change that goes with a
+   migration must work against the database both before and after it (the
+   save path calls `record_game` and falls back to direct writes only when the
+   function is missing, for example).
+2. **Then run the migration**, and only from `main`: never from a branch that
+   hasn't shipped.
+3. **Check a save went through**: finish a short game, then confirm the row
+   in `game_results`, or look for "new row violates row-level security" in
+   the Postgres logs.
+
+Safety nets in the app: CI runs the unit and SQL tests on every pull request
+(`.github/workflows/ci.yml`); `tests/saveGame.test.mjs` fails if the keys the
+app sends and the keys `record_game` reads drift apart; Home says why games
+are waiting and offers Try Again and Save a Backup; and Admin → Analytics
+warns "Games may not be saving" when members keep opening the app but no
+game has been saved for days.
+
 ## 3. Pick an AI provider (for the Blackbird AI tab)
 
 The sparkle tab in the bottom nav is a chat about the signed-in player's own

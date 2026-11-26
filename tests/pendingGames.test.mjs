@@ -86,3 +86,53 @@ test("a game that keeps failing is parked after MAX_ATTEMPTS", async () => {
   assert.deepEqual(r.parked, ["flaky"]);
   assert.equal(readPending("u", s).length, 0);
 });
+
+import { describeSaveError, syncStatus, retryParked, queueBackup } from "../lib/pendingGames.js";
+
+test("save errors are explained in plain words, and a refused save says it is a server problem", () => {
+  assert.match(describeSaveError({ code: "42501", message: 'new row violates row-level security policy for table "game_results"' }), /server refused the save/);
+  assert.match(describeSaveError({ code: "PGRST202", message: "Could not find the function" }), /save function is missing/);
+  assert.match(describeSaveError({ message: "TypeError: Failed to fetch" }), /Couldn't reach the server/);
+  assert.match(describeSaveError({ code: "22023", message: "record_game: unknown player" }), /rejected this game.s data: record_game: unknown player\./);
+  assert.equal(describeSaveError(null), "");
+});
+
+test("syncStatus reports what waits, what was set aside and why", async () => {
+  const s = memStore();
+  enqueuePending("u1", { match: match("g1"), ranked: true }, s);
+  enqueuePending("u1", { match: match("g2"), ranked: true }, s);
+  const refuse = { currentElo: async () => ({ Matt: 1000, Chuck: 1000 }), existingRows: async () => [], record: async () => { throw Object.assign(new Error("connection reset"), { code: "" }); } };
+  await flushPending("u1", refuse, s);
+  const st = syncStatus("u1", s);
+  assert.equal(st.pending, 2);
+  assert.equal(st.parked, 0);
+  assert.equal(st.attempts, 1);
+  assert.match(st.lastError, /connection reset/);
+  const rls = { ...refuse, record: async () => { throw Object.assign(new Error('new row violates row-level security policy for table "game_results"'), { code: "42501" }); } };
+  await flushPending("u1", rls, s);
+  const st2 = syncStatus("u1", s);
+  assert.equal(st2.pending, 0, "a refused save is set aside so the rest can go");
+  assert.equal(st2.parked, 2);
+  assert.match(st2.parkedError, /server refused the save/);
+});
+
+test("retryParked puts set-aside games back, oldest first, with fresh attempts; a backup holds everything", async () => {
+  const s = memStore();
+  enqueuePending("u1", { match: match("late", { completedAt: "2026-11-02T10:00:00Z" }), ranked: true }, s);
+  enqueuePending("u1", { match: match("early", { completedAt: "2026-11-01T10:00:00Z" }), ranked: true }, s);
+  const rls = { currentElo: async () => ({}), existingRows: async () => [], record: async () => { throw Object.assign(new Error("rls"), { code: "42501" }); } };
+  await flushPending("u1", rls, s);
+  assert.equal(readParked("u1", s).length, 2);
+  const backup = JSON.parse(queueBackup("u1", s));
+  assert.equal(backup.parked.length, 2);
+  assert.equal(backup.pending.length, 0);
+  assert.equal(retryParked("u1", s), 2);
+  assert.deepEqual(readPending("u1", s).map((e) => e.match.gameId), ["early", "late"]);
+  assert.ok(readPending("u1", s).every((e) => e.attempts === 0));
+  assert.equal(readParked("u1", s).length, 0);
+  const saved = [];
+  const ok = { currentElo: async () => ({ Matt: 1000, Chuck: 1000 }), existingRows: async () => [], record: async (a) => { saved.push(a.gameId); } };
+  await flushPending("u1", ok, s);
+  assert.deepEqual(saved, ["early", "late"]);
+  assert.equal(syncStatus("u1", s).pending, 0);
+});
