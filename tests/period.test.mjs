@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { periodBounds, filterByPeriod, inPeriod, periodLabel, toInputDate, DEFAULT_PERIOD } from "../lib/period.js";
+import { periodBounds, filterByPeriod, inPeriod, periodLabel, toInputDate, DEFAULT_PERIOD, openingPeriod, lastPlayed } from "../lib/period.js";
 
 const now = new Date(2026, 8, 25, 12, 0, 0);
 const rows = [
@@ -28,3 +28,18 @@ test("custom range is inclusive, open-ended, and order-tolerant", () => {
 });
 
 test("toInputDate", () => assert.equal(toInputDate(new Date(2026, 0, 5)), "2026-01-05"));
+
+test("opens on the shortest range that holds a game", () => {
+  assert.equal(openingPeriod(rows, now), "30d");
+  assert.equal(openingPeriod(rows.slice(1), now), "90d");
+  assert.equal(openingPeriod(rows.slice(2), now), "all");
+  // nothing played: the usual default, the page is empty either way
+  assert.equal(openingPeriod([], now), DEFAULT_PERIOD);
+  assert.equal(openingPeriod(null, now), DEFAULT_PERIOD);
+});
+
+test("lastPlayed is the newest valid date", () => {
+  assert.equal(lastPlayed([rows[2], rows[0], { completedAt: "garbage" }]).getTime(), new Date(rows[0].completedAt).getTime());
+  assert.equal(lastPlayed([]), null);
+  assert.equal(lastPlayed([{ completedAt: null }]), null);
+});

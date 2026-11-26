@@ -15,7 +15,7 @@ function sinceLabel(iso) {
  * counts and the actions. Editing is only ever offered on your own
  * profile; follower counts only where the database lets us see them.
  */
-export default function ProfileIdentity({ user, player, playerColors, isMe, follow, followsYou, counts, onOpenFriends, onEditProfile, onOpenAccount }) {
+export default function ProfileIdentity({ user, player, playerColors, isMe, follow, followsYou, counts, onOpenFriends, onEditProfile, onOpenAccount, card = null }) {
   const since = sinceLabel(player?.createdAt);
   return (
     <div className="pf-id">
@@ -31,7 +31,7 @@ export default function ProfileIdentity({ user, player, playerColors, isMe, foll
                   <EditIcon /> Edit profile
                 </button>
               )}
-              <ShareButton player={player} user={user} />
+              <ShareButton player={player} user={user} card={card} />
               {onOpenAccount && (
                 <button type="button" className="btn btn-sm pf-action pf-icon-btn" onClick={onOpenAccount} title="Settings" aria-label="Settings">
                   <GearIcon />

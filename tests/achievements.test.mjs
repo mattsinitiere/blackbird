@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { ACHIEVEMENTS, computeAchievements, diffUnlocked, nextUp, readSeen, writeSeen, seenKey, progressText } from "../lib/achievements.js";
+import { ACHIEVEMENTS, computeAchievements, diffUnlocked, nextUp, readSeen, writeSeen, seenKey, progressText, isNewBadge, NEW_BADGE_DAYS } from "../lib/achievements.js";
 import { replayX01Visits } from "../lib/x01log.js";
 
 const T = (n) => ({ n, mult: 3 });
@@ -91,6 +91,40 @@ test("seen bookkeeping is safe without storage", () => {
   const mem = {}; const storage = { getItem: (k) => mem[k] ?? null, setItem: (k, v) => { mem[k] = v; } };
   writeSeen(storage, seenKey("u1"), ["a", "b", "a"]);
   assert.deepEqual([...readSeen(storage, seenKey("u1"))], ["a", "b"]);
+});
+
+test("New marks only badges earned around or after this device began keeping track", () => {
+  const DAY = 86400000;
+  const now = Date.UTC(2026, 10, 26);
+  const badge = (id, daysAgo) => ({ id, unlocked: true, earnedAt: new Date(now - daysAgo * DAY).toISOString() });
+  const june = badge("june", 160);
+  const today = badge("today", 0);
+  const mem = {}; const storage = { getItem: (k) => mem[k] ?? null, setItem: (k, v) => { mem[k] = v; } };
+  // a new phone: nothing recorded, so only the last few days count as new
+  let seen = readSeen(storage, "k");
+  assert.equal(seen.since, null);
+  assert.equal(isNewBadge(june, seen, now), false, "a June badge is not new in November");
+  assert.equal(isNewBadge(today, seen, now), true);
+  assert.equal(isNewBadge(badge("week", NEW_BADGE_DAYS + 1), seen, now), false);
+  // the record keeps the day it began, even when a game writes it first
+  writeSeen(storage, "k", ["other"], now);
+  seen = readSeen(storage, "k");
+  assert.equal(seen.since, now);
+  assert.equal(isNewBadge(june, seen, now), false);
+  assert.equal(isNewBadge(today, seen, now), true);
+  writeSeen(storage, "k", [...seen, "today"], now + 5 * DAY);
+  seen = readSeen(storage, "k");
+  assert.equal(seen.since, now, "since never moves");
+  assert.equal(isNewBadge(today, seen, now), false, "seen now");
+  // a badge earned a month after the record began, never seen: new
+  assert.equal(isNewBadge({ id: "later", unlocked: true, earnedAt: new Date(now + 30 * DAY).toISOString() }, seen, now + 31 * DAY), true);
+  // the first format (a bare list) still reads, with everything kept from the start
+  mem.old = JSON.stringify(["a"]);
+  seen = readSeen(storage, "old");
+  assert.deepEqual([...seen], ["a"]);
+  assert.equal(seen.since, 0);
+  assert.equal(isNewBadge({ id: "a", unlocked: true, earnedAt: june.earnedAt }, seen, now), false);
+  assert.equal(isNewBadge({ id: "b", unlocked: false, earnedAt: null }, seen, now), false);
 });
 
 test("streak badges count the CURRENT run, not the best one", () => {

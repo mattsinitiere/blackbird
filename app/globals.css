@@ -855,6 +855,15 @@ a:focus-visible {
   font-size: calc(15px * var(--fs));
   font-variant-numeric: tabular-nums;
 }
+/* a secondary figure beside the value, e.g. the % after "1/5" doubles */
+.report-pair {
+  white-space: nowrap;
+}
+.report-pair small {
+  font-size: 0.75em;
+  font-weight: 600;
+  color: var(--ink-soft);
+}
 .report-visit {
   display: flex;
   align-items: center;
@@ -1326,18 +1335,21 @@ label.check input {
 }
 
 /* chart cards: single column on phones, two-up on wide screens */
+/* minmax(0, 1fr), not 1fr: a plain 1fr track can't shrink below its widest
+   content, so a long row of pills (Rivalry Timeline) widened every card */
 .charts-2col {
   display: grid;
-  grid-template-columns: 1fr;
+  grid-template-columns: minmax(0, 1fr);
   gap: 12px;
   margin-bottom: 12px;
 }
 .charts-2col > .card {
   margin-bottom: 0;
+  min-width: 0;
 }
 @media (min-width: 900px) {
   .charts-2col {
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   }
 }
 
@@ -2464,6 +2476,72 @@ html:not([data-theme="dark"]) .app.is-profile {
   flex-basis: 100%;
   font-size: calc(13px * var(--fs));
 }
+/* the Player Card sheet (components/PlayerCard.js PlayerCardSheet), opened
+   by Share on your own profile and the Statistics tab: a bottom sheet on phones */
+@media (max-width: 599px) {
+  .modal-backdrop.pc-sheet-backdrop {
+    align-items: flex-end;
+    padding: 0;
+  }
+  .pc-sheet-backdrop .modal.pc-sheet {
+    max-width: none;
+    max-height: 92svh;
+    border-radius: var(--radius) var(--radius) 0 0;
+    padding-bottom: calc(16px + env(safe-area-inset-bottom));
+  }
+}
+.modal.pc-sheet {
+  display: grid;
+  gap: 10px;
+  max-width: 420px;
+  padding: 18px;
+}
+.pc-sheet-title {
+  margin: 0;
+  font-family: var(--font-display-stack);
+  font-size: calc(18px * var(--fs));
+}
+.pc-sheet-preview {
+  display: grid;
+  place-items: center;
+  aspect-ratio: 1080 / 1350;
+  max-height: 52svh;
+  margin: 0 auto;
+  width: 100%;
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+  overflow: hidden;
+}
+.pc-sheet-preview img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+.pc-sheet-wait {
+  color: var(--muted);
+  font-size: calc(13px * var(--fs));
+}
+.pc-sheet-actions {
+  display: flex;
+  gap: 8px;
+}
+.pc-sheet-actions .btn {
+  flex: 1;
+}
+.pc-sheet-invite {
+  justify-self: center;
+}
+.pc-sheet-note {
+  margin: 0;
+  min-height: 1em;
+  color: var(--ink-soft);
+  font-size: calc(13px * var(--fs));
+  text-align: center;
+}
+.pc-sheet-note:empty {
+  display: none;
+}
 .pf-name {
   display: flex;
   flex-wrap: wrap;
@@ -2759,6 +2837,23 @@ html:not([data-theme="dark"]) .app.is-profile {
   background: var(--surface-2);
   color: var(--ink-soft);
 }
+/* a match card opens its report (components/profile/ActivityFeed.js) */
+.pf-post.is-open {
+  cursor: pointer;
+}
+.pf-post.is-open:active {
+  background: var(--surface-2);
+}
+.pf-post-head .pf-post-title {
+  margin-top: 0;
+}
+.pf-post-go {
+  display: inline-flex;
+  flex: none;
+  margin-right: -4px;
+  color: var(--muted);
+  font-size: calc(18px * var(--fs));
+}
 .pf-post-title {
   margin-top: 12px;
   font-family: var(--font-display-stack);
@@ -2838,13 +2933,6 @@ html:not([data-theme="dark"]) .app.is-profile {
   background: var(--pf-mint);
   color: var(--pf-positive);
   font-size: calc(12px * var(--fs));
-}
-.pf-post-foot {
-  display: flex;
-  justify-content: flex-end;
-  margin-top: 12px;
-  border-top: 1px solid var(--line);
-  padding-top: 12px;
 }
 .pf-action-link {
   display: inline-flex;
@@ -2942,6 +3030,22 @@ html:not([data-theme="dark"]) .app.is-profile {
 .pf-side-card.card,
 .pf-rivalry.card {
   padding: 16px;
+}
+/* an unfollowed player's profile: what following unlocks (components/Profile.js) */
+.pf-locked-list {
+  margin: 8px 0 0;
+  padding-left: 1.2em;
+  color: var(--ink-soft);
+  font-size: calc(14px * var(--fs));
+  line-height: 1.6;
+  text-align: left;
+}
+.pf-locked-action {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: 12px;
 }
 .pf-side-head {
   display: flex;
@@ -3952,6 +4056,34 @@ html:not([data-theme="dark"]) .app.is-profile {
   background: var(--red-soft);
   color: var(--red);
 }
+/* Standings rows (components/Leaderboard.js) reuse the W / L pips above */
+.lb-form {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 5px;
+}
+.lb-form-label,
+.lb-elo-when {
+  color: var(--muted);
+  font-size: calc(10px * var(--fs));
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.lb-elo-change {
+  font-size: calc(11px * var(--fs));
+  font-weight: 700;
+  white-space: nowrap;
+}
+.lb-big {
+  flex: none;
+  text-align: right;
+}
+.lb-big-label {
+  margin-top: 1px;
+  font-size: calc(10px * var(--fs));
+}
 .mu-play {
   width: 100%;
   padding: 15px;
@@ -4518,6 +4650,17 @@ html:not([data-theme="dark"]) .app.is-profile {
 }
 
 /* Achievements: each category its own section (components/Achievements.js) */
+.badge-fresh {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 6px 0 0;
+  color: var(--ink-soft);
+  font-size: calc(13px * var(--fs));
+}
+.badge-fresh .badge-new {
+  position: static;
+}
 .badge-section {
   margin-top: 18px;
   padding-top: 16px;
@@ -6023,6 +6166,11 @@ html:not([data-theme="dark"]) .app.is-profile {
 .deep-when-cell.is-on {
   outline: 2px solid var(--ink);
   outline-offset: 1px;
+}
+.deep-ladder-lead {
+  margin: 0 0 10px;
+  font-size: calc(13px * var(--fs));
+  font-weight: 600;
 }
 .deep-lead {
   display: flex;

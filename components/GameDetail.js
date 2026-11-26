@@ -9,6 +9,7 @@ import { gameTitle } from "@/lib/summary";
 import { dartLabel } from "@/lib/darts";
 import { clockLabel } from "@/lib/gamestats/clock";
 import { TTT_GRID } from "@/lib/gamestats/tictactoe";
+import { x01Config } from "@/lib/gamestats/x01";
 
 const fmtDate = (iso) => {
   try {
@@ -20,21 +21,33 @@ const fmtDate = (iso) => {
 const n1 = (v) => (v == null ? "—" : Number(v).toFixed(1));
 const pc = (v) => (v == null ? "—" : `${Math.round(v)}%`);
 
-/** The handful of numbers worth a glance per game type. */
-function keyMetrics(gameType, a) {
+/**
+ * The handful of numbers worth a glance per game type. Every player gets
+ * the same labels in the same order, so the cards line up side by side.
+ */
+function keyMetrics(gameType, a, config) {
   const m = a.metrics || {};
   switch (gameType) {
-    case "x01":
+    case "x01": {
+      // darts thrown with a finish on, and how many of them won a leg
+      const outs = m.checkoutChances ? (
+        <span className="report-pair">
+          {m.checkoutHits}/{m.checkoutChances} <small>{pc((m.checkoutHits / m.checkoutChances) * 100)}</small>
+        </span>
+      ) : (
+        "no tries"
+      );
       return [
         ["3-dart avg", n1(m.threeDartAvg)],
         ["First 9", n1(m.first9Avg)],
         ["High turn", m.highestTurn ?? "—"],
-        ...(a.won ? [["Checkout", m.checkout || "—"]] : []),
-        ["Checkout %", m.checkoutChances ? `${m.checkoutHits}/${m.checkoutChances}` : "—"],
+        ["Finish", (a.won && m.checkout) || "—"],
+        [x01Config(config).doubleOut ? "Doubles" : "Finish darts", outs],
         ["Busts", m.busts ?? "—"],
         ["180s", m.one80s ?? "—"],
         ["Best visit", m.bestVisit ?? "—"],
       ];
+    }
     case "cricket":
       return [["MPR", m.mpr == null ? "—" : m.mpr.toFixed(2)], ["Marks", m.marks], ["Rounds", m.rounds], ["Points", m.points], ["Miss %", pc(m.missPct)], ["Dead darts", m.deadDarts ?? "—"], ["Best round", m.bestRound ?? "—"]];
     case "baseball":
@@ -148,18 +161,6 @@ export default function GameDetail({ rows, playerColors, back, me = null, onAskA
         )}
       </div>
 
-      {me && match.gameId && names.includes(me) && <AIReport gameId={match.gameId} me={me} />}
-      {onAskAI && me && match.gameId && names.includes(me) && (
-        <button
-          type="button"
-          className="btn mb-12"
-          style={{ width: "100%" }}
-          onClick={() => onAskAI(`Talk me through my ${gameTitle(gameType, config)} game on ${fmtDate(match.completedAt)} (game id ${match.gameId}): what decided it, and what should I practice?`)}
-        >
-          Ask Merlin About This Game
-        </button>
-      )}
-
       <div className="report-grid mb-12">
         {names.map((u) => {
           const a = players[u];
@@ -170,7 +171,7 @@ export default function GameDetail({ rows, playerColors, back, me = null, onAskA
                 {a.won != null && <span className="tag" style={{ color: a.won ? "var(--accent)" : "var(--muted)" }}>{a.won ? "won" : "lost"}</span>}
               </div>
               <dl className="report-metrics">
-                {keyMetrics(gameType, a).map(([label, value]) => (
+                {keyMetrics(gameType, a, config).map(([label, value]) => (
                   <div key={label}>
                     <dt>{label}</dt>
                     <dd>{value}</dd>
@@ -181,6 +182,15 @@ export default function GameDetail({ rows, playerColors, back, me = null, onAskA
           );
         })}
       </div>
+
+      {/* the numbers first; Merlin's take is one optional step below them */}
+      {me && match.gameId && names.includes(me) && (
+        <AIReport
+          gameId={match.gameId}
+          me={me}
+          onChat={onAskAI ? () => onAskAI(`Talk me through my ${gameTitle(gameType, config)} game on ${fmtDate(match.completedAt)} (game id ${match.gameId}): what decided it, and what should I practice?`) : null}
+        />
+      )}
 
       {names.map((u) => {
         const sf = seriesFor(gameType, players[u]);
@@ -229,9 +239,10 @@ export default function GameDetail({ rows, playerColors, back, me = null, onAskA
 /**
  * Blackbird AI's report on this one game (app/api/insights kind "game").
  * Asked for on tap, then kept on this phone per game so reopening it is
- * instant and costs nothing.
+ * instant and costs nothing. `onChat` carries the game into a Merlin chat
+ * for follow-up questions.
  */
-function AIReport({ gameId, me }) {
+function AIReport({ gameId, me, onChat = null }) {
   const key = `bb-ai-game-${gameId}`;
   const [report, setReport] = useState(null);
   const [busy, setBusy] = useState(false);
@@ -270,19 +281,24 @@ function AIReport({ gameId, me }) {
     return (
       <section className="card mb-12 ai-game-report" aria-label="Merlin's match analysis">
         <div className="ai-weekly-head">
-          <span className="ai-weekly-title">Merlin's Analysis</span>
+          <span className="ai-weekly-title">Merlin's Take</span>
         </div>
         <AIText text={report.text} />
         {report.charts.map((c, i) => (
           <AIChart key={i} chart={c} />
         ))}
+        {onChat && (
+          <button type="button" className="btn btn-sm mt-12" onClick={onChat}>
+            Continue in chat
+          </button>
+        )}
       </section>
     );
   }
   return (
     <div className="mb-12">
-      <button type="button" className="btn btn-primary ai-analyze" onClick={run} disabled={busy}>
-        {busy ? "Analyzing…" : "Analyze This Game"}
+      <button type="button" className="btn ai-analyze" onClick={run} disabled={busy}>
+        {busy ? "Merlin is reading the game…" : "Merlin's Take on This Game"}
       </button>
       {error && (
         <p className="tag" style={{ margin: "6px 2px 0", textTransform: "none", letterSpacing: 0, color: "var(--red)" }}>

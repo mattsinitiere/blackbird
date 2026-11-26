@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Mini } from "../ui";
 import { LineChart, MultiLineChart, DartHeatmap } from "../Charts";
 import { gameName } from "@/lib/summary";
-import { gameTypesPlayed, landingHeatmap, dartByDart, paceOfPlay, whenPlayed, underPressure, rivalryTimelines, practiceVsRanked, botProgress, DAYS, BLOCKS, PACE_SPLIT_MIN } from "@/lib/deepStats";
+import { gameTypesPlayed, landingHeatmap, dartByDart, paceOfPlay, whenPlayed, underPressure, rivalryTimelines, practiceVsRanked, botClimb, BOT_PROGRESS_MIN, DAYS, BLOCKS, PACE_SPLIT_MIN, DART_MIN_GAMES, PRESSURE_MIN_GAMES, WHEN_MIN } from "@/lib/deepStats";
 
 /**
  * The deeper statistics on the profile's Statistics tab, all drawn from
@@ -75,14 +75,21 @@ function Bars({ items, max = null }) {
 function HeatmapCard({ games, gameType }) {
   const h = useMemo(() => landingHeatmap(games, gameType), [games, gameType]);
   if (!h.darts) return null;
+  // in Baseball and Cricket a "miss" is off the target number, and most of
+  // those darts still hit the board, so the tile can't claim "on the board"
+  const target = h.missKind === "target";
   return (
-    <Card title="Dartboard Heatmap" meta={plural(h.games, "game")} note="Every logged dart by the bed it hit. A dart off the target in Baseball or Cricket is logged as a miss, with no position.">
-      <DartHeatmap cells={h.cells} darts={h.darts} misses={h.misses} missLabel="missed" />
+    <Card
+      title="Dartboard Heatmap"
+      meta={plural(h.games, "game")}
+      note={target ? "Every logged dart by the bed it hit. In Baseball and Cricket a dart off the target number is logged without its spot, so it counts as off target even when it hit the board." : "Every logged dart by the bed it hit."}
+    >
+      <DartHeatmap cells={h.cells} darts={h.darts} misses={h.misses} missLabel={target ? "off target" : "off the board"} />
       {h.top && (
         <div className="grid-3" style={{ marginTop: 10 }}>
           <Mini label="Darts" value={h.darts} />
           <Mini label="Most hit" value={h.top.label} />
-          <Mini label="On the board" value={pc(((h.darts - h.misses) / h.darts) * 100)} />
+          <Mini label={target ? "On target" : "On the board"} value={pc(((h.darts - h.misses) / h.darts) * 100)} />
         </div>
       )}
     </Card>
@@ -92,12 +99,11 @@ function HeatmapCard({ games, gameType }) {
 function DartByDartCard({ games, gameType }) {
   const d = useMemo(() => dartByDart(games, gameType), [games, gameType]);
   if (!d.target && !d.scoring) return null;
-  const verdict = (vals, unit) => {
-    if (vals.some((v) => v == null)) return null;
-    const best = vals.indexOf(Math.max(...vals));
-    const worst = vals.indexOf(Math.min(...vals));
-    if (best === worst) return null;
-    return `Strongest with the ${ORD[best].replace(" dart", "")}, weakest with the ${ORD[worst].replace(" dart", "")} (${unit(vals[best])} against ${unit(vals[worst])}).`;
+  // a best and worst dart only when lib/deepStats says the gap is real
+  const verdict = (part, vals, unit) => {
+    const v = part.verdict;
+    if (!v) return part.games < DART_MIN_GAMES ? `Too few games to compare the darts yet (${DART_MIN_GAMES} needed).` : "About the same with every dart.";
+    return `Strongest with the ${ORD[v.best].replace(" dart", "")}, weakest with the ${ORD[v.worst].replace(" dart", "")} (${unit(vals[v.best])} against ${unit(vals[v.worst])}).`;
   };
   return (
     <Card title="Dart by Dart" meta="1st · 2nd · 3rd">
@@ -105,14 +111,14 @@ function DartByDartCard({ games, gameType }) {
         <>
           <div className="tag" style={{ marginBottom: 6 }}>On target · Baseball and Cricket · {plural(d.target.games, "game")}</div>
           <Bars max={100} items={d.target.positions.map((p, i) => ({ label: ORD[i], value: p.pct, display: pc(p.pct) }))} />
-          <p className="deep-note">{verdict(d.target.positions.map((p) => p.pct), pc)}</p>
+          <p className="deep-note">{verdict(d.target, d.target.positions.map((p) => p.pct), pc)}</p>
         </>
       )}
       {d.scoring && (
         <>
           <div className="tag" style={{ margin: `${d.target ? 12 : 0}px 0 6px` }}>Average score · X01 · {plural(d.scoring.games, "game")}</div>
           <Bars items={d.scoring.positions.map((p, i) => ({ label: ORD[i], value: p.avg, display: num(p.avg) }))} />
-          <p className="deep-note">{verdict(d.scoring.positions.map((p) => p.avg), (v) => num(v))}</p>
+          <p className="deep-note">{verdict(d.scoring, d.scoring.positions.map((p) => p.avg), (v) => num(v))}</p>
         </>
       )}
     </Card>
@@ -166,7 +172,7 @@ function WhenCard({ games, gameType }) {
   const cur = sel ? w.grid[sel[0]][sel[1]] : null;
   const shade = (n) => (n ? `color-mix(in srgb, var(--accent) ${Math.round(14 + 86 * (n / w.max))}%, var(--surface))` : "var(--surface-2)");
   return (
-    <Card title="When Games Happen" meta={plural(w.total, "game")} note="By the time a game finished, in your local time. Tap a square.">
+    <Card title="When Games Happen" meta={plural(w.total, "game")} note={`By the time a game finished, in your local time. Tap a square. A best or worst day or time is named once it has ${WHEN_MIN} games and stands out by more than luck.`}>
       <div className="deep-when" role="grid" aria-label="Games by day and time of day">
         <span />
         {BLOCKS.map((b) => (
@@ -203,11 +209,12 @@ function WhenCard({ games, gameType }) {
           <>Busiest day {w.busiestDay.label} · busiest time from {w.busiestBlock.label}</>
         )}
       </div>
+      {/* named only when the gap is real (lib/deepStats whenPlayed); the game count says how much is behind it */}
       {(w.bestDay || w.bestBlock) && (
         <div className="grid-3" style={{ marginTop: 10 }}>
-          {w.bestDay && <Mini label={`Best day · ${pc(w.bestDay.winPct)}`} value={w.bestDay.label} />}
-          {w.worstDay && <Mini label={`Worst day · ${pc(w.worstDay.winPct)}`} value={w.worstDay.label} />}
-          {w.bestBlock && <Mini label={`Best time · ${pc(w.bestBlock.winPct)}`} value={w.bestBlock.label} />}
+          {w.bestDay && <Mini label={`Best day · ${pc(w.bestDay.winPct)} of ${w.bestDay.decided}`} value={w.bestDay.label} />}
+          {w.worstDay && <Mini label={`Worst day · ${pc(w.worstDay.winPct)} of ${w.worstDay.decided}`} value={w.worstDay.label} />}
+          {w.bestBlock && <Mini label={`Best time · ${pc(w.bestBlock.winPct)} of ${w.bestBlock.decided}`} value={w.bestBlock.label} />}
         </div>
       )}
     </Card>
@@ -231,7 +238,13 @@ function PressureCard({ games, opponents }) {
             ]}
           />
           <p className="deep-note">
-            {b.late > b.early ? `Finishes stronger than it starts: ${num(b.late - b.early, 2)} more runs an inning in the last three.` : b.late < b.early ? `Starts stronger than it finishes: ${num(b.early - b.late, 2)} fewer runs an inning in the last three.` : "The same early and late."}
+            {b.trend === "late"
+              ? `Finishes stronger than it starts: ${num(b.late - b.early, 2)} more runs an inning in the last three.`
+              : b.trend === "early"
+              ? `Starts stronger than it finishes: ${num(b.early - b.late, 2)} fewer runs an inning in the last three.`
+              : b.games < PRESSURE_MIN_GAMES
+              ? `Too few full games to call a trend yet (${PRESSURE_MIN_GAMES} needed).`
+              : "About the same early and late."}
           </p>
         </>
       )}
@@ -309,13 +322,31 @@ const lineColor = (hex) => {
   return lum < 60 ? "var(--ink)" : hex;
 };
 
+/**
+ * The bot ladder in ladder order (Rook up to Blackbird): record and win %
+ * against each bot played, the bot to work on next, and the win % over time
+ * against the one being climbed. One line per bot hid lines under each
+ * other (several sat on 0% or 100%), so only the climb gets a line.
+ */
 function BotProgressCard({ practice }) {
-  const bots = useMemo(() => botProgress(practice), [practice]);
-  if (!bots.length) return null;
-  const longest = Math.max(...bots.map((b) => b.games));
+  const c = useMemo(() => botClimb(practice), [practice]);
+  if (!c.bots.length) return null;
+  const cur = c.climbing;
+  const lead = cur
+    ? `Working on ${cur.name}: ${cur.wins}–${cur.losses} so far. Win more often than not to call it beaten.`
+    : c.next
+    ? `50% or better against every bot you've played. Next up: ${c.next.name}.`
+    : "50% or better against Blackbird, the top of the ladder.";
   return (
-    <Card title="Bot Ladder Progress" meta="All time" note="Win % against each bot as the games against it add up. A line that climbs past 50% says the next bot is worth a go.">
-      <MultiLineChart unit="%" labels={Array.from({ length: longest }, (_, i) => `Game ${i + 1}`)} datasets={bots.map((b) => ({ name: `${b.name} ${b.wins}–${b.games - b.wins}`, color: lineColor(b.color), points: b.points }))} />
+    <Card title="Bot Ladder Progress" meta="All time" note="Bots in ladder order, weakest first. A bot counts as beaten at 50% or better.">
+      <p className="deep-ladder-lead">{lead}</p>
+      <Bars max={100} items={c.bots.map((b) => ({ label: b.name, value: b.winPct, display: `${b.wins}–${b.losses} · ${b.winPct}%`, color: lineColor(b.color) }))} />
+      {cur && cur.games >= BOT_PROGRESS_MIN && (
+        <>
+          <div className="tag" style={{ margin: "12px 0 6px" }}>Win % against {cur.name}, game by game</div>
+          <LineChart data={cur.points} color={lineColor(cur.color)} unit="%" />
+        </>
+      )}
     </Card>
   );
 }

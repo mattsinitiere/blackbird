@@ -4,7 +4,7 @@ import AchievementsCard from "./Achievements";
 import { computeCareer } from "@/lib/gamestats/career";
 import { computeAchievements, readSeen, writeSeen, seenKey } from "@/lib/achievements";
 import { playerTimeline, rivalry, computeStats } from "@/lib/stats";
-import { DEFAULT_PERIOD, periodBounds, filterByPeriod, inPeriod } from "@/lib/period";
+import { openingPeriod, lastPlayed, periodBounds, filterByPeriod, inPeriod } from "@/lib/period";
 import { computePracticeStats, practiceCounts, practiceAsMatches } from "@/lib/practiceStats";
 import { prepareGames, x01Opponents } from "@/lib/deepStats";
 import DeepStats from "./profile/DeepStats";
@@ -16,6 +16,7 @@ import ActivityFeed from "./profile/ActivityFeed";
 import ProfileSidebar from "./profile/ProfileSidebar";
 import ProfileStats from "./profile/ProfileStats";
 import RivalryCard from "./profile/RivalryCard";
+import FollowButton from "./profile/FollowButton";
 
 /**
  * A player's profile, laid out like a social profile: cover, identity and
@@ -79,9 +80,15 @@ export default function Profile({
   }, [isMe, userId, badges]);
 
   const myPractice = useMemo(() => practice.filter((r) => r.username === user), [practice, user]);
+  const lastPractice = useMemo(() => lastPlayed(myPractice), [myPractice]);
 
-  // Statistics tab: a date range (last 30 days by default)
-  const [period, setPeriod] = useState(DEFAULT_PERIOD);
+  // Statistics tab: a date range. Until one is picked it opens on the
+  // shortest range that holds a ranked game (30 days, 90 days, All Time),
+  // so a month off doesn't open on an empty page
+  const myRanked = useMemo(() => results.filter((r) => r.username === user), [results, user]);
+  const lastRanked = useMemo(() => lastPlayed(myRanked), [myRanked]);
+  const [pickedPeriod, setPeriod] = useState(null);
+  const period = pickedPeriod || openingPeriod(myRanked);
   const [custom, setCustom] = useState({ from: "", to: "" });
   const bounds = useMemo(() => periodBounds(period, new Date(), custom), [period, custom]);
   const pResults = useMemo(() => filterByPeriod(results, bounds), [results, bounds]);
@@ -128,10 +135,20 @@ export default function Profile({
   let feedEmpty;
   if (dataError) feedEmpty = <p className="card pf-empty-card">{unavailable}</p>;
   else if (hidden)
+    // the one place that explains the lock, with the button that lifts it
+    // (on phones the sidebar's matching placeholders are left out)
     feedEmpty = (
-      <div className="card pf-empty-card">
-        <p className="pf-empty-title">Follow {user} to see their activity</p>
-        <p className="pf-empty">Players share their games with the people who follow them.</p>
+      <div className="card pf-empty-card pf-locked">
+        <p className="pf-empty-title">Follow {user} to see their games</p>
+        <p className="pf-empty">Players share their games with the people who follow them. Following {user} unlocks:</p>
+        <ul className="pf-locked-list">
+          <li>Their matches and achievements</li>
+          <li>Elo, averages and statistics</li>
+          <li>Trophy cabinet and who they play</li>
+        </ul>
+        <div className="pf-locked-action">
+          <FollowButton user={user} {...follow} />
+        </div>
       </div>
     );
   else if (myPractice.length > 0)
@@ -201,6 +218,7 @@ export default function Profile({
               onOpenFriends={onOpenFriends}
               onEditProfile={isMe ? onEditProfile : null}
               onOpenAccount={isMe ? onOpenAccount : null}
+              card={isMe && stats ? { stats, elo, playerColors } : null}
             />
             {stats && (
               <div className="pf-strip" aria-label="All-time ranked summary">
@@ -252,6 +270,7 @@ export default function Profile({
                 hasPractice={myPractice.length > 0}
                 mode={statsMode}
                 onMode={setStatsMode}
+                lastGame={practiceView ? lastPractice : lastRanked}
                 period={practiceView ? practicePeriod : period}
                 bounds={practiceView ? practiceBounds : bounds}
                 custom={practiceView ? practiceCustom : custom}
@@ -281,7 +300,7 @@ export default function Profile({
           </div>
         </div>
 
-        <aside className={`pf-side${tab === "activity" ? "" : " pf-side-wide-only"}`} aria-label="Profile summary">
+        <aside className={`pf-side${tab === "activity" && !hidden ? "" : " pf-side-wide-only"}`} aria-label="Profile summary">
           {sidebar}
         </aside>
       </div>

@@ -1,7 +1,8 @@
 import { useState } from "react";
-import { PlayerBadge } from "../ui";
+import { PlayerBadge, pressProps } from "../ui";
 import { playerLabel } from "@/lib/bots";
-import { ActionLink } from "./icons";
+import { isNewBadge } from "@/lib/achievements";
+import { ChevronIcon } from "./icons";
 import BadgeMedal from "../BadgeMedal";
 import BadgeDetail from "../BadgeDetail";
 
@@ -44,21 +45,40 @@ function resultText(m) {
   return "Lost";
 }
 
-function MatchCard({ m, user, playerColors, openGame }) {
+function fmtTime(iso) {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "";
+  return d.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
+}
+
+/**
+ * One ranked match. The feed is one player's, under a day heading, so the
+ * card skips the author row and the full date: title, result and time sit
+ * on one line, and the whole card opens the match report.
+ */
+function MatchCard({ m, playerColors, openGame }) {
   const shown = m.opponents.slice(0, 4);
   const more = m.opponents.length - shown.length;
+  const open = openGame && m.row.gameId ? () => openGame(m.row) : null;
   return (
-    <article className={`card pf-post ${m.won ? "is-win" : "is-loss"}`} aria-label={`${m.title}, ${resultText(m)}, ${fmtWhen(m.date)}`}>
+    <article
+      className={`card pf-post ${m.won ? "is-win" : "is-loss"}${open ? " is-open" : ""}`}
+      aria-label={`${m.title}, ${resultText(m)}, ${fmtWhen(m.date)}${open ? ". Open the match report" : ""}`}
+      {...(open ? pressProps(open) : {})}
+    >
       <header className="pf-post-head">
-        <PlayerBadge username={user} color={playerColors?.[user]} size={36} showName={false} />
         <div className="pf-post-who">
-          <div className="pf-post-name">{user}</div>
-          <time className="pf-post-time" dateTime={m.date}>{fmtWhen(m.date)}</time>
+          <div className="pf-post-title">{m.title}</div>
+          <time className="pf-post-time" dateTime={m.date}>{fmtTime(m.date)}</time>
         </div>
         <span className={`pf-result ${m.won ? "is-win" : "is-loss"}`}>{resultText(m)}</span>
+        {open && (
+          <span className="pf-post-go" aria-hidden="true">
+            <ChevronIcon />
+          </span>
+        )}
       </header>
 
-      <div className="pf-post-title">{m.title}</div>
       <div className="pf-post-vs">
         <span className="pf-post-vs-label">vs</span>
         {shown.map((o) => (
@@ -96,11 +116,6 @@ function MatchCard({ m, user, playerColors, openGame }) {
         </ul>
       )}
 
-      {openGame && m.row.gameId && (
-        <div className="pf-post-foot">
-          <ActionLink onClick={() => openGame(m.row)}>Match Details</ActionLink>
-        </div>
-      )}
     </article>
   );
 }
@@ -129,7 +144,7 @@ function AchievementPost({ group, user, playerColors, seen, isMe }) {
               <div className="pf-post-title" style={{ margin: 0 }}>{a.badge.title}</div>
               <div className="pf-post-note" style={{ margin: 0 }}>{a.badge.description}</div>
             </div>
-            {isMe && seen && !seen.has(a.badge.id) && <span className="badge-new pf-badge-new">New</span>}
+            {isMe && isNewBadge(a.badge, seen) && <span className="badge-new pf-badge-new">New</span>}
           </li>
         ))}
       </ul>
@@ -188,7 +203,7 @@ export default function ActivityFeed({ items, user, isMe, seen, playerColors, op
           <div key={it.key} className="pf-feed-item">
             {newDay && day && <h3 className="pf-day">{day}</h3>}
             {it.kind === "match" ? (
-              <MatchCard m={it} user={user} playerColors={playerColors} openGame={openGame} />
+              <MatchCard m={it} playerColors={playerColors} openGame={openGame} />
             ) : (
               <AchievementPost group={it.group} user={user} playerColors={playerColors} seen={seen} isMe={isMe} />
             )}

@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { ORDER, RINGS } from "@/lib/board";
 import { withUnit, axisUnit } from "@/lib/aiChart";
 
@@ -16,9 +16,10 @@ const fmtShortDate = (iso) => {
  * keys move it when the chart has focus; Esc or a tap elsewhere clears it.
  * `indexAt(viewBoxX)` maps a position to a data index.
  */
-function useScrub(count, W, indexAt) {
+function useScrub(count, W, indexAt, outerWrap = null) {
   const [sel, setSel] = useState(null);
-  const wrap = useRef(null);
+  const ownWrap = useRef(null);
+  const wrap = outerWrap || ownWrap;
   const svg = useRef(null);
   const down = useRef(false);
   useEffect(() => {
@@ -64,6 +65,48 @@ function useScrub(count, W, indexAt) {
   return { sel: sel != null && sel < count ? sel : null, wrap, svg, handlers };
 }
 
+// useLayoutEffect warns during the server render; there it does nothing anyway
+const useIsoLayoutEffect = typeof window === "undefined" ? useEffect : useLayoutEffect;
+
+/**
+ * Real-size axis text for the charts. They draw in viewBox units and
+ * scale to their box, so text sized in those units came out about 7px on a
+ * phone and 16px in a full-width desktop card. Once the chart's box has
+ * been measured, one unit is one CSS pixel: the drawing is as wide as the
+ * box, keeps the usual shape (baseW by baseH) up to baseH pixels tall, and
+ * axis text is 12px times the app's text size (--fs). Until then (server
+ * render, first paint) it is the fixed baseW by baseH drawing with
+ * `textScale`. `k` scales the text and the room kept for it.
+ */
+function useFrame(wrap, baseW, baseH, textScale = 1) {
+  const [el, setEl] = useState(null);
+  const [box, setBox] = useState(null);
+  const ref = useCallback(
+    (node) => {
+      wrap.current = node;
+      setEl(node);
+    },
+    [wrap]
+  );
+  useIsoLayoutEffect(() => {
+    if (!el) return;
+    const read = () => {
+      const w = Math.round(el.clientWidth);
+      if (!w) return;
+      const fs = parseFloat(getComputedStyle(el).getPropertyValue("--fs")) || 1;
+      setBox((b) => (b && b.w === w && b.fs === fs ? b : { w, fs }));
+    };
+    read();
+    if (typeof ResizeObserver === "undefined") return;
+    const ro = new ResizeObserver(read);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [el]);
+  if (!box) return { ref, W: baseW, H: baseH, k: textScale };
+  const H = Math.round(Math.min(baseH, Math.max(150, (box.w * baseH) / baseW)));
+  return { ref, W: box.w, H, k: (12 / 13) * box.fs };
+}
+
 /**
  * The floating readout above a selected point, centered on it and nudged
  * inward only as far as it takes to stay inside the chart.
@@ -89,26 +132,26 @@ function Readout({ pct, value, sub }) {
 }
 
 /**
- * Tiny dependency-free SVG line chart. Scales to container width via viewBox.
+ * Tiny dependency-free SVG line chart, as wide as its box (useFrame).
  * data: [{ x:number, y:number, date?:string, label?:string }]
- * textScale enlarges the axis text where the chart is drawn narrow.
+ * textScale enlarges the axis text before the chart has been measured.
  */
 export function LineChart({ data, color = "var(--accent)", unit = "", decimals = 0, textScale = 1, wide = false }) {
-  // a wide card gets a wider drawing, so it keeps the same height
-  const W = wide ? 1200 : 600;
-  const H = 230;
-  const padL = Math.round(46 * textScale);
+  // before it is measured, a wide card gets a wider drawing, so it keeps the same height
+  const frameWrap = useRef(null);
+  const { ref: frameRef, W, H, k } = useFrame(frameWrap, wide ? 1200 : 600, 230, textScale);
+  const padL = Math.round(46 * k);
   const padR = 16;
   const n = data?.length || 0;
   const xsAll = n ? data.map((d) => d.x) : [0];
   const minX0 = Math.min(...xsAll);
   const spanX0 = Math.max(...xsAll) - minX0 || 1;
   const sxAt = (x) => padL + ((x - minX0) / spanX0) * (W - padL - padR);
-  const { sel, wrap, svg, handlers } = useScrub(n, W, (vx) => {
+  const { sel, svg, handlers } = useScrub(n, W, (vx) => {
     let best = 0;
     for (let i = 1; i < n; i++) if (Math.abs(sxAt(data[i].x) - vx) < Math.abs(sxAt(data[best].x) - vx)) best = i;
     return best;
-  });
+  }, frameWrap);
   if (!data || data.length === 0) {
     return (
       <p className="tag" style={{ textTransform: "none", letterSpacing: 0, margin: "6px 0" }}>
@@ -168,7 +211,7 @@ export function LineChart({ data, color = "var(--accent)", unit = "", decimals =
   const cur = sel != null ? data[sel] : null;
 
   return (
-    <div className="chart-wrap" ref={wrap}>
+    <div className="chart-wrap" ref={frameRef}>
     {cur && <Readout pct={(sx(cur.x) / W) * 100} value={withUnit(fmt(cur.y), unit, cur.y)} sub={cur.label || fmtShortDate(cur.date)} />}
     <svg
       ref={svg}
@@ -198,7 +241,7 @@ export function LineChart({ data, color = "var(--accent)", unit = "", decimals =
             stroke="var(--line)"
             strokeWidth="1"
           />
-          <text x={padL - 8} y={sy(t) + 4} textAnchor="end" fontSize={13 * textScale} fill="var(--ink-soft)">
+          <text x={padL - 8} y={sy(t) + 4} textAnchor="end" fontSize={13 * k} fill="var(--ink-soft)">
             {fmt(t)}
             {axisUnit(unit)}
           </text>
@@ -220,11 +263,11 @@ export function LineChart({ data, color = "var(--accent)", unit = "", decimals =
         </g>
       )}
 
-      <text x={padL} y={H - 8} textAnchor="start" fontSize={12 * textScale} fill="var(--ink-soft)">
+      <text x={padL} y={H - 8} textAnchor="start" fontSize={13 * k} fill="var(--ink-soft)">
         {data[0].label || fmtDate(data[0].date)}
       </text>
       {data.length > 1 && (
-        <text x={W - padR} y={H - 8} textAnchor="end" fontSize={12 * textScale} fill="var(--ink-soft)">
+        <text x={W - padR} y={H - 8} textAnchor="end" fontSize={13 * k} fill="var(--ink-soft)">
           {data[data.length - 1].label || fmtDate(data[data.length - 1].date)}
         </text>
       )}
@@ -240,12 +283,13 @@ export function LineChart({ data, color = "var(--accent)", unit = "", decimals =
  * months, and by Blackbird AI for comparisons, where each bar has a label).
  */
 export function BarChart({ data, color = "var(--accent)", textScale = 1 }) {
-  const W = 600;
-  const padL = Math.round(40 * textScale);
+  const frameWrap = useRef(null);
+  const { ref: frameRef, W, H, k } = useFrame(frameWrap, 600, 200, textScale);
+  const padL = Math.round(40 * k);
   const padR = 12;
   const n = data?.length || 0;
   const slotW = n ? (W - padL - padR) / n : 1;
-  const { sel, wrap, svg, handlers } = useScrub(n, W, (vx) => Math.max(0, Math.min(n - 1, Math.floor((vx - padL) / slotW))));
+  const { sel, svg, handlers } = useScrub(n, W, (vx) => Math.max(0, Math.min(n - 1, Math.floor((vx - padL) / slotW))), frameWrap);
   if (!data || data.length === 0 || !data.some((d) => d.y > 0)) {
     return (
       <p className="tag" style={{ textTransform: "none", letterSpacing: 0, margin: "6px 0" }}>
@@ -254,7 +298,6 @@ export function BarChart({ data, color = "var(--accent)", textScale = 1 }) {
     );
   }
 
-  const H = 200;
   const padT = 14;
   const padB = 28;
 
@@ -266,7 +309,7 @@ export function BarChart({ data, color = "var(--accent)", textScale = 1 }) {
   const mid = Math.round(maxY / 2);
   const ticks = mid > 0 && mid < maxY ? [maxY, mid, 0] : [maxY, 0];
   // short labels under each bar (opponent names, months) when there is room
-  const labelled = data.length <= 12 && data.every((d) => d.label);
+  const labelled = data.length <= 12 && data.every((d) => d.label) && Math.max(...data.map((d) => String(d.label).length)) * 7.5 * k <= slot;
 
   const fmtDate = (iso) => {
     if (!iso) return "";
@@ -280,7 +323,7 @@ export function BarChart({ data, color = "var(--accent)", textScale = 1 }) {
   const cur = sel != null ? data[sel] : null;
 
   return (
-    <div className="chart-wrap" ref={wrap}>
+    <div className="chart-wrap" ref={frameRef}>
     {cur && <Readout pct={((padL + sel * slot + slot / 2) / W) * 100} value={String(cur.y)} sub={cur.label || fmtShortDate(cur.date)} />}
     <svg
       ref={svg}
@@ -297,7 +340,7 @@ export function BarChart({ data, color = "var(--accent)", textScale = 1 }) {
       {ticks.map((t, i) => (
         <g key={i}>
           <line x1={padL} x2={W - padR} y1={sy(t)} y2={sy(t)} stroke="var(--line)" strokeWidth="1" />
-          <text x={padL - 8} y={sy(t) + 4} textAnchor="end" fontSize={13 * textScale} fill="var(--ink-soft)">
+          <text x={padL - 8} y={sy(t) + 4} textAnchor="end" fontSize={13 * k} fill="var(--ink-soft)">
             {t}
           </text>
         </g>
@@ -313,17 +356,17 @@ export function BarChart({ data, color = "var(--accent)", textScale = 1 }) {
 
       {labelled ? (
         data.map((d, i) => (
-          <text key={`l${i}`} x={padL + i * slot + slot / 2} y={H - 8} textAnchor="middle" fontSize={12 * textScale} fill="var(--ink-soft)">
+          <text key={`l${i}`} x={padL + i * slot + slot / 2} y={H - 8} textAnchor="middle" fontSize={13 * k} fill="var(--ink-soft)">
             {d.label}
           </text>
         ))
       ) : (
         <>
-          <text x={padL} y={H - 8} textAnchor="start" fontSize={12 * textScale} fill="var(--ink-soft)">
+          <text x={padL} y={H - 8} textAnchor="start" fontSize={13 * k} fill="var(--ink-soft)">
             {fmtDate(data[0].date) || data[0].label || ""}
           </text>
           {data.length > 1 && (
-            <text x={W - padR} y={H - 8} textAnchor="end" fontSize={12 * textScale} fill="var(--ink-soft)">
+            <text x={W - padR} y={H - 8} textAnchor="end" fontSize={13 * k} fill="var(--ink-soft)">
               {fmtDate(data[data.length - 1].date) || data[data.length - 1].label || ""}
             </text>
           )}
@@ -358,15 +401,15 @@ function Legend({ datasets }) {
  * an opponent by month. Tap to read every series at that point.
  */
 export function MultiLineChart({ labels = [], datasets = [], unit = "", decimals = 0, textScale = 1 }) {
-  const W = 600;
-  const H = 230;
-  const padL = Math.round(46 * textScale);
+  const frameWrap = useRef(null);
+  const { ref: frameRef, W, H, k } = useFrame(frameWrap, 600, 230, textScale);
+  const padL = Math.round(46 * k);
   const padR = 16;
   const padT = 16;
   const padB = 30;
   const n = Math.max(labels.length, ...datasets.flatMap((d) => d.points.map((p) => p.x)), 1);
   const sx = (x) => padL + (n === 1 ? 0.5 : (x - 1) / (n - 1)) * (W - padL - padR);
-  const { sel, wrap, svg, handlers } = useScrub(n, W, (vx) => Math.max(0, Math.min(n - 1, Math.round(((vx - padL) / (W - padL - padR)) * (n - 1)))));
+  const { sel, svg, handlers } = useScrub(n, W, (vx) => Math.max(0, Math.min(n - 1, Math.round(((vx - padL) / (W - padL - padR)) * (n - 1)))), frameWrap);
   const ys = datasets.flatMap((d) => d.points.map((p) => p.y));
   if (!ys.length) return null;
   let minY = Math.min(...ys);
@@ -389,7 +432,7 @@ export function MultiLineChart({ labels = [], datasets = [], unit = "", decimals
   const x = sel != null ? sel + 1 : null;
   const at = x != null ? datasets.map((d) => ({ d, p: d.points.find((p) => p.x === x) })).filter((v) => v.p) : [];
   return (
-    <div className="chart-wrap" ref={wrap}>
+    <div className="chart-wrap" ref={frameRef}>
       {x != null && at.length > 0 && (
         <Readout pct={(sx(x) / W) * 100} value={at.map((v) => `${v.d.name}: ${withUnit(fmtNum(v.p.y, decimals), unit, v.p.y)}`).join(" · ")} sub={labels[x - 1] || fmtShortDate(at[0].p.date)} />
       )}
@@ -397,7 +440,7 @@ export function MultiLineChart({ labels = [], datasets = [], unit = "", decimals
         {ticks.map((t, i) => (
           <g key={i}>
             <line x1={padL} x2={W - padR} y1={sy(t)} y2={sy(t)} stroke="var(--line)" strokeWidth="1" />
-            <text x={padL - 8} y={sy(t) + 4} textAnchor="end" fontSize={13 * textScale} fill="var(--ink-soft)">
+            <text x={padL - 8} y={sy(t) + 4} textAnchor="end" fontSize={13 * k} fill="var(--ink-soft)">
               {fmtNum(t, decimals)}
               {axisUnit(unit)}
             </text>
@@ -417,11 +460,11 @@ export function MultiLineChart({ labels = [], datasets = [], unit = "", decimals
             ))}
           </g>
         )}
-        <text x={padL} y={H - 8} textAnchor="start" fontSize={12 * textScale} fill="var(--ink-soft)">
+        <text x={padL} y={H - 8} textAnchor="start" fontSize={13 * k} fill="var(--ink-soft)">
           {labels[0] || ""}
         </text>
         {n > 1 && (
-          <text x={W - padR} y={H - 8} textAnchor="end" fontSize={12 * textScale} fill="var(--ink-soft)">
+          <text x={W - padR} y={H - 8} textAnchor="end" fontSize={13 * k} fill="var(--ink-soft)">
             {labels[n - 1] || ""}
           </text>
         )}
@@ -433,15 +476,15 @@ export function MultiLineChart({ labels = [], datasets = [], unit = "", decimals
 
 /** Bars per label for several series, side by side or stacked. */
 export function GroupedBarChart({ labels = [], datasets = [], stacked = false, unit = "", decimals = 0, textScale = 1 }) {
-  const W = 600;
-  const H = 210;
-  const padL = Math.round(40 * textScale);
+  const frameWrap = useRef(null);
+  const { ref: frameRef, W, H, k } = useFrame(frameWrap, 600, 210, textScale);
+  const padL = Math.round(40 * k);
   const padR = 12;
   const padT = 14;
   const padB = 28;
   const n = Math.max(labels.length, 1);
   const slot = (W - padL - padR) / n;
-  const { sel, wrap, svg, handlers } = useScrub(n, W, (vx) => Math.max(0, Math.min(n - 1, Math.floor((vx - padL) / slot))));
+  const { sel, svg, handlers } = useScrub(n, W, (vx) => Math.max(0, Math.min(n - 1, Math.floor((vx - padL) / slot))), frameWrap);
   const val = (d, i) => d.points.find((p) => p.x === i + 1)?.y ?? 0;
   const totals = labels.map((_, i) => datasets.reduce((a, d) => a + Math.max(0, val(d, i)), 0));
   const maxY = Math.max(1, ...(stacked ? totals : datasets.flatMap((d) => d.points.map((p) => p.y))));
@@ -449,13 +492,13 @@ export function GroupedBarChart({ labels = [], datasets = [], stacked = false, u
   const groupW = Math.min(slot * 0.7, stacked ? 34 : 18 * datasets.length);
   const at = sel != null ? datasets.map((d) => ({ d, y: val(d, sel) })) : [];
   return (
-    <div className="chart-wrap" ref={wrap}>
+    <div className="chart-wrap" ref={frameRef}>
       {sel != null && <Readout pct={((padL + sel * slot + slot / 2) / W) * 100} value={at.map((v) => `${v.d.name}: ${withUnit(fmtNum(v.y, decimals), unit, v.y)}`).join(" · ")} sub={labels[sel]} />}
       <svg ref={svg} viewBox={`0 0 ${W} ${H}`} width="100%" role="img" tabIndex={0} aria-label="Bar chart. Tap a bar to read the values." className="chart-svg" style={{ display: "block" }} {...handlers}>
         {[maxY, 0].map((t, i) => (
           <g key={i}>
             <line x1={padL} x2={W - padR} y1={sy(t)} y2={sy(t)} stroke="var(--line)" strokeWidth="1" />
-            <text x={padL - 8} y={sy(t) + 4} textAnchor="end" fontSize={13 * textScale} fill="var(--ink-soft)">
+            <text x={padL - 8} y={sy(t) + 4} textAnchor="end" fontSize={13 * k} fill="var(--ink-soft)">
               {fmtNum(t, decimals)}
             </text>
           </g>
@@ -475,14 +518,14 @@ export function GroupedBarChart({ labels = [], datasets = [], stacked = false, u
             return <rect key={`${i}-${j}`} x={x} y={y1} width={Math.max(1, w - (stacked ? 0 : 2))} height={Math.max(0, y0 - y1)} rx="2" fill={d.color} opacity={sel != null && sel !== i ? 0.4 : 1} />;
           });
         })}
-        {labels.length <= 12
+        {labels.length <= 12 && Math.max(0, ...labels.map((l) => Math.min(6, String(l).length))) * 7.5 * k <= slot
           ? labels.map((l, i) => (
-              <text key={i} x={padL + i * slot + slot / 2} y={H - 8} textAnchor="middle" fontSize={12 * textScale} fill="var(--ink-soft)">
+              <text key={i} x={padL + i * slot + slot / 2} y={H - 8} textAnchor="middle" fontSize={13 * k} fill="var(--ink-soft)">
                 {String(l).slice(0, 6)}
               </text>
             ))
           : [0, labels.length - 1].map((i) => (
-              <text key={i} x={i ? W - padR : padL} y={H - 8} textAnchor={i ? "end" : "start"} fontSize={12 * textScale} fill="var(--ink-soft)">
+              <text key={i} x={i ? W - padR : padL} y={H - 8} textAnchor={i ? "end" : "start"} fontSize={13 * k} fill="var(--ink-soft)">
                 {labels[i]}
               </text>
             ))}
