@@ -1221,18 +1221,21 @@ label.check input {
 }
 
 /* chart cards: single column on phones, two-up on wide screens */
+/* minmax(0, 1fr), not 1fr: a plain 1fr track can't shrink below its widest
+   content, so a long row of pills (Rivalry Timeline) widened every card */
 .charts-2col {
   display: grid;
-  grid-template-columns: 1fr;
+  grid-template-columns: minmax(0, 1fr);
   gap: 12px;
   margin-bottom: 12px;
 }
 .charts-2col > .card {
   margin-bottom: 0;
+  min-width: 0;
 }
 @media (min-width: 900px) {
   .charts-2col {
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   }
 }
 
