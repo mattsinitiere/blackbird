@@ -4,7 +4,7 @@ import { LineChart } from "../Charts";
 import CareerCards from "../CareerCards";
 import PlayerCard from "../PlayerCard";
 import { gameName } from "@/lib/summary";
-import { playerLabel } from "@/lib/bots";
+import { playerLabel, BOTS } from "@/lib/bots";
 import BotAvatar from "../BotAvatar";
 import { computePractice } from "@/lib/practice";
 import { PERIODS, periodLabel, toInputDate } from "@/lib/period";
@@ -26,6 +26,11 @@ function fmtDate(iso) {
     return "";
   }
 }
+
+const ladderIndex = (id) => {
+  const i = BOTS.findIndex((b) => b.id === id);
+  return i < 0 ? BOTS.length : i;
+};
 
 /** Practice section: solo games, bot games and drills. Never counted in stats. */
 export function PracticeCard({ rows, me, onOpen, openGame, playerColors }) {
@@ -154,7 +159,8 @@ function PracticeStats({ data, label, lastGame = null, onPeriod, deep = null }) 
             <h3 className="section-title" style={{ margin: 0 }}>Record Against Bots</h3>
             <span className="tag">{bots.reduce((a, b) => a + b.games, 0)} games</span>
           </div>
-          {bots.map((b) => (
+          {/* ladder order, weakest first, like Bot Ladder Progress below */}
+          {[...bots].sort((a, b) => ladderIndex(a.bot) - ladderIndex(b.bot)).map((b) => (
             <div key={b.bot} className="between" style={{ padding: "8px 0", borderBottom: "1px solid var(--line)", gap: 10 }}>
               <span style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
                 <BotAvatar bot={b.bot} size={24} />

@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Mini } from "../ui";
 import { LineChart, MultiLineChart, DartHeatmap } from "../Charts";
 import { gameName } from "@/lib/summary";
-import { gameTypesPlayed, landingHeatmap, dartByDart, paceOfPlay, whenPlayed, underPressure, rivalryTimelines, practiceVsRanked, botProgress, DAYS, BLOCKS, PACE_SPLIT_MIN, DART_MIN_GAMES, PRESSURE_MIN_GAMES, WHEN_MIN } from "@/lib/deepStats";
+import { gameTypesPlayed, landingHeatmap, dartByDart, paceOfPlay, whenPlayed, underPressure, rivalryTimelines, practiceVsRanked, botClimb, BOT_PROGRESS_MIN, DAYS, BLOCKS, PACE_SPLIT_MIN, DART_MIN_GAMES, PRESSURE_MIN_GAMES, WHEN_MIN } from "@/lib/deepStats";
 
 /**
  * The deeper statistics on the profile's Statistics tab, all drawn from
@@ -322,13 +322,31 @@ const lineColor = (hex) => {
   return lum < 60 ? "var(--ink)" : hex;
 };
 
+/**
+ * The bot ladder in ladder order (Rook up to Blackbird): record and win %
+ * against each bot played, the bot to work on next, and the win % over time
+ * against the one being climbed. One line per bot hid lines under each
+ * other (several sat on 0% or 100%), so only the climb gets a line.
+ */
 function BotProgressCard({ practice }) {
-  const bots = useMemo(() => botProgress(practice), [practice]);
-  if (!bots.length) return null;
-  const longest = Math.max(...bots.map((b) => b.games));
+  const c = useMemo(() => botClimb(practice), [practice]);
+  if (!c.bots.length) return null;
+  const cur = c.climbing;
+  const lead = cur
+    ? `Working on ${cur.name}: ${cur.wins}–${cur.losses} so far. Win more often than not to call it beaten.`
+    : c.next
+    ? `50% or better against every bot you've played. Next up: ${c.next.name}.`
+    : "50% or better against Blackbird, the top of the ladder.";
   return (
-    <Card title="Bot Ladder Progress" meta="All time" note="Win % against each bot as the games against it add up. A line that climbs past 50% says the next bot is worth a go.">
-      <MultiLineChart unit="%" labels={Array.from({ length: longest }, (_, i) => `Game ${i + 1}`)} datasets={bots.map((b) => ({ name: `${b.name} ${b.wins}–${b.games - b.wins}`, color: lineColor(b.color), points: b.points }))} />
+    <Card title="Bot Ladder Progress" meta="All time" note="Bots in ladder order, weakest first. A bot counts as beaten at 50% or better.">
+      <p className="deep-ladder-lead">{lead}</p>
+      <Bars max={100} items={c.bots.map((b) => ({ label: b.name, value: b.winPct, display: `${b.wins}–${b.losses} · ${b.winPct}%`, color: lineColor(b.color) }))} />
+      {cur && cur.games >= BOT_PROGRESS_MIN && (
+        <>
+          <div className="tag" style={{ margin: "12px 0 6px" }}>Win % against {cur.name}, game by game</div>
+          <LineChart data={cur.points} color={lineColor(cur.color)} unit="%" />
+        </>
+      )}
     </Card>
   );
 }

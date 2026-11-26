@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { prepareGames, gameTypesPlayed, landingHeatmap, dartByDart, paceOfPlay, whenPlayed, underPressure, x01Opponents, rivalryTimelines, practiceVsRanked, botProgress, rateZ, meanZ } from "../lib/deepStats.js";
+import { prepareGames, gameTypesPlayed, landingHeatmap, dartByDart, paceOfPlay, whenPlayed, underPressure, x01Opponents, rivalryTimelines, practiceVsRanked, botProgress, botClimb, rateZ, meanZ } from "../lib/deepStats.js";
 import { practiceAsMatches } from "../lib/practiceStats.js";
 import { computeCareer } from "../lib/gamestats/career.js";
 
@@ -222,6 +222,24 @@ test("botProgress: win % so far against each bot, in ladder order", () => {
   assert.deepEqual(bots[1].points.map((p) => p.y), [0, 50, 67]);
   assert.equal(bots[1].winPct, 67);
   assert.equal(bots[0].name, "Rook");
+});
+
+test("botClimb: ladder order, the bot to work on, or the next one up", () => {
+  const b = { runs: 5 };
+  const vs = (bot, won) => row("baseball", "practice", b, { opponents: [bot], winner: won ? "Ann" : bot });
+  const prep = (rows) => prepareGames(practiceAsMatches(rows, "Ann"), "Ann");
+  // Rook beaten, Raven and Falcon not: Raven, the lower one, is the climb
+  let c = botClimb(prep([vs("bot:falcon", false), vs("bot:raven", false), vs("bot:rook", true), vs("bot:raven", false), vs("bot:falcon", false)]));
+  assert.deepEqual(c.bots.map((t) => [t.name, t.wins, t.losses]), [["Rook", 1, 0], ["Raven", 0, 2], ["Falcon", 0, 2]]);
+  assert.equal(c.climbing.name, "Raven");
+  assert.equal(c.next, null);
+  // every bot played at 50% or better: the next bot above the highest
+  c = botClimb(prep([vs("bot:rook", true), vs("bot:jay", true), vs("bot:jay", false)]));
+  assert.equal(c.climbing, null);
+  assert.equal(c.next.name, "Magpie");
+  c = botClimb(prep([vs("bot:blackbird", true)]));
+  assert.equal(c.next, null, "nothing above Blackbird");
+  assert.deepEqual(botClimb([]).bots, []);
 });
 
 test("killer career carries per-game trend series", () => {

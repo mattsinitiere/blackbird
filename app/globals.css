@@ -5560,6 +5560,11 @@ html:not([data-theme="dark"]) .app.is-profile {
   outline: 2px solid var(--ink);
   outline-offset: 1px;
 }
+.deep-ladder-lead {
+  margin: 0 0 10px;
+  font-size: calc(13px * var(--fs));
+  font-weight: 600;
+}
 .deep-lead {
   display: flex;
   align-items: baseline;
