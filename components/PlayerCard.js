@@ -1,5 +1,5 @@
-import { useState, useContext } from "react";
-import { PlayerBadge, PlayerLookContext } from "./ui";
+import { useState, useContext, useEffect, useRef } from "react";
+import { PlayerBadge, PlayerLookContext, Overlay } from "./ui";
 import { defaultPlayerColor } from "@/lib/constants";
 import { isTagIcon, isDevTagIcon } from "@/lib/profile";
 import { qrMatrix, inFinder } from "@/lib/qr";
@@ -398,52 +398,142 @@ export function drawCard({ user, stats, elo, playerColor, handle, look = {}, ima
   return canvas;
 }
 
-export default function PlayerCard({ user, handle, stats, elo, onOpenAccount, playerColors }) {
-  const look = useContext(PlayerLookContext)?.[user];
-  const [busy, setBusy] = useState(false);
-  const [note, setNote] = useState("");
+/** The card as a PNG blob, drawn in the app's current theme. */
+async function renderCard({ user, handle, stats, elo, playerColors, look }) {
+  await ensureFont();
+  const color = playerColors?.[user] || defaultPlayerColor(user);
+  const dark = document.documentElement.dataset.theme === "dark";
+  const [icon, word, qrLogo] = await Promise.all([loadImage("/brand/icon-white.svg"), loadImage(`/brand/word-${dark ? "white" : "color"}.svg`), loadImage("/brand/icon-color.svg")]);
+  const qrUrl = `${window.location.origin}/`;
+  const canvas = drawCard({ user, stats, elo, playerColor: color, handle, look: look || {}, images: { icon, word, qrLogo }, qrUrl });
+  const blob = await new Promise((res) => canvas.toBlob(res, "image/png"));
+  if (!blob) throw new Error("Could not create image.");
+  return blob;
+}
 
-  const exportCard = async () => {
-    setBusy(true);
+function download(blob, name) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = name;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
+
+/**
+ * The Player Card in a bottom sheet: you see the card before it goes
+ * anywhere, then share it (the system share sheet, where the phone can
+ * share images) or save it. A secondary button copies the invite link to
+ * the app, which is what Share used to send. Closes on the backdrop, the
+ * Close button or Esc, and hands focus back to whatever opened it.
+ */
+export function PlayerCardSheet({ user, handle, stats, elo, playerColors, onClose }) {
+  const look = useContext(PlayerLookContext)?.[user];
+  const [blob, setBlob] = useState(null);
+  const [preview, setPreview] = useState("");
+  const [note, setNote] = useState("");
+  const [manual, setManual] = useState("");
+  const closeRef = useRef(null);
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
+  const name = `${user}-blackbird.png`;
+
+  useEffect(() => {
+    let live = true;
+    let url = "";
+    renderCard({ user, handle, stats, elo, playerColors, look })
+      .then((b) => {
+        if (!live) return;
+        url = URL.createObjectURL(b);
+        setBlob(b);
+        setPreview(url);
+      })
+      .catch((e) => live && setNote(e.message || "Couldn't draw the card."));
+    return () => {
+      live = false;
+      if (url) URL.revokeObjectURL(url);
+    };
+  }, [user, handle, stats, elo, playerColors, look]);
+
+  useEffect(() => {
+    const opener = typeof document !== "undefined" ? document.activeElement : null;
+    const raf = requestAnimationFrame(() => closeRef.current?.focus());
+    const onKey = (e) => e.key === "Escape" && onCloseRef.current();
+    window.addEventListener("keydown", onKey);
+    return () => {
+      cancelAnimationFrame(raf);
+      window.removeEventListener("keydown", onKey);
+      opener?.focus?.();
+    };
+  }, []);
+
+  const file = blob ? new File([blob], name, { type: "image/png" }) : null;
+  const canShareFile = !!(file && typeof navigator !== "undefined" && navigator.canShare && navigator.canShare({ files: [file] }));
+
+  const shareCard = async () => {
     setNote("");
     try {
-      await ensureFont();
-      const color = playerColors?.[user] || defaultPlayerColor(user);
-      const dark = document.documentElement.dataset.theme === "dark";
-      const [icon, word, qrLogo] = await Promise.all([loadImage("/brand/icon-white.svg"), loadImage(`/brand/word-${dark ? "white" : "color"}.svg`), loadImage("/brand/icon-color.svg")]);
-      const qrUrl = `${window.location.origin}/`;
-      const canvas = drawCard({ user, stats, elo, playerColor: color, handle, look: look || {}, images: { icon, word, qrLogo }, qrUrl });
-      const blob = await new Promise((res) => canvas.toBlob(res, "image/png"));
-      if (!blob) throw new Error("Could not create image.");
-      const file = new File([blob], `${user}-blackbird.png`, { type: "image/png" });
-
-      if (navigator.canShare && navigator.canShare({ files: [file] })) {
-        await navigator.share({ files: [file], title: `${user} — Blackbird`, text: `${user}'s darts card` });
-      } else {
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement("a");
-        a.href = url;
-        a.download = file.name;
-        document.body.appendChild(a);
-        a.click();
-        a.remove();
-        URL.revokeObjectURL(url);
-        setNote("Card saved to downloads.");
-      }
+      await navigator.share({ files: [file], title: `${user} — Blackbird`, text: `${user}'s darts card` });
     } catch (e) {
-      if (e && e.name === "AbortError") {
-        /* user canceled the share sheet */
-      } else {
-        setNote(e.message || "Couldn't export the card.");
-      }
-    } finally {
-      setBusy(false);
+      if (!(e && e.name === "AbortError")) setNote(e?.message || "Couldn't share the card.");
+    }
+  };
+  const save = () => {
+    download(blob, name);
+    setNote("Card saved to downloads.");
+  };
+  const copyInvite = async () => {
+    setNote("");
+    setManual("");
+    const url = `${window.location.origin}/`;
+    try {
+      await navigator.clipboard.writeText(url);
+      setNote("Invite link copied.");
+    } catch {
+      setManual(url);
     }
   };
 
-  const wins = stats.wins;
-  const losses = stats.games - stats.wins;
+  return (
+    <Overlay onBackdrop={onClose} className="pc-sheet-backdrop">
+      <div className="modal fade pc-sheet" role="dialog" aria-modal="true" aria-labelledby="pc-sheet-title" onClick={(e) => e.stopPropagation()}>
+        <h2 className="pc-sheet-title" id="pc-sheet-title">Your Player Card</h2>
+        <div className="pc-sheet-preview">
+          {preview ? <img src={preview} alt={`${user}'s Player Card: all-time ranked stats`} /> : <span className="pc-sheet-wait">{note || "Drawing your card…"}</span>}
+        </div>
+        <div className="pc-sheet-actions">
+          {canShareFile && (
+            <button type="button" className="btn btn-primary" onClick={shareCard}>
+              Share Card
+            </button>
+          )}
+          <button type="button" className={`btn${canShareFile ? "" : " btn-primary"}`} onClick={save} disabled={!blob}>
+            Save Image
+          </button>
+        </div>
+        <button type="button" className="btn btn-sm pc-sheet-invite" onClick={copyInvite}>
+          Copy invite link
+        </button>
+        {manual && <input className="input pf-share-url" readOnly value={manual} aria-label="Invite link" onFocus={(e) => e.target.select()} />}
+        <p className="pc-sheet-note" role="status" aria-live="polite">
+          {preview ? note : ""}
+        </p>
+        <button ref={closeRef} type="button" className="btn pc-sheet-close" onClick={onClose}>
+          Close
+        </button>
+      </div>
+    </Overlay>
+  );
+}
 
+/**
+ * The Statistics tab's shortcut to the same Player Card sheet as the
+ * profile's Share button.
+ */
+export default function PlayerCard({ user, handle, stats, elo, onOpenAccount, playerColors }) {
+  const [open, setOpen] = useState(false);
   return (
     <div className="card mb-12" style={{ overflow: "hidden", position: "relative" }}>
       <div
@@ -456,8 +546,8 @@ export default function PlayerCard({ user, handle, stats, elo, onOpenAccount, pl
       />
       <div style={{ position: "relative" }}>
         <div className="row" style={{ flexWrap: "wrap" }}>
-          <button className="btn btn-primary" style={{ flex: 1, minWidth: 150 }} onClick={exportCard} disabled={busy}>
-            {busy ? "Preparing…" : "Export Player Card"}
+          <button className="btn btn-primary" style={{ flex: 1, minWidth: 150 }} onClick={() => setOpen(true)}>
+            Player Card
           </button>
           {onOpenAccount && (
             <button className="btn" style={{ flex: 1, minWidth: 120 }} onClick={onOpenAccount}>
@@ -465,10 +555,8 @@ export default function PlayerCard({ user, handle, stats, elo, onOpenAccount, pl
             </button>
           )}
         </div>
-        {note && (
-          <p className="tag" style={{ textTransform: "none", letterSpacing: 0, marginTop: 10 }}>{note}</p>
-        )}
       </div>
+      {open && <PlayerCardSheet user={user} handle={handle} stats={stats} elo={elo} playerColors={playerColors} onClose={() => setOpen(false)} />}
     </div>
   );
 }

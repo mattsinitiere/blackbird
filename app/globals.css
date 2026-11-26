@@ -2179,6 +2179,72 @@ html:not([data-theme="dark"]) .app.is-profile {
   flex-basis: 100%;
   font-size: calc(13px * var(--fs));
 }
+/* the Player Card sheet (components/PlayerCard.js PlayerCardSheet), opened
+   by Share on your own profile and the Statistics tab: a bottom sheet on phones */
+@media (max-width: 599px) {
+  .modal-backdrop.pc-sheet-backdrop {
+    align-items: flex-end;
+    padding: 0;
+  }
+  .pc-sheet-backdrop .modal.pc-sheet {
+    max-width: none;
+    max-height: 92svh;
+    border-radius: var(--radius) var(--radius) 0 0;
+    padding-bottom: calc(16px + env(safe-area-inset-bottom));
+  }
+}
+.modal.pc-sheet {
+  display: grid;
+  gap: 10px;
+  max-width: 420px;
+  padding: 18px;
+}
+.pc-sheet-title {
+  margin: 0;
+  font-family: var(--font-display-stack);
+  font-size: calc(18px * var(--fs));
+}
+.pc-sheet-preview {
+  display: grid;
+  place-items: center;
+  aspect-ratio: 1080 / 1350;
+  max-height: 52svh;
+  margin: 0 auto;
+  width: 100%;
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+  overflow: hidden;
+}
+.pc-sheet-preview img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+.pc-sheet-wait {
+  color: var(--muted);
+  font-size: calc(13px * var(--fs));
+}
+.pc-sheet-actions {
+  display: flex;
+  gap: 8px;
+}
+.pc-sheet-actions .btn {
+  flex: 1;
+}
+.pc-sheet-invite {
+  justify-self: center;
+}
+.pc-sheet-note {
+  margin: 0;
+  min-height: 1em;
+  color: var(--ink-soft);
+  font-size: calc(13px * var(--fs));
+  text-align: center;
+}
+.pc-sheet-note:empty {
+  display: none;
+}
 .pf-name {
   display: flex;
   flex-wrap: wrap;

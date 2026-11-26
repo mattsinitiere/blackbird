@@ -218,6 +218,7 @@ export default function Profile({
               onOpenFriends={onOpenFriends}
               onEditProfile={isMe ? onEditProfile : null}
               onOpenAccount={isMe ? onOpenAccount : null}
+              card={isMe && stats ? { stats, elo, playerColors } : null}
             />
             {stats && (
               <div className="pf-strip" aria-label="All-time ranked summary">

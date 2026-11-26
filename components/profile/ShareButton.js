@@ -1,16 +1,24 @@
 import { useState } from "react";
 import { ShareIcon } from "./icons";
+import { PlayerCardSheet } from "../PlayerCard";
 
 /**
- * Shares a link that opens this exact player's profile: the system share
- * sheet when there is one, otherwise the clipboard, otherwise the link is
- * shown to copy by hand.
+ * Share on a profile. On your own profile with ranked games it opens your
+ * Player Card (a preview, then share or save it). Otherwise it shares an
+ * invite to the app (a profile link means nothing to someone not signed
+ * in): the system share sheet when there is one, otherwise the clipboard,
+ * otherwise the link is shown to copy by hand.
  */
-export default function ShareButton({ player, user }) {
+export default function ShareButton({ player, user, card = null }) {
   const [status, setStatus] = useState("");
   const [manual, setManual] = useState("");
+  const [sheet, setSheet] = useState(false);
 
   const share = async () => {
+    if (card) {
+      setSheet(true);
+      return;
+    }
     setStatus("");
     setManual("");
     // the app itself: a profile link means nothing to someone not signed in
@@ -41,8 +49,9 @@ export default function ShareButton({ player, user }) {
         {status}
       </span>
       {manual && (
-        <input className="input pf-share-url" readOnly value={manual} aria-label="Profile link" onFocus={(e) => e.target.select()} />
+        <input className="input pf-share-url" readOnly value={manual} aria-label="Invite link" onFocus={(e) => e.target.select()} />
       )}
+      {sheet && card && <PlayerCardSheet user={user} handle={player?.handle} {...card} onClose={() => setSheet(false)} />}
     </>
   );
 }
