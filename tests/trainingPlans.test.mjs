@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { validatePlanDefinition, validateItem, starterPlan, planProgress, planBaseline, needsStarter, launchSpec, itemLabel, sessionMinutes, MAX_PLANS, LIMIT_MESSAGE } from "../lib/trainingPlans.js";
+import { validatePlanDefinition, validateItem, starterPlan, planProgress, planBaseline, needsStarter, launchSpec, itemLabel, sessionMinutes, plannedSessions, scheduleFor, MAX_PLANS, LIMIT_MESSAGE } from "../lib/trainingPlans.js";
 import { parsePlanJSON } from "../lib/planPrompt.js";
 import { planGame, unplayableItems } from "../lib/planLaunch.js";
 
@@ -125,4 +125,23 @@ test("baseline numbers carry sample sizes and stay null below the minimum", () =
 test("the limit and its message are fixed", () => {
   assert.equal(MAX_PLANS, 3);
   assert.equal(LIMIT_MESSAGE, "You have reached your limit of 3 training plans. Delete a plan to create another.");
+});
+
+test("plan builder: a schedule that holds exactly the sessions built", () => {
+  assert.equal(plannedSessions(2, 3), 6);
+  assert.equal(plannedSessions(6, 5), 24, "capped at the session limit");
+  assert.deepEqual(scheduleFor(6, 3), { weeks: 2, perWeek: 3 }, "keeps sessions a week when it divides");
+  assert.deepEqual(scheduleFor(1, 3), { weeks: 1, perWeek: 1 });
+  assert.deepEqual(scheduleFor(4, 3), { weeks: 1, perWeek: 4 });
+  assert.deepEqual(scheduleFor(10, 3), { weeks: 2, perWeek: 5 });
+  assert.equal(scheduleFor(7, 3), null, "7 needs 7 weeks of 1: out of bounds");
+  // whatever it offers, the builder can save it
+  for (let n = 1; n <= 24; n++) {
+    const s = scheduleFor(n, 3);
+    if (!s) continue;
+    assert.equal(s.weeks * s.perWeek, n);
+    const sessions = Array.from({ length: n }, (_, i) => ({ title: `S${i + 1}`, items: [{ type: "scoringDrill", config: { target: 20, turns: 10 } }] }));
+    const v = validatePlanDefinition({ title: "T", goal: "scoring", weeks: s.weeks, perWeek: s.perWeek, sessions });
+    assert.equal(v.ok, true, `${n}: ${v.errors?.join(" ")}`);
+  }
 });

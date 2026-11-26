@@ -8,6 +8,7 @@ import {
   ALTER_EGO_MIN,
   WINDOWS,
   WINDOW_LABELS,
+  windowChipLabel,
   eligibleRows,
   windowRows,
   buildProfile,
@@ -447,4 +448,14 @@ test("frozen cricket/baseball configs survive JSON (resume); X01 configs without
   assert.equal(legacy.sigma, 20);
   assert.equal(legacy.sigmaFinish, 25);
   assert.throws(() => buildProfile([], { me: ME, mode: "killer" }), /unknown Alter Ego mode/);
+});
+
+test("window chips: the real game count, and why a window can't be used", () => {
+  assert.equal(windowChipLabel({ ok: true, window: "last10", games: 5 }), "Your last 5 games");
+  assert.equal(windowChipLabel({ ok: true, window: "last10", games: 10 }), WINDOW_LABELS.last10);
+  assert.equal(windowChipLabel({ ok: true, window: "last30d", games: 7 }), "Last 30 days");
+  assert.equal(windowChipLabel({ ok: false, window: "last30d", reason: "not-enough-games", have: { games: 0 }, need: ALTER_EGO_MIN }), "Last 30 days · no games");
+  assert.equal(windowChipLabel({ ok: false, window: "prevMonth", reason: "not-enough-games", have: { games: 3 }, need: ALTER_EGO_MIN }), "Previous calendar month · 3 of 5 games");
+  assert.equal(windowChipLabel({ ok: false, window: "prevMonth", reason: "not-enough-checkout-chances", have: { games: 6 } }), "Previous calendar month · too few checkout darts");
+  assert.equal(windowChipLabel({ ok: false, window: "prevMonth", mode: "cricket", reason: "not-enough-rounds", have: { games: 6 } }), "Previous calendar month · too few rounds");
 });
