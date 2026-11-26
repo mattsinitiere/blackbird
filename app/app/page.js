@@ -23,7 +23,9 @@ import { isRankedMatch, splitResults, botLadder, buildResultRows, humanPlayers, 
 import { computeAchievements, diffUnlocked, seenKey, readSeen, writeSeen } from "@/lib/achievements";
 import { botColors, isBot } from "@/lib/bots";
 import { rematchGame } from "@/lib/games";
-import { readPending, enqueuePending, flushPending } from "@/lib/pendingGames";
+import { firstThrowLabel } from "@/lib/playAgain";
+import { readPending, enqueuePending, flushPending, syncedMessage } from "@/lib/pendingGames";
+import { LIVE_KEY, serializeLive, parseLive, needsReplaceConfirm, liveSummary } from "@/lib/liveGame";
 import { activityFromEvents, profileEventsToRecord, todayKey } from "@/lib/playerEvents";
 import { Logo, CastIcon, PlayerBadge, Modal, pressProps, PlayerLookContext, HomeIcon, PlayIcon, StatsIcon, MatchupIcon, SparkleIcon, SearchIcon } from "@/components/ui";
 import Search from "@/components/Search";
@@ -92,9 +94,9 @@ export default function Page() {
 
   // ---- live-game persistence: a page reload no longer loses the leg ----
   // Scoped to the signed-in account (a shared device never hands one
-  // user's game to another). The undo history is stripped before writing:
-  // it grows quadratically and in-session resume keeps it in memory.
-  const LIVE_KEY = "bb-live-game";
+  // user's game to another). The undo history rides along, capped to the
+  // last few steps (lib/liveGame.js): it grows quadratically, and a phone
+  // that reloads the tab mid-leg should still be able to fix a wrong visit.
   const sessionUserIdRef = useRef(null);
   // true from finishMatch/quit until the next game starts; blocks the play
   // component's trailing onProgress (fired while finishMatch awaits the
@@ -107,7 +109,7 @@ export default function Page() {
     if (!uid) return;
     try {
       if (game) {
-        window.localStorage.setItem(LIVE_KEY, JSON.stringify({ userId: uid, game, progress: stripHistory(progress) }));
+        window.localStorage.setItem(LIVE_KEY, serializeLive({ userId: uid, game, progress }));
       } else {
         window.localStorage.removeItem(LIVE_KEY);
       }
@@ -255,18 +257,16 @@ export default function Page() {
     const uid = session?.user?.id;
     if (!uid || live || restoredForUser.current === uid) return;
     restoredForUser.current = uid;
+    let saved = null;
     try {
-      const raw = window.localStorage.getItem(LIVE_KEY);
-      if (!raw) return;
-      const { userId, game, progress } = JSON.parse(raw);
-      if (userId !== uid) return; // someone else's leg on a shared device
-      if (game && game.gameType && Array.isArray(game.players)) {
-        liveProgress.current = progress || null;
-        liveGameRef.current = game;
-        setLive(game);
-        setNotice("Live game restored — open Play to continue.");
-      }
+      saved = parseLive(window.localStorage.getItem(LIVE_KEY), uid);
     } catch {}
+    // Home leads with a "Game in progress" card for it
+    if (saved) {
+      liveProgress.current = saved.progress;
+      liveGameRef.current = saved.game;
+      setLive(saved.game);
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [session, live]);
 
@@ -494,6 +494,8 @@ export default function Page() {
     [players, playerColors]
   );
   const myName = (session?.user?.user_metadata?.display_name || "").trim();
+  const myNameRef = useRef("");
+  myNameRef.current = myName;
   // your badges, for Home search (only worked out while search is open)
   const myBadges = useMemo(() => {
     if (!searchOpen || !myName) return [];
@@ -593,6 +595,18 @@ export default function Page() {
       await recordGame(args);
       await completePlanItem({ gameId: args.gameId, config: args.config });
     };
+    // my Elo before and after, for the "synced" confirmation
+    const meName = myNameRef.current;
+    const eloOf = async () => {
+      if (!meName) return null;
+      try {
+        const m = await getEloFor([meName]);
+        return m && m[meName] != null ? m[meName] : null;
+      } catch {
+        return null;
+      }
+    };
+    const before = await eloOf();
     const { saved, left } = await flushPending(userId, { existingRows: getGameRowsForSync, currentElo: getEloFor, record });
     setPendingCount(left);
     if (saved.length) {
@@ -600,9 +614,18 @@ export default function Page() {
         setSaveState("saved");
         setSaveError("");
       }
+      const after = await eloOf();
+      setSyncToast({ id: Date.now(), text: syncedMessage(saved.length, before, after) });
       await refresh();
     }
   }, [userId, refresh, completePlanItem]);
+  // the "N games synced" confirmation fades on its own
+  const [syncToast, setSyncToast] = useState(null);
+  useEffect(() => {
+    if (!syncToast) return;
+    const t = setTimeout(() => setSyncToast(null), 6000);
+    return () => clearTimeout(t);
+  }, [syncToast]);
   useEffect(() => {
     if (!userId) return;
     setPendingCount(readPending(userId).length);
@@ -627,7 +650,8 @@ export default function Page() {
     const game = liveGameRef.current;
     const ranked = isRankedMatch(match);
     const eloAfter = ranked ? applyEloUpdate(elo, match.players, match.winner) : null;
-    const summary = buildSummary({ match, game, eloBefore: ranked ? elo : null, eloAfter, colors: playerColors, meta: playerMeta });
+    // a solo drill is compared with my earlier attempts (its "best" line)
+    const summary = buildSummary({ match, game, eloBefore: ranked ? elo : null, eloAfter, colors: playerColors, meta: playerMeta, prior: practice });
     lastFinishedRef.current = { game, winner: match.winner, summary };
     if (castChannel.current) castChannel.current.send("finished", lastFinishedRef.current);
 
@@ -679,7 +703,8 @@ export default function Page() {
     await saveMatch(match, eloAfter, ranked);
   }, [elo, playerColors, playerMeta, persistLive, saveMatch, results, practice, circlePlayers, social, myName, session]);
 
-  const startGame = useCallback((game) => {
+  const beginGame = useCallback((game) => {
+    setReplaceAsk(null);
     finishingRef.current = false;
     liveProgress.current = null;
     lastFinishedRef.current = null;
@@ -691,6 +716,20 @@ export default function Page() {
     setFinished(null);
     setView(PLAY_VIEWS[game.gameType] || "playX01");
   }, [persistLive]);
+  // every way into a new game (Setup, Play Again, Rematch, bots, plans)
+  // comes through here: a game still in progress is never silently thrown
+  // away, the player picks Resume or Discard first
+  const [replaceAsk, setReplaceAsk] = useState(null);
+  const startGame = useCallback((game) => {
+    if (needsReplaceConfirm(liveGameRef.current, game)) setReplaceAsk(game);
+    else beginGame(game);
+  }, [beginGame]);
+
+  // the game Rematch would start: same rules, throw order moved on
+  const rematchNext = useMemo(
+    () => (finished ? rematchGame(finished.game || { ...finished.match, id: "" }, { winner: finished.match?.winner }) : null),
+    [finished]
+  );
 
   // my own rows (Alter Ego profiles, plan playability)
   const myRows = useMemo(() => [...results, ...practice].filter((r) => r.username === myName), [results, practice, myName]);
@@ -863,6 +902,23 @@ export default function Page() {
   const playViewFor = (gt) => PLAY_VIEWS[gt] || "playX01";
   const goPlay = () => (live ? setView(playViewFor(live.gameType)) : openSetup(null));
   const askQuit = () => setQuitAsk(true);
+  const onGameScreen = ALL_PLAY_VIEWS.includes(view) && !!live;
+  const showCast = (onGameScreen || view === "summary") && castAvailable();
+  // a plan game says where it sits in the plan: "Drill 1 of 2", what's next
+  const playBanner = (() => {
+    const link = onGameScreen ? live.config?.plan : null;
+    if (!link?.id) return null;
+    const def = (planState.plans || []).find((p) => p.id === link.id)?.definition;
+    const sess = def?.sessions?.[link.s];
+    const total = sess?.items?.length || link.n || 1;
+    const nextItem = sess?.items?.[link.i + 1];
+    return {
+      kicker: `Plan · Drill ${link.i + 1} of ${total}`,
+      session: sess?.title || "",
+      next: nextItem ? `Next: ${nextItem.label || itemLabel(nextItem)}` : "Last drill of the session",
+    };
+  })();
+  const homeLive = live ? { ...liveSummary(live, liveProgress.current), onResume: () => setView(playViewFor(live.gameType)) } : null;
 
   if (!isConfigured) {
     return (
@@ -898,6 +954,31 @@ export default function Page() {
               <SearchIcon />
             </button>
           )}
+          {/* on game screens the header row (otherwise empty) carries the
+              plan context and casting, so the scores and the keypad's Undo
+              stay on the first screen */}
+          {playBanner && (
+            <div className="header-plan" aria-label={`Training plan${playBanner.session ? `, ${playBanner.session}` : ""}: ${playBanner.kicker}. ${playBanner.next}`}>
+              <span className="header-plan-kicker">{playBanner.kicker}</span>
+              <span className="header-plan-next">{playBanner.next}</span>
+            </div>
+          )}
+          {showCast && (castCode ? (
+            <div className="header-cast is-on">
+              <span className="header-cast-code" title={`Open ${typeof window !== "undefined" ? window.location.host : ""}/tv and type this code`}>
+                <CastIcon />
+                <span className="num">{castCode}</span>
+                <span className="header-cast-where">{typeof window !== "undefined" ? window.location.host : ""}/tv</span>
+              </span>
+              <button type="button" className="btn btn-sm" onClick={toggleCast}>
+                Stop
+              </button>
+            </div>
+          ) : (
+            <button type="button" className="header-cast" onClick={toggleCast} aria-label="Cast to TV" title="Cast to TV">
+              <CastIcon size={20} />
+            </button>
+          ))}
         </header>
         {searchOpen && (
           <Search
@@ -946,7 +1027,7 @@ export default function Page() {
         )}
 
         {view === "home" && (
-          <Home setView={setView} openSetup={openSetup} stats={stats} elo={elo} players={circlePlayers} results={results} me={myName} openProfile={openProfile} playerColors={playerColors} practice={practice} social={social} following={following ? [...following] : []} userId={session.user?.id} onPlayAgain={(g) => startGame(rematchGame(g))} pendingCount={pendingCount} onSyncNow={flushQueue} merlin={merlinCard} onMerlinAction={onMerlinAction} />
+          <Home setView={setView} openSetup={openSetup} stats={stats} elo={elo} players={circlePlayers} results={results} me={myName} openProfile={openProfile} playerColors={playerColors} practice={practice} social={social} following={following ? [...following] : []} userId={session.user?.id} onPlayAgain={(g) => startGame({ ...g, startedAt: new Date().toISOString() })} pendingCount={pendingCount} onSyncNow={flushQueue} merlin={merlinCard} onMerlinAction={onMerlinAction} liveGame={homeLive} onOpenFriends={following !== null ? openFriends : null} />
         )}
         {view === "setup" && (
           <Setup
@@ -986,31 +1067,6 @@ export default function Page() {
             focusPlan={focusPlan}
           />
         )}
-        {((ALL_PLAY_VIEWS.includes(view) && live) || view === "summary") && castAvailable() && (
-          <div className="card pad-sm mb-12" style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-            {castCode ? (
-              <>
-                <CastIcon />
-                <span className="tag" style={{ letterSpacing: 0, textTransform: "none" }}>TV code</span>
-                <span className="num" style={{ fontSize: "calc(17px * var(--fs))", letterSpacing: "0.25em" }}>{castCode}</span>
-                <span className="tag" style={{ flex: 1, letterSpacing: 0, textTransform: "none", textAlign: "right" }}>
-                  open {typeof window !== "undefined" ? window.location.host : ""}/tv
-                </span>
-                <button className="btn" style={{ padding: "6px 12px" }} onClick={toggleCast}>
-                  Stop
-                </button>
-              </>
-            ) : (
-              <button
-                className="btn"
-                style={{ display: "inline-flex", alignItems: "center", gap: 8 }}
-                onClick={toggleCast}
-              >
-                <CastIcon /> Cast to TV
-              </button>
-            )}
-          </div>
-        )}
         {view === "playX01" && live && <PlayX01 game={live} resume={liveProgress.current} onProgress={saveProgress} onFinish={finishMatch} onQuit={askQuit} castActive={!!castCode} playerColors={playerColors} hints={hintCtx} me={myName} />}
         {view === "playCricket" && live && <PlayCricket game={live} resume={liveProgress.current} onProgress={saveProgress} onFinish={finishMatch} onQuit={askQuit} castActive={!!castCode} playerColors={playerColors} hints={hintCtx} />}
         {view === "playBaseball" && live && <PlayBaseball game={live} resume={liveProgress.current} onProgress={saveProgress} onFinish={finishMatch} onQuit={askQuit} castActive={!!castCode} playerColors={playerColors} />}
@@ -1038,7 +1094,13 @@ export default function Page() {
               await flushQueue();
               setSaveState((st) => (st === "saving" ? "queued" : st));
             }}
-            onRematch={() => startGame(rematchGame(finished.game || { ...finished.match, id: "" }))}
+            onRematch={() => rematchNext && startGame({ ...rematchNext, startedAt: new Date().toISOString() })}
+            rematchFirst={rematchNext ? firstThrowLabel(rematchNext.players, myName) : ""}
+            onChangeOrder={
+              rematchNext && rematchNext.players.length > 1 && !rematchNext.players.some(isBot) && !rematchNext.config?.plan
+                ? () => openSetup({ gameType: rematchNext.gameType, players: rematchNext.players, config: rematchNext.config })
+                : null
+            }
             onNewGame={() => setView("setup")}
             bot={finished.botId ? { id: finished.botId, unlocked: finished.unlockedBot } : null}
             onChooseBot={() => openBots({ bot: finished.botId, gameType: finished.match?.gameType }, "practice")}
@@ -1181,17 +1243,50 @@ export default function Page() {
           </div>
         </Modal>
       )}
+      {replaceAsk && live && (
+        <Modal>
+          <h3 className="section-title" style={{ fontSize: "calc(18px * var(--fs))" }}>A game is in progress</h3>
+          <p className="subtle" style={{ marginTop: 0 }}>
+            {liveSummary(live, liveProgress.current)?.label}. Starting a new game discards it, and nothing from it is saved.
+          </p>
+          <div className="row" style={{ marginTop: 16 }}>
+            <button
+              className="btn btn-primary"
+              style={{ flex: 1 }}
+              autoFocus
+              onClick={() => {
+                setReplaceAsk(null);
+                setView(playViewFor(live.gameType));
+              }}
+            >
+              Resume Game
+            </button>
+            <button className="btn btn-danger" style={{ flex: 1 }} onClick={() => beginGame(replaceAsk)}>
+              Discard &amp; Start
+            </button>
+          </div>
+        </Modal>
+      )}
+      {syncToast && (
+        <div className="sync-toast" role="status" key={syncToast.id}>
+          {syncToast.text}
+        </div>
+      )}
       <nav className="nav" aria-label="Main">
         {[
-          { key: "home", label: "Home", icon: <HomeIcon />, active: ["home", "practice"].includes(view), go: () => setView("home") },
-          { key: "play", label: live ? "Play (game in progress)" : "Play", icon: <PlayIcon />, active: view === "setup" || view === "bots" || view === "summary" || ALL_PLAY_VIEWS.includes(view), go: goPlay, dot: !!live },
+          { key: "home", label: "Home", icon: <HomeIcon />, active: view === "home", go: () => setView("home") },
+          // the practice hub and bots are places to play, so Play lights up there
+          { key: "play", label: "Play", aria: live ? "Play (game in progress)" : "Play", icon: <PlayIcon />, active: ["setup", "bots", "summary", "practice"].includes(view) || ALL_PLAY_VIEWS.includes(view), go: goPlay, dot: !!live },
           { key: "stats", label: "Stats", icon: <StatsIcon />, active: ["leaderboard", "records", "game"].includes(view) || (view === "profile" && !onMyProfile), go: () => setView("leaderboard") },
           { key: "matchup", label: "Matchup", icon: <MatchupIcon />, active: view === "matchup", go: () => setView("matchup") },
           { key: "ai", label: "Merlin", icon: <SparkleIcon />, active: view === "ai", go: () => setView("ai") },
         ].map((t) => (
-          <button key={t.key} type="button" className={`navbtn navbtn-icon ${t.active ? "active" : ""}`} onClick={t.go} aria-label={t.label} title={t.label} aria-current={t.active ? "page" : undefined}>
-            {t.icon}
-            {t.dot && <span className="nav-dot" aria-hidden="true" />}
+          <button key={t.key} type="button" className={`navbtn navbtn-icon ${t.active ? "active" : ""}`} onClick={t.go} aria-label={t.aria || t.label} aria-current={t.active ? "page" : undefined}>
+            <span className="navbtn-glyph">
+              {t.icon}
+              {t.dot && <span className="nav-dot" aria-hidden="true" />}
+            </span>
+            <span className="navbtn-label" aria-hidden="true">{t.label}</span>
           </button>
         ))}
         <button
@@ -1199,10 +1294,12 @@ export default function Page() {
           className={`navbtn navbtn-icon navbtn-me ${meTabActive ? "active" : ""}`}
           onClick={() => (myName ? openProfile(myName) : setView("account"))}
           aria-label="Your profile"
-          title="Your profile"
           aria-current={meTabActive ? "page" : undefined}
         >
-          <PlayerBadge username={myName || "?"} color={playerColors[myName]} size={28} showName={false} />
+          <span className="navbtn-glyph">
+            <PlayerBadge username={myName || "?"} color={playerColors[myName]} size={24} showName={false} />
+          </span>
+          <span className="navbtn-label" aria-hidden="true">Me</span>
         </button>
       </nav>
     </main>

@@ -284,13 +284,17 @@ export default function PlayX01({ game, resume, onProgress, onFinish, onQuit, ca
           <span style={{ minHeight: 16, color: "var(--red)", fontSize: "calc(12px * var(--fs))", fontWeight: 600 }}>{msg}</span>
         </div>
 
-        <div className="flex-wrap" style={{ minHeight: 34, marginBottom: 8 }}>
+        <div className="flex-wrap" style={{ minHeight: 34, marginBottom: 8, alignItems: "center" }}>
           {turnDarts.length === 0 && <span className="tag">tap a multiplier, then a number</span>}
           {turnDarts.map((d, i) => (
             <span key={i} className="btn" style={{ padding: "5px 10px", fontSize: "calc(13px * var(--fs))" }}>
               {dartLabel(d)}
             </span>
           ))}
+          {/* beside the darts, so it stays on screen above the keypad */}
+          <button className="chip chip-undo" style={{ width: "auto", margin: "0 0 0 auto", padding: "8px 14px" }} onClick={undo} disabled={!!bot || (!turnDarts.length && !history.length)}>
+            <UndoIcon /> Undo
+          </button>
         </div>
 
         <div style={botLock}>
@@ -320,9 +324,6 @@ export default function PlayX01({ game, resume, onProgress, onFinish, onQuit, ca
           <button className="chip" onClick={() => addDart({ n: 25, mult: 2 })}>Bull</button>
           <button className="chip" onClick={() => addDart({ n: 0, mult: 0 })}>Miss</button>
         </div>
-        <button className="chip chip-undo" onClick={undo} disabled={!turnDarts.length && !history.length}>
-          <UndoIcon /> Undo
-        </button>
         </div>
 
         {!castActive && (

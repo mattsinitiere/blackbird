@@ -1,6 +1,8 @@
 import { useState, useMemo } from "react";
 import { BackBar, PlayerBadge, pressProps } from "./ui";
 import { searchPlayers } from "@/lib/follows";
+import { isBot } from "@/lib/bots";
+import { BASE_ELO } from "@/lib/constants";
 
 /**
  * Friends: follow people by name or @handle. You see the games and stats
@@ -13,6 +15,15 @@ export default function Friends({ players, me, following, followers, social, fol
   const [msg, setMsg] = useState("");
   const results = useMemo(() => searchPlayers(players, query, { exclude: [me] }), [players, query, me]);
   const isFollowing = (u) => !!following && following.has(u);
+  // accounts first (they can follow back), then by rating
+  const suggestions = useMemo(
+    () =>
+      (players || [])
+        .filter((p) => p && p.username !== me && !isBot(p.username) && !p.hidden && !(following && following.has(p.username)))
+        .sort((a, b) => (b.authId ? 1 : 0) - (a.authId ? 1 : 0) || (b.elo ?? BASE_ELO) - (a.elo ?? BASE_ELO) || a.username.localeCompare(b.username))
+        .slice(0, 30),
+    [players, me, following]
+  );
 
   const toggle = async (u) => {
     setBusy(u);
@@ -25,7 +36,7 @@ export default function Friends({ players, me, following, followers, social, fol
     }
   };
 
-  const Row = ({ u, right }) => {
+  const Row = ({ u, right, elo = null }) => {
     const p = players.find((x) => x.username === u);
     return (
       <div className="between" style={{ padding: "10px 0", borderBottom: "1px solid var(--line)", gap: 10 }}>
@@ -35,6 +46,7 @@ export default function Friends({ players, me, following, followers, social, fol
             <div style={{ fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{u}</div>
             <div className="tag" style={{ textTransform: "none", letterSpacing: 0, color: p?.handle ? "var(--accent)" : undefined }}>
               {p?.handle ? `@${p.handle}` : p?.authId ? "no handle yet" : "guest player"}
+              {elo != null && <span style={{ color: "var(--muted)" }}> · {Math.round(elo)} Elo</span>}
             </div>
           </div>
         </div>
@@ -93,6 +105,16 @@ export default function Friends({ players, me, following, followers, social, fol
             ))}
           </div>
         )}
+        {/* before anything is typed: everyone here you don't follow yet
+            (it's a small, invite-only group, so the list stays short) */}
+        {!query.trim() && installed && suggestions.length > 0 && (
+          <div style={{ marginTop: 10 }}>
+            <div className="tag" style={{ marginTop: 4 }}>Players on Blackbird</div>
+            {suggestions.map((p) => (
+              <Row key={p.username} u={p.username} elo={p.elo} right={<FollowButton u={p.username} />} />
+            ))}
+          </div>
+        )}
         {msg && (
           <p className="subtle" role="alert" style={{ margin: "10px 0 0", color: "var(--red)" }}>{msg}</p>
         )}
@@ -105,7 +127,7 @@ export default function Friends({ players, me, following, followers, social, fol
         </div>
         {followingList.length === 0 ? (
           <p className="subtle" style={{ margin: "8px 0 0" }}>
-            {installed ? "You don't follow anyone yet. Search above to find players." : "Everyone, until friends are switched on."}
+            {installed ? "You don't follow anyone yet. Pick someone above to get started." : "Everyone, until friends are switched on."}
           </p>
         ) : (
           followingList.map((f) => <Row key={f.username} u={f.username} right={<FollowButton u={f.username} />} />)
