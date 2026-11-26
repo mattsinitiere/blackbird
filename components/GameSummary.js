@@ -5,6 +5,7 @@ import MatchChart from "./MatchChart";
 import BadgeMedal from "./BadgeMedal";
 import BotAvatar from "./BotAvatar";
 import { playerLabel, botFor } from "@/lib/bots";
+import { tiebreakOutcome } from "@/lib/tiebreak";
 
 // games whose win buzz has already played this session (coming back from
 // the match report remounts this screen)
@@ -41,6 +42,8 @@ export default function GameSummary({ match = null, summary, saveState, saveErro
   const winRow = rows.find((r) => r.isWinner) || rows[0];
   const winName = winRow?.name || winner;
   const colorOf = (r) => playerColors?.[r.u] || r.color || undefined;
+  // Shanghai / Halve It level on points: say who won the tiebreak, and how
+  const tiebreak = match?.perPlayer ? tiebreakOutcome(match.perPlayer, winner) : null;
 
   const meta = [];
   if (durationMin != null) meta.push(`${durationMin} min`);
@@ -97,6 +100,7 @@ export default function GameSummary({ match = null, summary, saveState, saveErro
             <PlayerBadge username={winner} color={colorOf(winRow)} size={64} showName={false} />
           </div>
           <div className="display" style={{ fontSize: "calc(28px * var(--fs))", lineHeight: 1.1 }}>{winName}</div>
+          {tiebreak && <div className="summary-tiebreak">Level on points, {tiebreak.text}</div>}
           {winRow?.elo && (
             <div className="num" style={{ marginTop: 6, fontSize: "calc(15px * var(--fs))", color: "var(--ink-soft)" }}>
               {winRow.elo.before} → {winRow.elo.after}{" "}
@@ -172,6 +176,11 @@ export default function GameSummary({ match = null, summary, saveState, saveErro
                     <span style={{ color: "var(--ink-soft)" }}>{s.value}</span> {s.label}
                   </span>
                 ))}
+                {tiebreak?.byPlayer[r.u] && (
+                  <span className="summary-tiebreak-stat">
+                    {r.u === tiebreak.winner ? "won tiebreak" : "tiebreak"} <span>{tiebreak.byPlayer[r.u]}</span>
+                  </span>
+                )}
               </div>
             </div>
             <div style={{ textAlign: "right", flex: "none" }}>

@@ -1,6 +1,20 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { ORDER, RINGS } from "@/lib/board";
 import { withUnit, axisUnit } from "@/lib/aiChart";
+import { niceTicks } from "@/lib/chartTicks";
+
+/**
+ * A chart's y axis: { min, max, ticks, decimals }, with every gridline at
+ * the exact value its label shows (lib/chartTicks.js). Whole-number steps
+ * when the chart shows no decimals; no axis below zero for counts and
+ * scores; a percentage stops at 100. `fromZero` starts bars at 0.
+ */
+function yAxisFor(ys, { decimals = 0, unit = "", fromZero = false } = {}) {
+  // bars only ever draw upward from 0
+  const lo = fromZero ? 0 : Math.min(...ys);
+  const hi = fromZero ? Math.max(0, ...ys) : Math.max(...ys);
+  return niceTicks(lo, hi, { integer: decimals === 0, floor: lo >= 0 ? 0 : null, ceil: unit === "%" ? 100 : null });
+}
 
 const fmtShortDate = (iso) => {
   if (!iso) return "";
@@ -165,19 +179,10 @@ export function LineChart({ data, color = "var(--accent)", unit = "", decimals =
 
   const xs = data.map((d) => d.x);
   const ys = data.map((d) => d.y);
-  let minY = Math.min(...ys);
-  let maxY = Math.max(...ys);
-  if (minY === maxY) {
-    minY -= 1;
-    maxY += 1;
-  }
-  const padY = (maxY - minY) * 0.15;
-  minY -= padY;
-  maxY += padY;
-  if (unit === "%") {
-    minY = Math.max(0, minY);
-    maxY = Math.min(100, maxY);
-  }
+  // gridlines at the exact values their labels show (lib/chartTicks.js)
+  const axis = yAxisFor(ys, { decimals, unit });
+  const minY = axis.min;
+  const maxY = axis.max;
 
   const minX = Math.min(...xs);
   const maxX = Math.max(...xs);
@@ -191,7 +196,7 @@ export function LineChart({ data, color = "var(--accent)", unit = "", decimals =
     return Math.round(v * f) / f;
   };
 
-  const ticks = [maxY, (minY + maxY) / 2, minY];
+  const ticks = axis.ticks;
   const points = data.map((d) => `${sx(d.x)},${sy(d.y)}`).join(" ");
   const areaPath =
     `M ${sx(data[0].x)},${sy(data[0].y)} ` +
@@ -242,7 +247,7 @@ export function LineChart({ data, color = "var(--accent)", unit = "", decimals =
             strokeWidth="1"
           />
           <text x={padL - 8} y={sy(t) + 4} textAnchor="end" fontSize={13 * k} fill="var(--ink-soft)">
-            {fmt(t)}
+            {fmtNum(t, axis.decimals)}
             {axisUnit(unit)}
           </text>
         </g>
@@ -301,13 +306,13 @@ export function BarChart({ data, color = "var(--accent)", textScale = 1 }) {
   const padT = 14;
   const padB = 28;
 
-  const maxY = Math.max(1, ...data.map((d) => d.y));
+  const axis = yAxisFor(data.map((d) => d.y), { decimals: data.every((d) => Number.isInteger(d.y)) ? 0 : 1, fromZero: true });
+  const maxY = axis.max;
   const sy = (v) => padT + (1 - v / maxY) * (H - padT - padB);
   const slot = (W - padL - padR) / data.length;
   const bw = Math.min(slot * 0.62, 34);
 
-  const mid = Math.round(maxY / 2);
-  const ticks = mid > 0 && mid < maxY ? [maxY, mid, 0] : [maxY, 0];
+  const ticks = axis.ticks;
   // short labels under each bar (opponent names, months) when there is room
   const labelled = data.length <= 12 && data.every((d) => d.label) && Math.max(...data.map((d) => String(d.label).length)) * 7.5 * k <= slot;
 
@@ -412,23 +417,11 @@ export function MultiLineChart({ labels = [], datasets = [], unit = "", decimals
   const { sel, svg, handlers } = useScrub(n, W, (vx) => Math.max(0, Math.min(n - 1, Math.round(((vx - padL) / (W - padL - padR)) * (n - 1)))), frameWrap);
   const ys = datasets.flatMap((d) => d.points.map((p) => p.y));
   if (!ys.length) return null;
-  let minY = Math.min(...ys);
-  let maxY = Math.max(...ys);
-  if (minY === maxY) {
-    minY -= 1;
-    maxY += 1;
-  }
-  const allPositive = minY >= 0;
-  const pad = (maxY - minY) * 0.15;
-  minY -= pad;
-  maxY += pad;
-  if (allPositive) minY = Math.max(0, minY); // no axis below zero for counts and scores
-  if (unit === "%") {
-    minY = Math.max(0, minY);
-    maxY = Math.min(100, maxY);
-  }
+  const axis = yAxisFor(ys, { decimals, unit });
+  const minY = axis.min;
+  const maxY = axis.max;
   const sy = (y) => padT + (1 - (y - minY) / (maxY - minY)) * (H - padT - padB);
-  const ticks = [maxY, (minY + maxY) / 2, minY];
+  const ticks = axis.ticks;
   const x = sel != null ? sel + 1 : null;
   const at = x != null ? datasets.map((d) => ({ d, p: d.points.find((p) => p.x === x) })).filter((v) => v.p) : [];
   return (
@@ -441,7 +434,7 @@ export function MultiLineChart({ labels = [], datasets = [], unit = "", decimals
           <g key={i}>
             <line x1={padL} x2={W - padR} y1={sy(t)} y2={sy(t)} stroke="var(--line)" strokeWidth="1" />
             <text x={padL - 8} y={sy(t) + 4} textAnchor="end" fontSize={13 * k} fill="var(--ink-soft)">
-              {fmtNum(t, decimals)}
+              {fmtNum(t, axis.decimals)}
               {axisUnit(unit)}
             </text>
           </g>
@@ -487,7 +480,8 @@ export function GroupedBarChart({ labels = [], datasets = [], stacked = false, u
   const { sel, svg, handlers } = useScrub(n, W, (vx) => Math.max(0, Math.min(n - 1, Math.floor((vx - padL) / slot))), frameWrap);
   const val = (d, i) => d.points.find((p) => p.x === i + 1)?.y ?? 0;
   const totals = labels.map((_, i) => datasets.reduce((a, d) => a + Math.max(0, val(d, i)), 0));
-  const maxY = Math.max(1, ...(stacked ? totals : datasets.flatMap((d) => d.points.map((p) => p.y))));
+  const axis = yAxisFor(stacked ? totals : datasets.flatMap((d) => d.points.map((p) => p.y)), { decimals, unit, fromZero: true });
+  const maxY = axis.max;
   const sy = (v) => padT + (1 - v / maxY) * (H - padT - padB);
   const groupW = Math.min(slot * 0.7, stacked ? 34 : 18 * datasets.length);
   const at = sel != null ? datasets.map((d) => ({ d, y: val(d, sel) })) : [];
@@ -495,11 +489,11 @@ export function GroupedBarChart({ labels = [], datasets = [], stacked = false, u
     <div className="chart-wrap" ref={frameRef}>
       {sel != null && <Readout pct={((padL + sel * slot + slot / 2) / W) * 100} value={at.map((v) => `${v.d.name}: ${withUnit(fmtNum(v.y, decimals), unit, v.y)}`).join(" · ")} sub={labels[sel]} />}
       <svg ref={svg} viewBox={`0 0 ${W} ${H}`} width="100%" role="img" tabIndex={0} aria-label="Bar chart. Tap a bar to read the values." className="chart-svg" style={{ display: "block" }} {...handlers}>
-        {[maxY, 0].map((t, i) => (
+        {axis.ticks.map((t, i) => (
           <g key={i}>
             <line x1={padL} x2={W - padR} y1={sy(t)} y2={sy(t)} stroke="var(--line)" strokeWidth="1" />
             <text x={padL - 8} y={sy(t) + 4} textAnchor="end" fontSize={13 * k} fill="var(--ink-soft)">
-              {fmtNum(t, decimals)}
+              {fmtNum(t, axis.decimals)}
             </text>
           </g>
         ))}
