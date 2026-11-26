@@ -750,6 +750,15 @@ a:focus-visible {
   font-size: calc(15px * var(--fs));
   font-variant-numeric: tabular-nums;
 }
+/* a secondary figure beside the value, e.g. the % after "1/5" doubles */
+.report-pair {
+  white-space: nowrap;
+}
+.report-pair small {
+  font-size: 0.75em;
+  font-weight: 600;
+  color: var(--ink-soft);
+}
 .report-visit {
   display: flex;
   align-items: center;
