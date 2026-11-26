@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { validatePlanDefinition, validateItem, starterPlan, planProgress, planBaseline, needsStarter, launchSpec, itemLabel, sessionMinutes, plannedSessions, scheduleFor, MAX_PLANS, LIMIT_MESSAGE } from "../lib/trainingPlans.js";
+import { validatePlanDefinition, validateItem, starterPlan, planProgress, planBaseline, needsStarter, launchSpec, itemLabel, sessionMinutes, plannedSessions, scheduleFor, plural, sessionsOf, planFitText, shortPlanWarning, planName, planBanner, MAX_PLANS, LIMIT_MESSAGE } from "../lib/trainingPlans.js";
 import { parsePlanJSON } from "../lib/planPrompt.js";
 import { planGame, unplayableItems } from "../lib/planLaunch.js";
 
@@ -144,4 +144,37 @@ test("plan builder: a schedule that holds exactly the sessions built", () => {
     const v = validatePlanDefinition({ title: "T", goal: "scoring", weeks: s.weeks, perWeek: s.perWeek, sessions });
     assert.equal(v.ok, true, `${n}: ${v.errors?.join(" ")}`);
   }
+});
+
+test("count copy agrees with the number: one session, many sessions", () => {
+  assert.equal(plural(1, "session"), "1 session");
+  assert.equal(plural(0, "session"), "0 sessions");
+  assert.equal(plural(6, "session"), "6 sessions");
+  assert.equal(plural(2, "match", "matches"), "2 matches");
+  assert.equal(sessionsOf(0, 1), "0 of 1 session");
+  assert.equal(sessionsOf(1, 3), "1 of 3 sessions");
+  assert.equal(planFitText(1, 1, 1, 1), "1 session in this plan · all built");
+  assert.equal(planFitText(1, 6, 2, 3), "6 sessions in this plan · 1 built");
+  assert.equal(planFitText(7, 6, 2, 3), "7 sessions built · 2 × 3 holds 6");
+});
+
+test("the short-plan warning reads right for one built session and for several", () => {
+  assert.equal(shortPlanWarning(1, 6), "Only 1 of the 6 sessions is built, so this saves as a 1-session plan. Fill the rest first, or save it as it is.");
+  assert.equal(shortPlanWarning(2, 6), "Only 2 of the 6 sessions are built, so this saves as a 2-session plan. Fill the rest first, or save it as it is.");
+});
+
+test("the game-screen plan banner names the plan, the session and the drill", () => {
+  const def = starterPlan();
+  const b = planBanner(def, { id: "p1", s: 0, i: 0, n: 2 });
+  assert.equal(b.kicker, "Starter Assessment plan · Session 1 · Drill 1 of 2");
+  assert.equal(b.session, "Scoring & Finishing");
+  assert.equal(b.next, "Next: Checkout Drill · 10 finishes");
+  const last = planBanner(def, { id: "p1", s: 1, i: 1, n: 2 });
+  assert.equal(last.kicker, "Starter Assessment plan · Session 2 · Drill 2 of 2");
+  assert.equal(last.next, "Last drill of the session");
+  // a plan whose title already says plan, and a plan that's gone
+  assert.equal(planName("Doubles Plan"), "Doubles Plan");
+  assert.equal(planName("Accuracy"), "Accuracy plan");
+  assert.equal(planBanner(null, { id: "gone", s: 2, i: 0, n: 3 }).kicker, "Plan · Session 3 · Drill 1 of 3");
+  assert.equal(planBanner(def, null), null);
 });

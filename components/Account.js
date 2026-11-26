@@ -258,7 +258,7 @@ export default function Account({ user, players, results, addPlayer, setPlayerHi
   const currentCover = coverId(myPlayer?.cover);
 
   return (
-    <div className="fade" ref={topRef} style={{ scrollMarginTop: 16 }}>
+    <div className="fade settings" ref={topRef} style={{ scrollMarginTop: 16 }}>
       <BackBar back={goBack} title="Settings" />
 
       <div className="seg set-tabs mb-12" role="tablist" aria-label="Settings sections">

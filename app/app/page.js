@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { supabase, isConfigured } from "@/lib/supabase";
 import { getPlayers, addPlayer as dbAddPlayer, linkPlayerAuth as dbLinkPlayerAuth, setPlayerHidden as dbSetPlayerHidden, setPlayerColor as dbSetPlayerColor, updatePlayerProfile as dbUpdatePlayerProfile, getGameResults, recordGame, getFollows, getGameRowsForSync, getEloFor, getMyEvents, recordEvents, followPlayer as dbFollowPlayer, unfollowPlayer as dbUnfollowPlayer, getPlans, deletePlan as dbDeletePlan, recordPlanCompletion } from "@/lib/db";
 import { planGame } from "@/lib/planLaunch";
-import { planProgress, itemLabel, MAX_PLANS } from "@/lib/trainingPlans";
+import { planProgress, itemLabel, planBanner, MAX_PLANS } from "@/lib/trainingPlans";
 import { MerlinCreate } from "@/components/TrainingPlans";
 import { merlinState } from "@/lib/merlin";
 import { hintPrefs } from "@/lib/strategy/prefs";
@@ -58,6 +58,7 @@ import BlackbirdAI from "@/components/BlackbirdAI";
 import Friends from "@/components/Friends";
 import GameDetail from "@/components/GameDetail";
 import { rowsFromMatch, withBotRows } from "@/lib/gamestats";
+import { navTabFor } from "@/lib/navTab";
 
 const PLAY_VIEWS = { x01: "playX01", cricket: "playCricket", baseball: "playBaseball", aroundTheClock: "playAroundTheClock", killer: "playKiller", shanghai: "playShanghai", halveit: "playHalveIt", gotcha: "playGotcha", tictactoe: "playTicTacToe", bobs27: "playBobs27", checkoutDrill: "playCheckoutDrill", scoringDrill: "playScoringDrill" };
 
@@ -505,9 +506,13 @@ export default function Page() {
       return [];
     }
   }, [searchOpen, myName, results, practice, social]);
-  // the profile tab owns my own profile and everything reached from it
+  // the lit nav tab: a match report, another player's profile or the friends
+  // list keep the tab you opened them from (see lib/navTab.js)
   const onMyProfile = !!myName && profileUser === myName;
-  const meTabActive = (view === "profile" && onMyProfile) || ["friends", "account", "admin"].includes(view);
+  const navTabRef = useRef("home");
+  const navTab = navTabFor(view, { prev: navTabRef.current, onMyProfile });
+  navTabRef.current = navTab;
+  const meTabActive = navTab === "me";
   const ladder = useMemo(() => botLadder(practice, myName), [practice, myName]);
 
   const isAdmin = useMemo(
@@ -811,6 +816,9 @@ export default function Page() {
     if (scrollRef.current) scrollRef.current.scrollTop = 0;
   }, [view, profileUser]);
 
+  // the Ranked statistics range picked on a profile, kept while you browse
+  // other profiles this session (lib/statsRange.js)
+  const [statsRange, setStatsRange] = useState(null);
   const openProfile = (u) => {
     if (view !== "profile") setProfileFrom(view);
     setProfileUser(u);
@@ -908,15 +916,7 @@ export default function Page() {
   const playBanner = (() => {
     const link = onGameScreen ? live.config?.plan : null;
     if (!link?.id) return null;
-    const def = (planState.plans || []).find((p) => p.id === link.id)?.definition;
-    const sess = def?.sessions?.[link.s];
-    const total = sess?.items?.length || link.n || 1;
-    const nextItem = sess?.items?.[link.i + 1];
-    return {
-      kicker: `Plan · Drill ${link.i + 1} of ${total}`,
-      session: sess?.title || "",
-      next: nextItem ? `Next: ${nextItem.label || itemLabel(nextItem)}` : "Last drill of the session",
-    };
+    return planBanner((planState.plans || []).find((p) => p.id === link.id)?.definition, link);
   })();
   const homeLive = live ? { ...liveSummary(live, liveProgress.current), onResume: () => setView(playViewFor(live.gameType)) } : null;
 
@@ -947,7 +947,8 @@ export default function Page() {
         <div className={`container${view === "profile" ? " container-profile" : ""}${FILL_VIEWS.includes(view) ? " container-fill" : ""}`}>
         <header className="header">
           <button type="button" className="brand-home" aria-label="Blackbird home" onClick={() => setView("home")}>
-            <Logo variant="lockup" height={40} />
+            {/* the plan banner needs the row's width, so the mark stands in for the lockup */}
+            <Logo variant={playBanner ? "icon" : "lockup"} height={40} />
           </button>
           {view === "home" && (
             <button type="button" className="header-search" aria-label="Search players, game modes and matches" onClick={() => setSearchOpen(true)}>
@@ -958,7 +959,7 @@ export default function Page() {
               plan context and casting, so the scores and the keypad's Undo
               stay on the first screen */}
           {playBanner && (
-            <div className="header-plan" aria-label={`Training plan${playBanner.session ? `, ${playBanner.session}` : ""}: ${playBanner.kicker}. ${playBanner.next}`}>
+            <div className="header-plan" aria-label={`${playBanner.kicker}${playBanner.session ? ` (${playBanner.session})` : ""}. ${playBanner.next}`}>
               <span className="header-plan-kicker">{playBanner.kicker}</span>
               <span className="header-plan-next">{playBanner.next}</span>
             </div>
@@ -1155,6 +1156,8 @@ export default function Page() {
             onFollow={() => follow(profileUser)}
             onUnfollow={() => unfollow(profileUser)}
             back={profileUser === myName ? null : () => setView(profileFrom)}
+            statsRange={statsRange}
+            onStatsRange={setStatsRange}
           />
         )}
         {view === "records" && (
@@ -1277,12 +1280,12 @@ export default function Page() {
       )}
       <nav className="nav" aria-label="Main">
         {[
-          { key: "home", label: "Home", icon: <HomeIcon />, active: view === "home", go: () => setView("home") },
+          { key: "home", label: "Home", icon: <HomeIcon />, active: navTab === "home", go: () => setView("home") },
           // the practice hub and bots are places to play, so Play lights up there
-          { key: "play", label: "Play", aria: live ? "Play (game in progress)" : "Play", icon: <PlayIcon />, active: ["setup", "bots", "summary", "practice"].includes(view) || ALL_PLAY_VIEWS.includes(view), go: goPlay, dot: !!live },
-          { key: "stats", label: "Stats", icon: <StatsIcon />, active: ["leaderboard", "records", "game"].includes(view) || (view === "profile" && !onMyProfile), go: () => setView("leaderboard") },
-          { key: "matchup", label: "Matchup", icon: <MatchupIcon />, active: view === "matchup", go: () => setView("matchup") },
-          { key: "ai", label: "Merlin", icon: <SparkleIcon />, active: view === "ai", go: () => setView("ai") },
+          { key: "play", label: "Play", aria: live ? "Play (game in progress)" : "Play", icon: <PlayIcon />, active: navTab === "play", go: goPlay, dot: !!live },
+          { key: "stats", label: "Stats", icon: <StatsIcon />, active: navTab === "stats", go: () => setView("leaderboard") },
+          { key: "matchup", label: "Matchup", icon: <MatchupIcon />, active: navTab === "matchup", go: () => setView("matchup") },
+          { key: "ai", label: "Merlin", icon: <SparkleIcon />, active: navTab === "ai", go: () => setView("ai") },
         ].map((t) => (
           <button key={t.key} type="button" className={`navbtn navbtn-icon ${t.active ? "active" : ""}`} onClick={t.go} aria-label={t.aria || t.label} aria-current={t.active ? "page" : undefined}>
             <span className="navbtn-glyph">

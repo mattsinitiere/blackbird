@@ -9,7 +9,7 @@ export default function TVSummary({ summary }) {
   const winRow = rows.find((r) => r.isWinner) || rows[0];
   const meta = [];
   if (durationMin != null) meta.push(`${durationMin} min`);
-  if (totalDarts) meta.push(`${totalDarts} darts`);
+  if (totalDarts) meta.push(`${totalDarts} dart${totalDarts === 1 ? "" : "s"}`);
 
   return (
     <div className="tv-board tv-summary">
