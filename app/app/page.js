@@ -375,7 +375,6 @@ export default function Page() {
     };
   }, [session, refresh]);
 
-  const backfillRan = useRef(false);
   const handleAdoptTried = useRef(false);
   useEffect(() => {
     if (!session || !dataReady) return;
@@ -409,20 +408,6 @@ export default function Page() {
         await refresh();
       })();
       return;
-    }
-    if (!backfillRan.current && players.some((p) => !p.authId)) {
-      backfillRan.current = true;
-      (async () => {
-        try {
-          const token = session.access_token;
-          const res = await fetch("/api/link-players", {
-            method: "POST",
-            headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-          });
-          const data = await res.json();
-          if (data.linked > 0) await refresh();
-        } catch {}
-      })();
     }
   }, [session, dataReady, players, refresh]);
 
@@ -593,8 +578,12 @@ export default function Page() {
       await recordGame(args);
       await completePlanItem({ gameId: args.gameId, config: args.config });
     };
-    const { saved, left } = await flushPending(userId, { existingRows: getGameRowsForSync, currentElo: getEloFor, record });
+    const { saved, parked, left } = await flushPending(userId, { existingRows: getGameRowsForSync, currentElo: getEloFor, record });
     setPendingCount(left);
+    if (parked.length) {
+      setNotice(`${parked.length === 1 ? "A game" : `${parked.length} games`} couldn't be saved and ${parked.length === 1 ? "was" : "were"} set aside on this phone so the others could sync.`);
+      if (parked.includes(finishedIdRef.current)) setSaveState("error");
+    }
     if (saved.length) {
       if (saved.includes(finishedIdRef.current)) {
         setSaveState("saved");

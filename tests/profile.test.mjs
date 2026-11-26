@@ -48,3 +48,11 @@ test("tags: normalise, validate, icons, format", () => {
   assert.equal(tagLabel({}), "");
   assert.equal(TAG_ICONS.length, 24);
 });
+
+import { ilikeExact } from "../lib/profile.js";
+test("ilikeExact escapes ilike wildcards", () => {
+  assert.equal(ilikeExact("a_b"), "a\\_b");
+  assert.equal(ilikeExact("100%"), "100\\%");
+  assert.equal(ilikeExact("back\\slash"), "back\\\\slash");
+  assert.equal(ilikeExact("plain"), "plain");
+});

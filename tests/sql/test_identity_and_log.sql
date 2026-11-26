@@ -11,18 +11,22 @@ insert into game_results (game_id, username, game_type, winner, result) values
 set role authenticated;
 set request.jwt.claim.sub = 'c0000000-0000-0000-0000-00000000000c';
 do $$ begin
-  -- can't point Dan's row at yourself, unlink it, or rename it
-  begin update players set auth_id = 'c0000000-0000-0000-0000-00000000000c' where username = 'Dan'; raise exception 'stole a player row';
-  exception when insufficient_privilege then null; end;
-  begin update players set auth_id = null where username = 'Dan'; raise exception 'unlinked another account';
-  exception when insufficient_privilege then null; end;
-  begin update players set username = 'Danny' where username = 'Dan'; raise exception 'renamed another account';
-  exception when insufficient_privilege then null; end;
+  -- can't point Dan's row at yourself, unlink it, or rename it: RLS hides
+  -- another account's row from updates, so each of these changes nothing
+  update players set auth_id = 'c0000000-0000-0000-0000-00000000000c' where username = 'Dan';
+  update players set auth_id = null where username = 'Dan';
+  update players set username = 'Danny' where username = 'Dan';
+  assert (select count(*) from players where username = 'Dan' and auth_id = 'd0000000-0000-0000-0000-00000000000d') = 1, 'Dan''s row unchanged';
   begin insert into players (username, auth_id) values ('Fake', 'd0000000-0000-0000-0000-00000000000d'); raise exception 'inserted a row linked to someone else';
   exception when insufficient_privilege then null; end;
-  -- still allowed: Elo write-back on others, claiming an unlinked row, adding an unlinked guest
-  update players set elo = 1010 where username = 'Dan';
-  update players set elo = 990, auth_id = auth_id where username = 'Cat';
+  -- Elo moves only through record_game (migration-record-game.sql), and a
+  -- row linked to another account can't be edited at all
+  begin update players set elo = 990 where username = 'Cat'; raise exception 'wrote Elo directly';
+  exception when insufficient_privilege then null; end;
+  update players set hidden = true where username = 'Dan';
+  assert not (select hidden from players where username = 'Dan'), 'hid another account''s player';
+  -- still allowed: editing your own row, claiming an unlinked row, adding an unlinked guest
+  update players set color = '#123456' where username = 'Cat';
   insert into players (username) values ('Guest');
   -- results: only your own (no follows here)
   assert (select count(*) from game_results) = 1, 'Cat sees only her own results';

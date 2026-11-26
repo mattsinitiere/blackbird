@@ -1,5 +1,5 @@
 import { createClient } from "@supabase/supabase-js";
-import { normalizeHandle, validateHandle } from "@/lib/profile";
+import { normalizeHandle, validateHandle, ilikeExact } from "@/lib/profile";
 import { validateNewAccount, createAccount, validateTagEdit } from "@/lib/adminAccount";
 import { buildAnalytics, rangeFor } from "@/lib/adminAnalytics";
 import { paginate, supabasePager } from "@/lib/data/paginate";
@@ -121,7 +121,6 @@ export async function POST(req) {
         createdAt: u.created_at,
       }));
       let players;
-      let hasAuthIdCol = true;
       // newest column set first; older databases fall through
       const resTag = await admin
         .from("players")
@@ -141,7 +140,6 @@ export async function POST(req) {
           .select("username, hidden, created_at, auth_id")
           .order("created_at", { ascending: true });
         if (res1.error) {
-          hasAuthIdCol = false;
           const res2 = await admin
             .from("players")
             .select("username, hidden, created_at")
@@ -153,22 +151,8 @@ export async function POST(req) {
         }
       }
 
-      if (hasAuthIdCol) {
-        const usersByName = {};
-        for (const u of users) {
-          if (u.displayName) usersByName[u.displayName.toLowerCase()] = u.id;
-        }
-        for (const p of players) {
-          if (!p.auth_id) {
-            const matchId = usersByName[(p.username || "").toLowerCase()];
-            if (matchId && !players.some((pp) => pp.auth_id === matchId)) {
-              await admin.from("players").update({ auth_id: matchId }).eq("username", p.username);
-              p.auth_id = matchId;
-            }
-          }
-        }
-      }
-
+      // linking is explicit (the linkPlayer action): matching rows to
+      // accounts by display name let anyone claim a name in advance
       return json({
         users,
         players: (players || []).map((p) => ({
@@ -296,7 +280,7 @@ export async function POST(req) {
       const { data: taken, error: te } = await admin
         .from("players")
         .select("username")
-        .ilike("handle", handle)
+        .ilike("handle", ilikeExact(handle))
         .neq("username", username)
         .limit(1);
       if (te) throw te;
