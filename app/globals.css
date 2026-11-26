@@ -3599,6 +3599,34 @@ html:not([data-theme="dark"]) .app.is-profile {
   background: var(--red-soft);
   color: var(--red);
 }
+/* Standings rows (components/Leaderboard.js) reuse the W / L pips above */
+.lb-form {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 5px;
+}
+.lb-form-label,
+.lb-elo-when {
+  color: var(--muted);
+  font-size: calc(10px * var(--fs));
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.lb-elo-change {
+  font-size: calc(11px * var(--fs));
+  font-weight: 700;
+  white-space: nowrap;
+}
+.lb-big {
+  flex: none;
+  text-align: right;
+}
+.lb-big-label {
+  margin-top: 1px;
+  font-size: calc(10px * var(--fs));
+}
 .mu-play {
   width: 100%;
   padding: 15px;

@@ -37,10 +37,13 @@ export default function Leaderboard({ usernames, stats, elo, openProfile, openRe
     return Math.round(r.elo);
   };
 
+  // the caption under the big number, so it never reads as an unlabeled figure
+  const bigLabel = mode === "x01" ? "3-dart avg" : mode === "cricket" ? "MPR" : mode === "baseball" ? "Avg runs" : "Elo";
+
   const eloArrow = (s) => {
     const ch = s.eloChange || 0;
-    if (ch > 0) return { symbol: "▲", color: "var(--accent)" };
-    if (ch < 0) return { symbol: "▼", color: "var(--red)" };
+    if (ch > 0) return { symbol: "▲", color: "var(--accent)", say: `Elo up ${ch} in the last game` };
+    if (ch < 0) return { symbol: "▼", color: "var(--red)", say: `Elo down ${-ch} in the last game` };
     return null;
   };
 
@@ -100,37 +103,39 @@ export default function Leaderboard({ usernames, stats, elo, openProfile, openRe
               <div className="num" style={{ fontSize: "calc(20px * var(--fs))", width: "calc(22px * var(--fs))", color: i === 0 ? "var(--amber)" : "var(--muted)" }}>
                 {i + 1}
               </div>
-              <div style={{ flex: 1 }}>
-                <div style={{ fontWeight: 700, display: "flex", alignItems: "center", gap: 6 }}>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontWeight: 700, display: "flex", flexWrap: "wrap", alignItems: "center", gap: "2px 6px" }}>
                   <PlayerBadge username={r.u} color={playerColors?.[r.u]} size={22} />
                   {arrow && (
-                    <span style={{ fontSize: "calc(10px * var(--fs))", color: arrow.color }}>
-                      {arrow.symbol}{Math.abs(r.s.eloChange)}
+                    <span className="lb-elo-change" style={{ color: arrow.color }} role="img" aria-label={arrow.say} title={arrow.say}>
+                      <span aria-hidden="true">
+                        {arrow.symbol}
+                        {Math.abs(r.s.eloChange)} <span className="lb-elo-when">last game</span>
+                      </span>
                     </span>
                   )}
                 </div>
                 <div className="tag" style={{ marginTop: 2 }}>
                   {sub(r.s)}
-                  {form && (
-                    <span style={{ marginLeft: 8 }}>
+                </div>
+                {/* the same W / L chips as the Matchup screen, oldest first */}
+                {form && (
+                  <div className="lb-form" role="img" aria-label={`Last ${form.length} games, oldest first: ${form.map((f) => (f === "W" ? "won" : "lost")).join(", ")}`}>
+                    <span className="lb-form-label" aria-hidden="true">Form</span>
+                    <span className="mu-pips" aria-hidden="true">
                       {form.map((f, idx) => (
-                        <span
-                          key={idx}
-                          style={{
-                            display: "inline-block",
-                            width: "calc(7px * var(--fs))",
-                            height: "calc(7px * var(--fs))",
-                            borderRadius: "50%",
-                            background: f === "W" ? "var(--accent)" : "var(--red)",
-                            marginRight: 2,
-                          }}
-                        />
+                        <span key={idx} className={`mu-pip ${f === "W" ? "is-w" : "is-l"}`}>
+                          {f}
+                        </span>
                       ))}
                     </span>
-                  )}
-                </div>
+                  </div>
+                )}
               </div>
-              <div className="num" style={{ fontSize: "calc(17px * var(--fs))", color: "var(--accent)" }}>{big(r)}</div>
+              <div className="lb-big">
+                <div className="num" style={{ fontSize: "calc(17px * var(--fs))", color: "var(--accent)" }}>{big(r)}</div>
+                <div className="tag lb-big-label">{bigLabel}</div>
+              </div>
             </div>
           );
         })}
