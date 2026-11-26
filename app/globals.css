@@ -723,7 +723,10 @@ a:focus-visible {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: calc(11px * var(--fs-chrome));
+  /* capped: six tabs share a phone's width, and the longest label
+     ("Matchup") must fit whole at every text size and on narrow phones;
+     the icons still scale */
+  font-size: min(calc(11px * var(--fs-chrome)), 12.5px, 3.1vw);
   font-weight: 600;
   line-height: 1.1;
 }
@@ -816,13 +819,25 @@ a:focus-visible {
   color: #2b1d00;
 }
 /* career cards */
+/* tile labels wrap between words, never inside one: tighter tracking and
+   padding give the longest word ("CHECKOUT") room in a four-across tile */
+.career-cards .mini {
+  min-width: 0;
+  padding-left: 4px;
+  padding-right: 4px;
+}
+.career-cards .mini .tag {
+  letter-spacing: 0.02em;
+  overflow-wrap: normal;
+}
 .career-bars {
   display: grid;
   gap: 4px;
 }
 .career-bar {
   display: grid;
-  grid-template-columns: 52px 1fr 64px;
+  /* the label column grows with the text so "Bull" or "61-80" never splits */
+  grid-template-columns: calc(52px * var(--fs)) 1fr calc(64px * var(--fs));
   align-items: center;
   gap: 8px;
   font-size: calc(12px * var(--fs));
@@ -1130,19 +1145,20 @@ button.badge-tile {
   min-width: 0;
   display: flex;
   flex-direction: column;
-  align-items: flex-end;
-  text-align: right;
+  align-items: flex-start;
+  gap: 2px;
+  text-align: left;
   line-height: 1.25;
 }
 .header-plan + .header-cast {
   margin-left: 0;
 }
+/* both lines wrap between words: the plan, session and next drill are the
+   point of the banner, so they are never cut off */
 .header-plan-kicker,
 .header-plan-next {
   max-width: 100%;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  overflow-wrap: normal;
 }
 .header-plan-kicker {
   font-size: calc(11px * var(--fs));
@@ -2341,6 +2357,9 @@ label.check input {
   justify-content: center;
 }
 @media (max-width: 380px) {
+  .nav {
+    gap: 2px;
+  }
   .navbtn {
     padding-left: 2px;
     padding-right: 2px;
@@ -2796,7 +2815,10 @@ html:not([data-theme="dark"]) .app.is-profile {
   background: none;
   color: var(--muted);
   font: inherit;
-  font-size: calc(15px * var(--fs));
+  /* tabs are navigation, so they follow the gentler shell scale, and on a
+     phone they shrink with the screen so all three fit side by side at
+     every text size (the scroll above is only a last resort) */
+  font-size: min(calc(15px * var(--fs-chrome)), 5.2vw);
   font-weight: 600;
   cursor: pointer;
   white-space: nowrap;
@@ -3511,7 +3533,7 @@ html:not([data-theme="dark"]) .app.is-profile {
 }
 .seg-btn {
   flex: 1;
-  min-height: 40px;
+  min-height: 44px;
   border: 0;
   border-radius: 9px;
   background: none;
@@ -3602,8 +3624,8 @@ html:not([data-theme="dark"]) .app.is-profile {
 }
 .swatch {
   position: relative;
-  width: 36px;
-  height: 36px;
+  width: 44px;
+  height: 44px;
   padding: 0;
   border: 0;
   border-radius: 50%;
@@ -3693,6 +3715,17 @@ html:not([data-theme="dark"]) .app.is-profile {
   flex: none;
   white-space: nowrap;
 }
+/* every Settings control is a full 44px tap target, the small buttons
+   (Save Changes, Discard, Manage), hint chips and name-tag icons included */
+.settings .btn-sm,
+.settings .plan-chip,
+.settings .tag-icon-chip {
+  min-height: 44px;
+}
+/* a slightly tighter grid keeps the seven icon chips 44px wide on a phone */
+.settings .tag-icon-grid {
+  gap: 4px;
+}
 @media (max-width: 420px) {
   .save-bar-inner {
     flex-direction: column;
@@ -3738,6 +3771,12 @@ html:not([data-theme="dark"]) .app.is-profile {
 }
 .switch.is-on {
   background: var(--accent);
+}
+/* the track is 32px tall; the tappable area reaches 44px */
+.switch::before {
+  content: "";
+  position: absolute;
+  inset: -6px 0;
 }
 .switch-knob {
   position: absolute;
@@ -5887,6 +5926,10 @@ html:not([data-theme="dark"]) .app.is-profile {
 .plan-chip:disabled {
   opacity: 0.45;
   cursor: default;
+}
+/* game and window choices are full 44px tap targets */
+.alter-ego .plan-chip {
+  min-height: 44px;
 }
 .ae-min {
   margin: 0 0 8px;

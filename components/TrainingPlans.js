@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Modal } from "./ui";
 import { supabase } from "@/lib/supabase";
 import { MERLIN } from "@/lib/merlin";
-import { GOALS, SESSION_MINUTES, ITEM_KINDS, MAX_PLANS, LIMIT_MESSAGE, PLAN_BOUNDS, itemLabel, planProgress, validatePlanDefinition, sessionMinutes, plannedSessions, scheduleFor } from "@/lib/trainingPlans";
+import { GOALS, SESSION_MINUTES, ITEM_KINDS, MAX_PLANS, LIMIT_MESSAGE, PLAN_BOUNDS, itemLabel, planProgress, validatePlanDefinition, sessionMinutes, plannedSessions, scheduleFor, plural, sessionsOf, planFitText, shortPlanWarning } from "@/lib/trainingPlans";
 import { BOTS } from "@/lib/bots";
 import { WINDOW_LABELS } from "@/lib/alterEgo";
 
@@ -90,13 +90,13 @@ export default function TrainingPlans({ state, unlocked = [], alterEgoOk = false
             const next = pr.nextSession != null ? def.sessions[pr.nextSession] : null;
             return (
               <div key={p.id} className="plan-card">
-                <button type="button" className="plan-card-main" onClick={() => setOpenId(p.id)} aria-label={`${def.title}: ${pr.completeSessions} of ${pr.totalSessions} sessions done. Open plan`}>
+                <button type="button" className="plan-card-main" onClick={() => setOpenId(p.id)} aria-label={`${def.title}: ${sessionsOf(pr.completeSessions, pr.totalSessions)} done. Open plan`}>
                   <div className="plan-card-top">
                     <span className="plan-title">{def.title}</span>
                     <span className="plan-source">{p.source === "ai" ? MERLIN.name : "Custom"}</span>
                   </div>
                   <div className="plan-sub">
-                    {goalLabel(def.goal)} · {pr.completed ? "Complete" : `${pr.completeSessions} of ${pr.totalSessions} sessions`}
+                    {goalLabel(def.goal)} · {pr.completed ? "Complete" : sessionsOf(pr.completeSessions, pr.totalSessions)}
                   </div>
                   <ProgressBar pct={pr.pct} label={`${def.title} progress`} />
                   {!pr.completed && next && (
@@ -204,8 +204,8 @@ function SessionList({ def, progress }) {
 function BaselineLine({ b }) {
   if (!b) return null;
   const bits = [];
-  if (b.x01?.avg != null) bits.push(`X01 average ${b.x01.avg} (${b.x01.games} games)`);
-  if (b.checkout?.pct != null) bits.push(`checkout ${b.checkout.pct}% (${b.checkout.hits}/${b.checkout.chances} chances)`);
+  if (b.x01?.avg != null) bits.push(`X01 average ${b.x01.avg} (${plural(b.x01.games, "game")})`);
+  if (b.checkout?.pct != null) bits.push(`checkout ${b.checkout.pct}% (${b.checkout.hits}/${plural(b.checkout.chances, "chance")})`);
   if (b.bobs27?.avg != null) bits.push(`Bob's 27 average ${b.bobs27.avg} (${b.bobs27.games})`);
   if (b.scoringDrill?.perVisit != null) bits.push(`scoring drill ${b.scoringDrill.perVisit} per visit`);
   if (b.cricket?.mpr != null) bits.push(`cricket MPR ${b.cricket.mpr} (${b.cricket.games})`);
@@ -368,7 +368,7 @@ export function MerlinCreate({ onClose, onSaved, initial = null, autoDraft = fal
         ) : (
           <>
             {draft.starter && <p className="plan-starter">Starter assessment: not enough recorded games yet for a personalized plan.</p>}
-            <div className="plan-sub">{goalLabel(draft.draft.goal)} · {draft.draft.weeks} week{draft.draft.weeks > 1 ? "s" : ""} · {draft.draft.sessions.length} session{draft.draft.sessions.length === 1 ? "" : "s"}</div>
+            <div className="plan-sub">{goalLabel(draft.draft.goal)} · {plural(draft.draft.weeks, "week")} · {plural(draft.draft.sessions.length, "session")}</div>
             {draft.draft.why && <p className="plan-why">{draft.draft.why}</p>}
             <BaselineLine b={draft.baseline} />
             <SessionList def={draft.draft} />
@@ -517,11 +517,7 @@ function PlanBuilder({ unlocked, alterEgoOk, onClose, onSaved }) {
 
         <div className={`plan-fit${built === maxSessions ? " is-ok" : ""}`} role="status">
           <div className="plan-fit-text">
-            {built === maxSessions
-              ? `${maxSessions} session${maxSessions === 1 ? "" : "s"} in this plan · all built`
-              : built < maxSessions
-                ? `${maxSessions} sessions in this plan · ${built} built`
-                : `${built} sessions built · ${weeks} × ${perWeek} holds ${maxSessions}`}
+            {planFitText(built, maxSessions, weeks, perWeek)}
           </div>
           {built !== maxSessions && (
             <div className="plan-fit-actions">
@@ -532,10 +528,10 @@ function PlanBuilder({ unlocked, alterEgoOk, onClose, onSaved }) {
               )}
               {fit && (
                 <button type="button" className="btn btn-sm" onClick={() => setSchedule(fit.weeks, fit.perWeek)}>
-                  Make it {built} session{built === 1 ? "" : "s"} ({fit.weeks} × {fit.perWeek})
+                  Make it {plural(built, "session")} ({fit.weeks} × {fit.perWeek})
                 </button>
               )}
-              {built > maxSessions && !fit && <span className="plan-fit-hint">Remove {built - maxSessions} or choose more weeks.</span>}
+              {built > maxSessions && !fit && <span className="plan-fit-hint">Remove {plural(built - maxSessions, "session")} or choose more weeks.</span>}
             </div>
           )}
         </div>
@@ -597,7 +593,7 @@ function PlanBuilder({ unlocked, alterEgoOk, onClose, onSaved }) {
         {err && <p className="plans-error" role="alert">{err}</p>}
         {confirmShort && built < maxSessions && (
           <p className="plans-limit" role="alert">
-            Only {built} of the {maxSessions} sessions are built, so this saves as a {built}-session plan. Fill the rest first, or save it as it is.
+            {shortPlanWarning(built, maxSessions)}
           </p>
         )}
         <div className="plan-modal-actions">
@@ -633,7 +629,7 @@ function PlanDetail({ plan, completions, live, onClose, onLaunch, onDelete }) {
         </div>
         <div className="plan-sub">{def.goalText || goalLabel(def.goal)}</div>
         <ProgressBar pct={pr.pct} label="Plan progress" />
-        <div className="plan-sub">{pr.completed ? "All sessions complete." : `${pr.completeSessions} of ${pr.totalSessions} sessions complete`}</div>
+        <div className="plan-sub">{pr.completed ? "All sessions complete." : `${sessionsOf(pr.completeSessions, pr.totalSessions)} complete`}</div>
         {def.why && <p className="plan-why">{def.why}</p>}
         <BaselineLine b={plan.baseline} />
         <SessionList def={def} progress={pr} />

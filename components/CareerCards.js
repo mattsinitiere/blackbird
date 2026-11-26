@@ -186,8 +186,9 @@ function SimpleCard({ title, c, items, children }) {
 export default function CareerCards({ career }) {
   if (!career) return null;
   const c = career;
+  // .career-cards scopes the tile label rules (labels wrap between words, never inside one)
   return (
-    <>
+    <div className="career-cards">
       {c.x01 && <X01Card c={c.x01} />}
       {c.cricket && <CricketCard c={c.cricket} />}
       {c.baseball && <BaseballCard c={c.baseball} />}
@@ -243,6 +244,6 @@ export default function CareerCards({ career }) {
       {c.scoringDrill && (
         <SimpleCard title="Scoring Drill" c={c.scoringDrill} items={[["Best / visit", n1(c.scoringDrill.bestAvgPerVisit)], ["Hit rate", pc(c.scoringDrill.hitRate)], ["Triple rate", pc(c.scoringDrill.trebleRate)]]} />
       )}
-    </>
+    </div>
   );
 }

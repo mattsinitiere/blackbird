@@ -8,6 +8,8 @@ import { PlayerBadge, PlayerLookContext } from "@/components/ui";
 
 const numOf = (t) => (t === "B" ? 25 : Number(t));
 const targetLabel = (n) => (n === 25 ? "Bull" : String(n));
+// "1 dart", "3 darts"
+const many = (n, one, more = `${one}s`) => (n === 1 ? one : more);
 
 /**
  * Big-screen scoreboard rendered on /tv from the phone's broadcast
@@ -136,7 +138,7 @@ function TVX01({ game, snapshot, showBoard }) {
                       last <b className={big ? "tv-big-visit" : undefined}>{last.bust ? "bust" : last.score}</b> ·{" "}
                     </>
                   )}
-                  avg {avg(u)} · {s.darts[u]} darts
+                  avg {avg(u)} · {s.darts[u]} {many(s.darts[u], "dart")}
                 </div>
                 {active && <TVVisit darts={turnDarts} total={turnSum} />}
               </TVCard>
@@ -234,7 +236,7 @@ function TVKiller({ game, snapshot, showBoard }) {
                   ))}
                 </div>
                 <div className="tv-card-sub">
-                  {lives} {lives === 1 ? "life" : "lives"} · {s.darts?.[u] || 0} darts
+                  {lives} {lives === 1 ? "life" : "lives"} · {s.darts?.[u] || 0} {many(s.darts?.[u] || 0, "dart")}
                 </div>
                 {u === cur && <TVVisit darts={turnDarts} />}
               </TVCard>
@@ -305,7 +307,7 @@ function TVTicTacToe({ game, snapshot }) {
     <TVCard key={u} username={u} active={u === cur}>
       <div className="tv-card-value" style={{ color: colorOf(u) }}>{mark}</div>
       <div className="tv-card-sub">
-        <b>{s.board.filter((c) => c === u).length}</b> cells
+        <b>{s.board.filter((c) => c === u).length}</b> {many(s.board.filter((c) => c === u).length, "cell")}
       </div>
       {u === cur && <TVVisit darts={turnDarts} />}
     </TVCard>

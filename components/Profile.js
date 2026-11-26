@@ -4,7 +4,8 @@ import AchievementsCard from "./Achievements";
 import { computeCareer } from "@/lib/gamestats/career";
 import { computeAchievements, readSeen, writeSeen, seenKey } from "@/lib/achievements";
 import { playerTimeline, rivalry, computeStats } from "@/lib/stats";
-import { openingPeriod, lastPlayed, periodBounds, filterByPeriod, inPeriod } from "@/lib/period";
+import { lastPlayed, periodBounds, filterByPeriod, inPeriod } from "@/lib/period";
+import { openingRange } from "@/lib/statsRange";
 import { computePracticeStats, practiceCounts, practiceAsMatches } from "@/lib/practiceStats";
 import { prepareGames, x01Opponents } from "@/lib/deepStats";
 import DeepStats from "./profile/DeepStats";
@@ -55,6 +56,8 @@ export default function Profile({
   openProfile = null,
   onOpenFriends = null,
   onAskAI = null,
+  statsRange = null,
+  onStatsRange = null,
 }) {
   const [tab, setTab] = useState("activity");
   // Statistics tab: ranked games or practice games
@@ -82,14 +85,26 @@ export default function Profile({
   const myPractice = useMemo(() => practice.filter((r) => r.username === user), [practice, user]);
   const lastPractice = useMemo(() => lastPlayed(myPractice), [myPractice]);
 
-  // Statistics tab: a date range. Until one is picked it opens on the
-  // shortest range that holds a ranked game (30 days, 90 days, All Time),
-  // so a month off doesn't open on an empty page
+  // Statistics tab: a date range. It opens on the range picked on an earlier
+  // profile this session (`statsRange`), or, the first time or when this
+  // player has no ranked games in it, on the shortest range that holds a
+  // ranked game (30 days, 90 days, All Time), so a month off doesn't open on
+  // an empty page (lib/statsRange.js)
   const myRanked = useMemo(() => results.filter((r) => r.username === user), [results, user]);
   const lastRanked = useMemo(() => lastPlayed(myRanked), [myRanked]);
-  const [pickedPeriod, setPeriod] = useState(null);
-  const period = pickedPeriod || openingPeriod(myRanked);
-  const [custom, setCustom] = useState({ from: "", to: "" });
+  const opening = useMemo(() => openingRange(statsRange, myRanked), [statsRange, myRanked]);
+  const [pickedPeriod, setPickedPeriod] = useState(null);
+  const period = pickedPeriod || opening.period;
+  const [custom, setCustomDates] = useState(opening.custom);
+  // a pick here is remembered for the next profile
+  const setPeriod = (p) => {
+    setPickedPeriod(p);
+    onStatsRange?.({ period: p, custom });
+  };
+  const setCustom = (c) => {
+    setCustomDates(c);
+    onStatsRange?.({ period: "custom", custom: c });
+  };
   const bounds = useMemo(() => periodBounds(period, new Date(), custom), [period, custom]);
   const pResults = useMemo(() => filterByPeriod(results, bounds), [results, bounds]);
   const pPractice = useMemo(() => filterByPeriod(practice, bounds), [practice, bounds]);
