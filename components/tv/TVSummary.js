@@ -5,7 +5,7 @@ export default function TVSummary({ summary }) {
   if (!summary) return null;
   // one-player games carry an outcome ("Drill complete", "0 of 5 finishes")
   // in place of a winner: there is nobody to beat (lib/summary.js)
-  const { winner, title, rows, highlights, durationMin, totalDarts, outcome = null } = summary;
+  const { winner, title, rows, highlights, durationMin, totalDarts, outcome = null, tiebreak = null } = summary;
   const winRow = rows.find((r) => r.isWinner) || rows[0];
   const meta = [];
   if (durationMin != null) meta.push(`${durationMin} min`);
@@ -23,6 +23,7 @@ export default function TVSummary({ summary }) {
         <div className="tv-winner-name">
           <PlayerBadge username={winner} color={winRow?.color || undefined} size={72} showName={false} /> {winRow?.name || winner} <TagPill tag={winRow?.tag} tagIcon={winRow?.tagIcon} />
         </div>
+        {tiebreak && <div className="tv-summary-elo">Level on points, {tiebreak.text}</div>}
         {outcome && <div className="tv-summary-elo">{outcome.headline}{outcome.best ? ` · ${outcome.best.text}` : ""}</div>}
         {winRow?.elo && (
           <div className="tv-summary-elo">

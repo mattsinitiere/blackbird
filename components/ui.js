@@ -236,11 +236,11 @@ export function PlayerBadge({ username, color, size = 24, showName = true, tag, 
 export function BackBar({ back, title }) {
   if (!back && !title) return null;
   return (
-    <div className="row" style={{ alignItems: "center", marginBottom: title ? 16 : 8, minHeight: 40 }}>
+    <div className="row" style={{ alignItems: "center", marginBottom: title ? 16 : 8, minHeight: 44 }}>
       {back && (
       <button
         className="btn"
-        style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: 40, height: 40, padding: 0, flex: "none" }}
+        style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: 44, height: 44, padding: 0, flex: "none" }}
         onClick={back}
         aria-label="Back"
       >
