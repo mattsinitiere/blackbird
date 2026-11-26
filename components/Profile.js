@@ -16,6 +16,7 @@ import ActivityFeed from "./profile/ActivityFeed";
 import ProfileSidebar from "./profile/ProfileSidebar";
 import ProfileStats from "./profile/ProfileStats";
 import RivalryCard from "./profile/RivalryCard";
+import FollowButton from "./profile/FollowButton";
 
 /**
  * A player's profile, laid out like a social profile: cover, identity and
@@ -134,10 +135,20 @@ export default function Profile({
   let feedEmpty;
   if (dataError) feedEmpty = <p className="card pf-empty-card">{unavailable}</p>;
   else if (hidden)
+    // the one place that explains the lock, with the button that lifts it
+    // (on phones the sidebar's matching placeholders are left out)
     feedEmpty = (
-      <div className="card pf-empty-card">
-        <p className="pf-empty-title">Follow {user} to see their activity</p>
-        <p className="pf-empty">Players share their games with the people who follow them.</p>
+      <div className="card pf-empty-card pf-locked">
+        <p className="pf-empty-title">Follow {user} to see their games</p>
+        <p className="pf-empty">Players share their games with the people who follow them. Following {user} unlocks:</p>
+        <ul className="pf-locked-list">
+          <li>Their matches and achievements</li>
+          <li>Elo, averages and statistics</li>
+          <li>Trophy cabinet and who they play</li>
+        </ul>
+        <div className="pf-locked-action">
+          <FollowButton user={user} {...follow} />
+        </div>
       </div>
     );
   else if (myPractice.length > 0)
@@ -288,7 +299,7 @@ export default function Profile({
           </div>
         </div>
 
-        <aside className={`pf-side${tab === "activity" ? "" : " pf-side-wide-only"}`} aria-label="Profile summary">
+        <aside className={`pf-side${tab === "activity" && !hidden ? "" : " pf-side-wide-only"}`} aria-label="Profile summary">
           {sidebar}
         </aside>
       </div>

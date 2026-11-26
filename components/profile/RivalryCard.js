@@ -7,6 +7,21 @@ import { gameName } from "@/lib/summary";
 export default function RivalryCard({ user, rv }) {
   if (!rv || !rv.games) return null;
   const modes = Object.entries(rv.byGameType).sort((a, b) => b[1].games - a[1].games);
+  // only games a third player won: a 0–0 score would read like a bug
+  if (rv.wins + rv.losses === 0) {
+    return (
+      <section className="card pf-rivalry" aria-labelledby="pf-rivalry-title">
+        <div className="pf-side-head">
+          <h2 className="pf-side-title" id="pf-rivalry-title">You vs {user}</h2>
+          <span className="pf-period">All time · ranked</span>
+        </div>
+        <p className="pf-empty-title" style={{ margin: 0 }}>No head-to-head result yet</p>
+        <div className="pf-rivalry-sub">
+          {rv.games} {rv.games === 1 ? "game" : "games"} together, won by {rv.games === 1 ? "a third player" : "other players"}
+        </div>
+      </section>
+    );
+  }
   return (
     <section className="card pf-rivalry" aria-labelledby="pf-rivalry-title">
       <div className="pf-side-head">

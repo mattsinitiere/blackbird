@@ -2668,6 +2668,22 @@ html:not([data-theme="dark"]) .app.is-profile {
 .pf-rivalry.card {
   padding: 16px;
 }
+/* an unfollowed player's profile: what following unlocks (components/Profile.js) */
+.pf-locked-list {
+  margin: 8px 0 0;
+  padding-left: 1.2em;
+  color: var(--ink-soft);
+  font-size: calc(14px * var(--fs));
+  line-height: 1.6;
+  text-align: left;
+}
+.pf-locked-action {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: 12px;
+}
 .pf-side-head {
   display: flex;
   align-items: baseline;
