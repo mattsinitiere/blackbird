@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import DartBoard from "./DartBoard";
 import { dartLabel } from "@/lib/darts";
 import { PlayerBadge, UndoIcon } from "./ui";
+import { playerLabel } from "@/lib/bots";
 import { createRecorder, ensureRecorder, stamp, recordVisit, recordEvent, finishRecorder, stripDarts } from "@/lib/recorder";
 
 export default function PlayAroundTheClock({ game, resume, onProgress, onFinish, onQuit, castActive, playerColors }) {
@@ -19,10 +20,13 @@ export default function PlayAroundTheClock({ game, resume, onProgress, onFinish,
   const [turnDarts, setTurnDarts] = useState(() => resume?.turnDarts ?? []);
   const [mult, setMult] = useState(() => resume?.mult ?? 1);
   const [history, setHistory] = useState(() => resume?.history ?? []);
+  // only the current target counts, so the default entry is two keys:
+  // Hit and Miss. The full keypad is a tap away for exact darts.
+  const [fullKeypad, setFullKeypad] = useState(() => resume?.fullKeypad ?? false);
 
   useEffect(() => {
-    onProgress && onProgress({ s, turn, turnDarts, mult, history });
-  }, [s, turn, turnDarts, mult, history, onProgress]);
+    onProgress && onProgress({ s, turn, turnDarts, mult, history, fullKeypad });
+  }, [s, turn, turnDarts, mult, history, fullKeypad, onProgress]);
 
   const cur = players[turn % players.length];
 
@@ -103,6 +107,8 @@ export default function PlayAroundTheClock({ game, resume, onProgress, onFinish,
   };
 
   const curTarget = s.current[cur];
+  // the number this dart is aimed at, after the darts already in this visit
+  const liveTarget = advance(curTarget, turnDarts);
   const progress = (u) => s.current[u] - 1; // 0..21
 
   return (
@@ -170,13 +176,13 @@ export default function PlayAroundTheClock({ game, resume, onProgress, onFinish,
       <div className="card">
         <div className="between" style={{ marginBottom: 8 }}>
           <span className="tag">
-            {cur} — dart {Math.min(turnDarts.length + 1, 3)} of 3
+            {playerLabel(cur)} — dart {Math.min(turnDarts.length + 1, 3)} of 3
             {castActive ? ` · target ${targetLabel(curTarget)}` : ""}
           </span>
         </div>
 
         <div className="flex-wrap" style={{ minHeight: 34, marginBottom: 8 }}>
-          {turnDarts.length === 0 && <span className="tag">tap a multiplier, then a number</span>}
+          {turnDarts.length === 0 && <span className="tag">{fullKeypad ? "tap a multiplier, then a number" : `aim at ${targetLabel(liveTarget)}: any single, double or triple counts`}</span>}
           {turnDarts.map((d, i) => (
             <span key={i} className="btn" style={{ padding: "5px 10px", fontSize: "calc(13px * var(--fs))" }}>
               {dartLabel(d)}
@@ -184,39 +190,53 @@ export default function PlayAroundTheClock({ game, resume, onProgress, onFinish,
           ))}
         </div>
 
-        <div className="row mb-12">
-          {[1, 2, 3].map((m) => (
-            <button
-              key={m}
-              className={`btn ${mult === m ? "btn-primary" : ""}`}
-              style={{ flex: 1 }}
-              onClick={() => setMult(m)}
-            >
-              {m === 1 ? "Single" : m === 2 ? "Double" : "Triple"}
-            </button>
-          ))}
-        </div>
+        {fullKeypad ? (
+          <>
+          <div className="row mb-12">
+            {[1, 2, 3].map((m) => (
+              <button
+                key={m}
+                className={`btn ${mult === m ? "btn-primary" : ""}`}
+                style={{ flex: 1 }}
+                onClick={() => setMult(m)}
+              >
+                {m === 1 ? "Single" : m === 2 ? "Double" : "Triple"}
+              </button>
+            ))}
+          </div>
 
-        <div className="grid-5">
-          {Array.from({ length: 20 }, (_, i) => i + 1).map((n) => (
-            <button key={n} className="chip" style={{ fontSize: "calc(15px * var(--fs))", padding: "12px 0" }} onClick={() => addDart({ n, mult })}>
-              {n}
-            </button>
-          ))}
-        </div>
+          <div className="grid-5">
+            {Array.from({ length: 20 }, (_, i) => i + 1).map((n) => (
+              <button key={n} className="chip" style={{ fontSize: "calc(15px * var(--fs))", padding: "12px 0" }} onClick={() => addDart({ n, mult })}>
+                {n}
+              </button>
+            ))}
+          </div>
 
-        <div className="grid-3 mt-12">
-          <button className="chip" onClick={() => addDart({ n: 25, mult: 1 })}>25</button>
-          <button className="chip" onClick={() => addDart({ n: 25, mult: 2 })}>Bull</button>
-          <button className="chip" onClick={() => addDart({ n: 0, mult: 0 })}>Miss</button>
-        </div>
+          <div className="grid-3 mt-12">
+            <button className="chip" onClick={() => addDart({ n: 25, mult: 1 })}>25</button>
+            <button className="chip" onClick={() => addDart({ n: 25, mult: 2 })}>Bull</button>
+            <button className="chip" onClick={() => addDart({ n: 0, mult: 0 })}>Miss</button>
+          </div>
+          </>
+        ) : (
+          <div className="atc-quick">
+            <button className="chip on" onClick={() => addDart({ n: targetNumber(liveTarget), mult: 1 })}>
+              Hit {targetLabel(liveTarget)}
+            </button>
+            <button className="chip" onClick={() => addDart({ n: 0, mult: 0 })}>Miss</button>
+          </div>
+        )}
         <button className="chip chip-undo" onClick={undo} disabled={!turnDarts.length && !history.length}>
           <UndoIcon /> Undo
+        </button>
+        <button type="button" className="atc-keypad-toggle" onClick={() => setFullKeypad((v) => !v)}>
+          {fullKeypad ? "Quick keys (Hit / Miss)" : "Full keypad"}
         </button>
 
         {!castActive && (
           <div style={{ marginTop: 14 }}>
-            <DartBoard highlight={[targetNumber(curTarget)]} hits={turnDarts} />
+            <DartBoard highlight={[targetNumber(Math.min(liveTarget, 21))]} hits={turnDarts} />
           </div>
         )}
       </div>

@@ -8,10 +8,19 @@ import BotAvatar from "./BotAvatar";
 import { ChevronIcon } from "./profile/icons";
 import { X01Options, CricketOptions, BaseballNote, KillerOptions } from "./GameOptions";
 
+// the heading over the chosen game's settings, so they don't read as part
+// of the Practice Drills row above them
+const GAME_NAMES = {
+  x01: "X01", cricket: "Cricket", baseball: "Baseball", aroundTheClock: "Around the Clock", killer: "Killer",
+  shanghai: "Shanghai", halveit: "Halve It", gotcha: "Gotcha", tictactoe: "Tic-Tac-Toe",
+  bobs27: "Bob's 27", checkoutDrill: "Checkouts", scoringDrill: "Scoring",
+};
+const OPTION_GAMES = new Set(["x01", "cricket", "killer", "shanghai", "gotcha", "checkoutDrill", "scoringDrill"]);
+
 function useDragReorder(selected, setSelected) {
   const dragIdx = useRef(null);
   const overIdx = useRef(null);
-  const touchStartY = useRef(null);
+  const touchStart = useRef(null);
   const dragging = useRef(false);
 
   const reorder = useCallback((from, to) => {
@@ -51,14 +60,15 @@ function useDragReorder(selected, setSelected) {
 
   const onTouchStart = useCallback((e, i) => {
     dragIdx.current = i;
-    touchStartY.current = e.touches[0].clientY;
+    touchStart.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
     dragging.current = false;
   }, []);
 
   const onTouchMove = useCallback((e, i) => {
     if (dragIdx.current === null) return;
-    const dy = Math.abs(e.touches[0].clientY - touchStartY.current);
-    const dx = Math.abs(e.touches[0].clientX - (touchStartY.current || 0));
+    const start = touchStart.current || { x: e.touches[0].clientX, y: e.touches[0].clientY };
+    const dy = Math.abs(e.touches[0].clientY - start.y);
+    const dx = Math.abs(e.touches[0].clientX - start.x);
     if (!dragging.current && (dy > 8 || dx > 8)) dragging.current = true;
     if (!dragging.current) return;
     e.preventDefault();
@@ -80,11 +90,11 @@ function useDragReorder(selected, setSelected) {
     const wasDrag = dragging.current;
     dragIdx.current = null;
     dragging.current = false;
-    touchStartY.current = null;
+    touchStart.current = null;
     return wasDrag;
   }, []);
 
-  return { onDragStart, onDragOver, onDragEnd, onTouchStart, onTouchMove, onTouchEnd, pillRefs };
+  return { onDragStart, onDragOver, onDragEnd, onTouchStart, onTouchMove, onTouchEnd, pillRefs, reorder };
 }
 
 export default function Setup({ players, onStart, back, me, playerColors, initial = null, onOpenFriends = null, onOpenBots = null }) {
@@ -119,7 +129,7 @@ export default function Setup({ players, onStart, back, me, playerColors, initia
     return a;
   });
 
-  const { onDragStart, onDragOver, onDragEnd, onTouchStart, onTouchMove, onTouchEnd, pillRefs } = useDragReorder(selected, setSelected);
+  const { onDragStart, onDragOver, onDragEnd, onTouchStart, onTouchMove, onTouchEnd, pillRefs, reorder } = useDragReorder(selected, setSelected);
 
   // the roster is my circle (me + who I follow); guests without a login
   // can still be picked once followed
@@ -199,6 +209,8 @@ export default function Setup({ players, onStart, back, me, playerColors, initia
             </button>
           ))}
         </div>
+
+        <div className="setup-options-head">{GAME_NAMES[gameType] || "Game"} {OPTION_GAMES.has(gameType) ? "options" : "rules"}</div>
 
         {gameType === "bobs27" && (
           <p className="tag mt-12" style={{ textTransform: "none", letterSpacing: 0 }}>
@@ -392,7 +404,7 @@ export default function Setup({ players, onStart, back, me, playerColors, initia
                 display: "flex",
                 alignItems: "center",
                 gap: 8,
-                padding: "8px 14px",
+                padding: "0 4px 0 14px",
                 cursor: selected.length >= 2 ? "grab" : "default",
                 userSelect: "none",
                 touchAction: selected.length >= 2 ? "none" : "auto",
@@ -405,19 +417,37 @@ export default function Setup({ players, onStart, back, me, playerColors, initia
               )}
               <span style={{ opacity: 0.6, fontSize: "calc(11px * var(--fs))", minWidth: 16, flex: "none" }}>{i + 1}.</span>
               <PlayerBadge username={u} color={playerColors?.[u]} size={20} showName={false} />
-              <span style={{ flex: 1 }}>{u}{u === meName ? " (you)" : ""}</span>
+              <span style={{ flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis" }}>{u}{u === meName ? " (you)" : ""}</span>
+              {/* buttons as well as dragging, so the throw order can be set by tap or keyboard */}
+              {selected.length >= 2 && (
+                <>
+                  <button
+                    type="button"
+                    className="setup-pill-btn"
+                    onClick={(e) => { e.stopPropagation(); reorder(i, i - 1); }}
+                    onTouchStart={(e) => e.stopPropagation()}
+                    disabled={i === 0}
+                    aria-label={`Move ${u} up`}
+                  >
+                    ▲
+                  </button>
+                  <button
+                    type="button"
+                    className="setup-pill-btn"
+                    onClick={(e) => { e.stopPropagation(); reorder(i, i + 1); }}
+                    onTouchStart={(e) => e.stopPropagation()}
+                    disabled={i === selected.length - 1}
+                    aria-label={`Move ${u} down`}
+                  >
+                    ▼
+                  </button>
+                </>
+              )}
               <button
+                type="button"
+                className="setup-pill-btn"
                 onClick={(e) => { e.stopPropagation(); remove(u); }}
-                style={{
-                  background: "none",
-                  border: "none",
-                  color: "inherit",
-                  cursor: "pointer",
-                  padding: "2px 4px",
-                  opacity: 0.7,
-                  fontSize: "calc(14px * var(--fs))",
-                  flex: "none",
-                }}
+                onTouchStart={(e) => e.stopPropagation()}
                 aria-label={`Remove ${u}`}
               >
                 ✕
@@ -428,7 +458,7 @@ export default function Setup({ players, onStart, back, me, playerColors, initia
 
         {selected.length >= 2 && (
           <p className="tag" style={{ marginTop: 8, textTransform: "none", letterSpacing: 0 }}>
-            Drag to reorder. Player 1 throws first.
+            Drag or use ▲ ▼ to reorder. Player 1 throws first.
           </p>
         )}
 

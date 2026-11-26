@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { CricketHint } from "./StrategyHint";
-import { X01_TARGETS, CRICKET_VALUE } from "@/lib/constants";
+import { X01_TARGETS } from "@/lib/constants";
+import { applyCricketVisit, blankCricketPlayer, canEndTurn, cricketClosedNotWinning, cricketWinner } from "@/lib/cricket";
 import { markSymbol } from "@/lib/darts";
 import DartBoard from "./DartBoard";
 import Celebration from "./Celebration";
@@ -19,14 +20,7 @@ export default function PlayCricket({ game, resume, onProgress, onFinish, onQuit
 
   const blank = () => {
     const st = players.reduce((o, u) => {
-      o[u] = {
-        marks: { 20: 0, 19: 0, 18: 0, 17: 0, 16: 0, 15: 0, B: 0 },
-        points: 0,
-        markCount: 0,
-        rounds: 0,
-        roundMarks: [],
-        log: [],
-      };
+      o[u] = blankCricketPlayer();
       return o;
     }, {});
     st.rec = createRecorder({ players, startedAt: game.startedAt });
@@ -47,7 +41,6 @@ export default function PlayCricket({ game, resume, onProgress, onFinish, onQuit
   }, [state, turn, darts, ring, history, onProgress]);
 
   const cur = players[turn % players.length];
-  const allClosed = (marks) => X01_TARGETS.every((t) => marks[t] >= 3);
 
   // target "M" is a miss (off 20–15 and bull); `land` is a bot's real landing
   const addDart = (target, ringOverride, land) => {
@@ -87,85 +80,31 @@ export default function PlayCricket({ game, resume, onProgress, onFinish, onQuit
     });
   };
 
+  const lastEndRef = useRef(0); // when the last turn ended, to drop a double tap on End turn
+
   const endTurn = () => {
+    // a turn needs at least one dart (Miss counts), and a second tap right
+    // after a turn ends is a double tap, not the next player's empty turn
+    const now = Date.now();
+    if (doneRef.current || !canEndTurn(darts.length, lastEndRef.current, now)) return;
+    lastEndRef.current = now;
     setHistory((h) => [...h, { state: JSON.parse(JSON.stringify(state)), turn }]);
     const ns = JSON.parse(JSON.stringify(state));
-    const me = ns[cur];
-
-    if (!me.roundMarks) me.roundMarks = []; // resumed games saved before per-round tracking
-    let roundMarks = 0;
-    let dead = 0;
-    const s0 = { m: { ...me.marks }, p: me.points };
-    const recDarts = [];
-
-    for (const dt of darts) {
-      if (dt.target === "M") {
-        // a miss: the real landing when a bot threw it, else unknown (0/0)
-        const land = dt.land ? { n: dt.land.n, mult: dt.land.mult } : { n: 0, mult: 0 };
-        me.log.push(land);
-        recDarts.push({ ...land, t: dt.t, x: { m: 0 } });
-        continue;
-      }
-      const before = me.marks[dt.target];
-      const after = before + dt.ring;
-      const anyOpen = players.some((o) => o !== cur && ns[o].marks[dt.target] < 3);
-      me.marks[dt.target] = after;
-      me.log.push({ n: numOf(dt.target), mult: dt.ring });
-      // Standard MPR: hits that advance your close always count; extra hits
-      // count only when they can score (an opponent still has the number open).
-      // Dead darts (everyone closed / no-score variant surplus) count 0.
-      const closingHits = Math.min(after, 3) - Math.min(before, 3);
-      const scoringHits = Math.max(0, after - 3) - Math.max(0, before - 3);
-      const liveScoring = variant !== "noscore" && anyOpen ? scoringHits : 0;
-      me.markCount += closingHits + liveScoring;
-      roundMarks += closingHits + liveScoring;
-      dead += dt.ring - (closingHits + liveScoring);
-      recDarts.push({ n: numOf(dt.target), mult: dt.ring, t: dt.t, x: { m: closingHits + liveScoring } });
-      if (scoringHits > 0) {
-        const value = CRICKET_VALUE[dt.target] * scoringHits;
-        if (variant === "noscore") {
-          // no points
-        } else if (variant === "cutthroat") {
-          players.forEach((o) => {
-            if (o !== cur && ns[o].marks[dt.target] < 3) ns[o].points += value;
-          });
-        } else {
-          if (anyOpen) me.points += value;
-        }
-      }
-    }
-    me.rounds += 1;
-    me.roundMarks.push(roundMarks);
+    const s0 = { m: { ...ns[cur].marks }, p: ns[cur].points };
+    const { roundMarks, dead, recDarts } = applyCricketVisit(ns, cur, darts, { players, variant });
     recordVisit(ns.rec, cur, {
       r: Math.floor(turn / players.length),
       s0,
       darts: recDarts,
-      out: { marks: roundMarks, pts: me.points - s0.p, dead },
+      out: { marks: roundMarks, pts: ns[cur].points - s0.p, dead },
     });
     setState(ns);
     setDarts([]);
 
-    if (variant === "noscore") {
-      if (allClosed(ns[cur].marks)) {
-        setCeleb({ type: "close", label: "All closed!" });
-        return finish(ns, cur);
-      }
-    } else if (variant === "cutthroat") {
-      if (players.some((u) => allClosed(ns[u].marks))) {
-        let winner = players[0];
-        players.forEach((u) => {
-          if (ns[u].points < ns[winner].points) winner = u;
-        });
-        setCeleb({ type: "close", label: "All closed!" });
-        return finish(ns, winner);
-      }
-    } else {
-      const closedAll = allClosed(ns[cur].marks);
-      const leads = players.every((u) => u === cur || ns[cur].points >= ns[u].points);
-      if (closedAll && leads) {
-        setCeleb({ type: "close", label: "All closed!" });
-        return finish(ns, cur);
-      }
+    const winner = cricketWinner(ns, { players, variant, cur });
+    if (winner) {
+      setCeleb({ type: "close", label: "All closed!" });
+      return finish(ns, winner);
     }
     setTurn((t) => t + 1);
   };
@@ -219,6 +158,8 @@ export default function PlayCricket({ game, resume, onProgress, onFinish, onQuit
   const liveMpr = (u) =>
     state[u].rounds ? (state[u].markCount / state[u].rounds).toFixed(2) : "—";
   const roundNo = Math.floor(turn / players.length) + 1;
+  // closed every number but behind on points: the game goes on, say why
+  const waiting = cricketClosedNotWinning(state, { players, variant });
 
   return (
     <div className="fade">
@@ -236,9 +177,16 @@ export default function PlayCricket({ game, resume, onProgress, onFinish, onQuit
       </div>
 
       {!bot && <CricketHint variant={variant} me={cur} players={players} state={state} prefs={hints?.prefs} />}
+      {waiting.length > 0 && (
+        <div className="cricket-waiting mb-12" role="status">
+          {waiting.map((u) => playerLabel(u)).join(" and ")} {waiting.length > 1 ? "have" : "has"} closed every number, but{" "}
+          {variant === "cutthroat" ? `${waiting.length > 1 ? "aren't" : "isn't"} lowest on points` : `${waiting.length > 1 ? "don't" : "doesn't"} lead on points`}. Play on.
+        </div>
+      )}
+
       {!castActive && (
       <div className="card pad-sm mb-12" style={{ overflowX: "auto" }}>
-        <table className="cricket-table">
+        <table className="cricket-table cricket-board">
           <thead>
             <tr>
               <th style={{ textAlign: "left" }}></th>
@@ -252,7 +200,11 @@ export default function PlayCricket({ game, resume, onProgress, onFinish, onQuit
           <tbody>
             {players.map((u) => (
               <tr key={u} className={u === cur ? "active" : ""}>
-                <td style={{ textAlign: "left", whiteSpace: "nowrap" }}><PlayerBadge username={u} color={playerColors?.[u]} size={18} /></td>
+                <td className="cricket-who">
+                  {/* avatar and name only: the tag pill pushed Bull, Pts and MPR off a phone screen */}
+                  <PlayerBadge username={u} color={playerColors?.[u]} size={18} showName={false} />
+                  <span className="cricket-name">{playerLabel(u)}</span>
+                </td>
                 {X01_TARGETS.map((t) => (
                   <td
                     key={t}
@@ -325,14 +277,14 @@ export default function PlayCricket({ game, resume, onProgress, onFinish, onQuit
               {d.target === "M" ? "Miss" : `${d.ring === 1 ? "S" : d.ring === 2 ? "D" : "T"}${d.target}`} ✕
             </button>
           ))}
-          {darts.length === 0 && <span className="tag">no darts entered yet</span>}
+          {darts.length === 0 && <span className="tag">no darts yet (a dart off the numbers is a Miss)</span>}
         </div>
 
         <div className="row mt-12">
           <button className="chip chip-undo" style={{ flex: 1, width: "auto", marginTop: 0 }} onClick={undo} disabled={!darts.length && !history.length}>
             <UndoIcon /> Undo
           </button>
-          <button className="btn btn-primary" style={{ flex: 2 }} onClick={endTurn}>
+          <button className="btn btn-primary" style={{ flex: 2 }} onClick={() => endTurn()} disabled={!darts.length}>
             End turn
           </button>
         </div>

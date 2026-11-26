@@ -406,6 +406,72 @@ a:focus-visible {
   opacity: 0.35;
 }
 
+/* X01: a finishing dart waits for Confirm or Undo before the leg counts */
+.x01-confirm {
+  margin-bottom: 12px;
+  padding: 12px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--live);
+  background: var(--live-soft);
+}
+.x01-confirm-text {
+  font-family: var(--font-display-stack);
+  font-weight: 700;
+  font-size: calc(17px * var(--fs));
+  margin-bottom: 4px;
+}
+.x01-confirm .btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 12px 0;
+}
+.x01-confirm-timer {
+  height: 4px;
+  margin-top: 8px;
+  border-radius: 2px;
+  background: var(--line);
+  overflow: hidden;
+}
+.x01-confirm-timer > span {
+  display: block;
+  height: 100%;
+  background: var(--live);
+  transform-origin: left;
+  animation: x01-confirm-countdown linear forwards;
+}
+@keyframes x01-confirm-countdown {
+  from { transform: scaleX(1); }
+  to { transform: scaleX(0); }
+}
+
+/* Around the Clock quick entry: one big Hit key and Miss */
+.atc-quick {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: 10px;
+}
+.atc-quick .chip {
+  padding: 26px 0;
+  font-size: calc(22px * var(--fs));
+}
+.atc-quick .chip.on {
+  background: var(--live);
+  border-color: var(--live);
+  color: #fff;
+}
+.atc-keypad-toggle {
+  background: none;
+  border: none;
+  padding: 8px 0;
+  min-height: 44px;
+  color: var(--accent);
+  font-weight: 600;
+  font-size: calc(13px * var(--fs));
+  cursor: pointer;
+}
+
 /* ---------- inputs ---------- */
 .input,
 .select {
@@ -554,6 +620,43 @@ a:focus-visible {
 }
 .cricket-table tr.active {
   background: var(--live-soft);
+}
+/* name cell: avatar plus a name that ellipsizes, so the targets, Pts and
+   MPR keep their room on a phone */
+.cricket-table td.cricket-who {
+  text-align: left;
+  white-space: nowrap;
+  max-width: calc(96px * var(--fs));
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.cricket-table td.cricket-who > span:first-child {
+  vertical-align: middle;
+  margin-right: 5px;
+}
+.cricket-name {
+  font-weight: 700;
+  vertical-align: middle;
+}
+.cricket-board th,
+.cricket-board td {
+  padding-left: 2px;
+  padding-right: 2px;
+}
+.cricket-board td.num {
+  min-width: 1.5em;
+}
+/* rows of players who can no longer throw (baseball extra innings) */
+.cricket-table tr.out {
+  opacity: 0.4;
+}
+.cricket-waiting {
+  padding: 9px 12px;
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--amber) 14%, transparent);
+  border: 1px solid color-mix(in srgb, var(--amber) 45%, transparent);
+  font-size: calc(13px * var(--fs));
+  font-weight: 600;
 }
 
 /* ---------- bottom nav ---------- */
@@ -2802,6 +2905,43 @@ html:not([data-theme="dark"]) .app.is-profile {
 .bot-avatar.is-locked {
   filter: grayscale(1);
   opacity: 0.45;
+}
+/* New Game: the chosen game's settings get their own heading and divider */
+.setup-options-head {
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px solid var(--line);
+  font-size: calc(11px * var(--fs-chrome));
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--ink);
+}
+.setup-options-head + .mt-12 {
+  margin-top: 8px;
+}
+/* move and remove keys on a player pill: full 44px touch targets */
+.setup-pill-btn {
+  flex: none;
+  width: 44px;
+  height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  border: none;
+  color: inherit;
+  cursor: pointer;
+  opacity: 0.8;
+  font-size: calc(14px * var(--fs));
+  border-radius: var(--radius-sm);
+}
+.setup-pill-btn:disabled {
+  opacity: 0.25;
+  cursor: default;
+}
+.setup-pill-btn:not(:disabled):hover {
+  background: rgba(255, 255, 255, 0.14);
 }
 .setup-bot-card {
   display: flex;

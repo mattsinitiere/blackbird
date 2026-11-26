@@ -10,6 +10,7 @@ import { ALTER_EGO_ID, botFromConfig, throwForAlterEgo } from "@/lib/alterEgo";
 import { X01Hint } from "./StrategyHint";
 import { useBotTurn } from "@/lib/useBotTurn";
 import { createRecorder, ensureRecorder, stamp, recordVisit, finishRecorder, stripDarts } from "@/lib/recorder";
+import { x01VisitOutcome, checkoutConfirmation } from "@/lib/x01log";
 
 export default function PlayX01({ game, resume, onProgress, onFinish, onQuit, castActive, playerColors, hints = null, me = null }) {
   const { players, config } = game;
@@ -42,11 +43,14 @@ export default function PlayX01({ game, resume, onProgress, onFinish, onQuit, ca
   const [celeb, setCeleb] = useState(null);
   const [legsWon, setLegsWon] = useState(() => resume?.legsWon ?? players.reduce((o, u) => ((o[u] = 0), o), {}));
   const [legHistory, setLegHistory] = useState(() => resume?.legHistory ?? []);
+  // a finishing dart waits here until it's confirmed (or undone), so one
+  // mis-tap can't hand out a leg or a ranked result: { darts, autoMs }
+  const [pendingWin, setPendingWin] = useState(() => resume?.pendingWin ?? null);
   const doneRef = useRef(false); // set once onFinish fires; stops a trailing bot throw
 
   useEffect(() => {
-    onProgress && onProgress({ s, turn, turnDarts, mult, msg, history, legsWon, legHistory });
-  }, [s, turn, turnDarts, mult, msg, history, legsWon, legHistory, onProgress]);
+    onProgress && onProgress({ s, turn, turnDarts, mult, msg, history, legsWon, legHistory, pendingWin });
+  }, [s, turn, turnDarts, mult, msg, history, legsWon, legHistory, pendingWin, onProgress]);
 
   const cur = players[turn % players.length];
   const turnSum = turnDarts.reduce((a, d) => a + dartValue(d), 0);
@@ -146,7 +150,8 @@ export default function PlayX01({ game, resume, onProgress, onFinish, onQuit, ca
         });
         const legsPlayed = nb.legs[cur].length;
         setS(nb);
-        setHistory([]);
+        // only the finishing visit stays undoable, so Undo can reopen the leg
+        setHistory([{ s: JSON.parse(JSON.stringify(s)), turn, legsWon, legHistory }]);
         // the throw alternates each leg
         setTurn(legsPlayed % players.length);
         setMsg(`${playerLabel(cur)} wins leg ${newLegsWon[cur]}!`);
@@ -162,22 +167,45 @@ export default function PlayX01({ game, resume, onProgress, onFinish, onQuit, ca
   };
 
   const addDart = (raw) => {
+    if (pendingWin) return;
     const dart = stamp(raw, game.startedAt);
     const next = [...turnDarts, dart];
-    const rem = s.scores[cur] - next.reduce((a, d) => a + dartValue(d), 0);
-    if (rem < 0) return commit(next, "bust");
-    if (rem === 0) {
-      if (!config.doubleOut || dart.mult === 2) return commit(next, "win");
-      return commit(next, "bust");
+    const kind = x01VisitOutcome(s.scores[cur], next, !!config.doubleOut);
+    if (kind === "win") {
+      const hold = checkoutConfirmation({ isBot: !!bot, legsWon: legsWon[cur], legs });
+      if (!hold.hold) return commit(next, "win");
+      setTurnDarts(next);
+      setMsg("");
+      setPendingWin({ darts: next, autoMs: hold.autoMs });
+      return;
     }
-    if (config.doubleOut && rem === 1) return commit(next, "bust");
-    if (next.length === 3) return commit(next, "normal");
+    if (kind) return commit(next, kind);
     setMsg("");
     setTurnDarts(next);
     setMult(1); // back to Single after every dart — a stuck Double/Triple is the easiest way to mis-score
   };
 
+  const confirmWin = () => {
+    if (!pendingWin) return;
+    const darts = pendingWin.darts;
+    setPendingWin(null);
+    commit(darts, "win");
+  };
+  const confirmRef = useRef(confirmWin);
+  confirmRef.current = confirmWin;
+  // a leg that doesn't end the match counts by itself after a few seconds
+  useEffect(() => {
+    if (!pendingWin?.autoMs) return;
+    const id = setTimeout(() => confirmRef.current(), pendingWin.autoMs);
+    return () => clearTimeout(id);
+  }, [pendingWin]);
+
   const undo = () => {
+    if (pendingWin) {
+      setPendingWin(null);
+      setTurnDarts((d) => d.slice(0, -1));
+      return;
+    }
     if (turnDarts.length > 0) {
       setTurnDarts((d) => d.slice(0, -1));
       return;
@@ -187,6 +215,9 @@ export default function PlayX01({ game, resume, onProgress, onFinish, onQuit, ca
       const last = h[h.length - 1];
       setS(last.s);
       setTurn(last.turn);
+      // undoing a leg's finishing visit reopens that leg
+      if (last.legsWon) setLegsWon(last.legsWon);
+      if (last.legHistory) setLegHistory(last.legHistory);
       setMsg("");
       return h.slice(0, -1);
     });
@@ -233,7 +264,13 @@ export default function PlayX01({ game, resume, onProgress, onFinish, onQuit, ca
       <div
         style={{
           display: "grid",
-          gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, calc(120px * var(--fs))), 1fr))",
+          // the column minimum follows the gentler chrome scale, and 3-4
+          // players always get two columns, so the keypad stays on screen
+          // at Huge text; the score shrinks to its card instead
+          gridTemplateColumns:
+            players.length >= 3
+              ? "repeat(auto-fit, minmax(min(calc(50% - 5px), calc(120px * var(--fs-chrome))), 1fr))"
+              : "repeat(auto-fit, minmax(min(100%, calc(120px * var(--fs-chrome))), 1fr))",
           gap: 10,
           marginBottom: 12,
         }}
@@ -248,15 +285,18 @@ export default function PlayX01({ game, resume, onProgress, onFinish, onQuit, ca
               style={{
                 borderColor: active ? "var(--live)" : "var(--line)",
                 background: active ? "var(--live-soft)" : "var(--surface)",
+                containerType: "inline-size",
+                minWidth: 0,
+                overflow: "hidden",
               }}
             >
               <div className="between">
-                <PlayerBadge username={u} color={playerColors?.[u]} size={20} />
+                <PlayerBadge username={u} color={playerColors?.[u]} size={20} showTag={players.length < 3} />
                 {active && <span className="tag" style={{ color: "var(--accent)" }}>at the oche</span>}
               </div>
               <div
                 className="num"
-                style={{ fontSize: "calc(44px * var(--fs))", lineHeight: 1.05, marginTop: 2, color: shown <= 40 ? "var(--red)" : "var(--ink)" }}
+                style={{ fontSize: "min(calc(44px * var(--fs)), 34cqi)", lineHeight: 1.05, marginTop: 2, color: shown <= 40 ? "var(--red)" : "var(--ink)" }}
               >
                 {shown}
               </div>
@@ -270,7 +310,7 @@ export default function PlayX01({ game, resume, onProgress, onFinish, onQuit, ca
       </div>
       )}
 
-      {!bot && !doneRef.current && turnDarts.length < 3 && (
+      {!bot && !doneRef.current && !pendingWin && turnDarts.length < 3 && (
         <X01Hint remaining={remaining} dartsLeft={3 - turnDarts.length} doubleOut={!!config.doubleOut} prefs={hints?.prefs} evidence={cur === me ? hints?.evidence : null} />
       )}
 
@@ -293,7 +333,31 @@ export default function PlayX01({ game, resume, onProgress, onFinish, onQuit, ca
           ))}
         </div>
 
-        <div style={botLock}>
+        {pendingWin && (
+          <div className="x01-confirm" role="alertdialog" aria-label="Confirm checkout">
+            <div className="x01-confirm-text">
+              {playerLabel(cur)} checks out {s.scores[cur]} on {dartLabel(pendingWin.darts[pendingWin.darts.length - 1])}
+            </div>
+            <div className="tag" style={{ textTransform: "none", letterSpacing: 0 }}>
+              {pendingWin.autoMs ? "Counts in a few seconds. Wrong key? Undo the dart." : "Wrong key? Undo the dart. The result is saved once you confirm."}
+            </div>
+            {pendingWin.autoMs && (
+              <div className="x01-confirm-timer" aria-hidden="true">
+                <span style={{ animationDuration: `${pendingWin.autoMs}ms` }} />
+              </div>
+            )}
+            <div className="row" style={{ marginTop: 10 }}>
+              <button className="btn" style={{ flex: 1 }} onClick={undo}>
+                <UndoIcon /> Undo dart
+              </button>
+              <button className="btn btn-primary" style={{ flex: 1 }} onClick={confirmWin}>
+                {isLegs && !checkoutConfirmation({ isBot: false, legsWon: legsWon[cur], legs }).winsMatch ? "Confirm leg" : "Confirm win"}
+              </button>
+            </div>
+          </div>
+        )}
+
+        <div style={pendingWin ? { opacity: 0.35, pointerEvents: "none" } : botLock} aria-hidden={pendingWin ? true : undefined}>
         <div className="row mb-12">
           {[1, 2, 3].map((m) => (
             <button
