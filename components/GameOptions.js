@@ -29,7 +29,7 @@ export function X01Options({ startScore, setStartScore, doubleOut, setDoubleOut,
           checked={doubleOut}
           onChange={(e) => setDoubleOut(e.target.checked)}
         />
-        <span>Double out (finish on exactly 0; can&apos;t leave 1)</span>
+        <span>Double out (your last dart must be a double, e.g. D16 or Bull)</span>
       </label>
       <div className="tag" style={{ marginTop: 12, marginBottom: 6 }}>Legs</div>
       <div className="row">
@@ -80,7 +80,8 @@ export function BaseballNote() {
   return (
     <p className="tag mt-12" style={{ textTransform: "none", letterSpacing: 0 }}>
       9 innings. In inning N you aim at number N; single/double/triple = 1/2/3 runs.
-      Most runs after 9 innings wins.
+      Most runs after 9 innings wins. If the lead is shared, only the tied leaders play
+      extra innings until one of them is ahead.
     </p>
   );
 }

@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { BASEBALL_INNINGS } from "@/lib/constants";
+import { baseballAfterVisit, baseballContenders } from "@/lib/baseball";
 import DartBoard from "./DartBoard";
 import { PlayerBadge, UndoIcon } from "./ui";
 import { botFor, playerLabel } from "@/lib/bots";
@@ -53,32 +54,28 @@ export default function PlayBaseball({ game, resume, onProgress, onFinish, onQui
     setState(ns);
     setTurnDarts([]);
 
-    const newTurn = turn + 1;
-    const completedInnings = Math.floor(newTurn / n);
-    if (newTurn % n === 0 && completedInnings >= BASEBALL_INNINGS) {
-      const max = Math.max(...players.map((u) => ns[u].total));
-      const leaders = players.filter((u) => ns[u].total === max);
-      if (leaders.length === 1 || n === 1) {
-        const winner = leaders[0] || cur;
-        doneRef.current = true;
-        const completedAt = new Date().toISOString();
-        const perPlayer = {};
-        players.forEach((u) => {
-          perPlayer[u] = { runs: ns[u].total, innings: ns[u].innings, dartsThrown: ns[u].log.length, darts: ns[u].log, ...finishRecorder(ns.rec, u, completedAt) };
-        });
-        onFinish({
-          id: game.id,
-          gameType: "baseball",
-          config: game.config?.alterEgo ? { alterEgo: game.config.alterEgo } : {},
-          players,
-          winner,
-          perPlayer,
-          completedAt,
-        });
-        return;
-      }
+    // after nine, only the tied leaders play on (lib/baseball.js)
+    const after = baseballAfterVisit(ns, players, turn);
+    if (after.done) {
+      const winner = after.winner;
+      doneRef.current = true;
+      const completedAt = new Date().toISOString();
+      const perPlayer = {};
+      players.forEach((u) => {
+        perPlayer[u] = { runs: ns[u].total, innings: ns[u].innings, dartsThrown: ns[u].log.length, darts: ns[u].log, ...finishRecorder(ns.rec, u, completedAt) };
+      });
+      onFinish({
+        id: game.id,
+        gameType: "baseball",
+        config: game.config?.alterEgo ? { alterEgo: game.config.alterEgo } : {},
+        players,
+        winner,
+        perPlayer,
+        completedAt,
+      });
+      return;
     }
-    setTurn(newTurn);
+    setTurn(after.turn);
   };
 
   const undo = () => {
@@ -109,6 +106,7 @@ export default function PlayBaseball({ game, resume, onProgress, onFinish, onQui
   });
   const botLock = bot ? { opacity: 0.5, pointerEvents: "none" } : undefined;
 
+  const contenders = baseballContenders(state, players, inning);
   const colCount = Math.max(inning, BASEBALL_INNINGS);
   const cols = Array.from({ length: colCount }, (_, i) => i + 1);
   const liveRuns = turnDarts.reduce((a, d) => a + (d.n === target ? d.mult : 0), 0);
@@ -140,7 +138,7 @@ export default function PlayBaseball({ game, resume, onProgress, onFinish, onQui
           </thead>
           <tbody>
             {players.map((u) => (
-              <tr key={u} className={u === cur ? "active" : ""}>
+              <tr key={u} className={u === cur ? "active" : contenders.includes(u) ? "" : "out"}>
                 <td style={{ textAlign: "left", whiteSpace: "nowrap" }}><PlayerBadge username={u} color={playerColors?.[u]} size={18} /></td>
                 {cols.map((c) => (
                   <td key={c} className="num">
@@ -155,6 +153,13 @@ export default function PlayBaseball({ game, resume, onProgress, onFinish, onQui
           </tbody>
         </table>
       </div>
+      )}
+
+      {isExtra && (
+        <div className="cricket-waiting mb-12" role="status">
+          Extra innings: {contenders.map((u) => playerLabel(u)).join(" and ")} {contenders.length > 1 ? "were" : "was"} level after{" "}
+          {inning - 1}, so only they throw. Everyone else&apos;s total is final.
+        </div>
       )}
 
       <div className="card">
