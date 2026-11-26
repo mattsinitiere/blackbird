@@ -15,7 +15,7 @@ import { normalizeHandle, validateHandle } from "@/lib/profile";
 import { PROFILE_PARAM, resolveProfileParam } from "@/lib/profileLink";
 import { computeStats, eloMapFromPlayers, applyEloUpdate } from "@/lib/stats";
 import { ADMIN_EMAIL, defaultPlayerColor } from "@/lib/constants";
-import { applyFontScale } from "@/lib/prefs";
+import { applyFontScale, applyThemePref } from "@/lib/prefs";
 import { feedback, setFeedbackPrefs } from "@/lib/feedback";
 import { makeCastCode, openCastChannel, castAvailable, stripHistory } from "@/lib/cast";
 import { buildSummary } from "@/lib/summary";
@@ -276,7 +276,7 @@ export default function Page() {
   useEffect(() => {
     if (typeof document === "undefined") return;
     const meta = (session && session.user && session.user.user_metadata) || {};
-    document.documentElement.dataset.theme = meta.theme === "dark" ? "dark" : "light";
+    applyThemePref(meta.theme);
     document.documentElement.style.removeProperty("--accent");
     applyFontScale(meta.fontScale);
     setFeedbackPrefs({ haptics: meta.haptics !== false, sounds: meta.sounds === true });
@@ -927,7 +927,10 @@ export default function Page() {
           <div
             className="card pad-sm mb-12 clickable"
             style={{ display: "flex", alignItems: "center", gap: 12, borderColor: "var(--accent)" }}
-            {...pressProps(() => setView("account"))}
+            {...pressProps(() => {
+              setAccountFocus("handle");
+              setView("account");
+            })}
           >
             <PlayerBadge username={myPlayer.username} color={playerColors[myPlayer.username]} size={28} showName={false} />
             <div style={{ flex: 1 }}>

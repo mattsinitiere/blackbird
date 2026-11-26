@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { supabase, isConfigured } from "@/lib/supabase";
-import AuthCard, { NotConfigured, FormMessage } from "./AuthCard";
+import AuthCard, { NotConfigured, FormMessage, Field, PasswordInput } from "./AuthCard";
 
 const MIN_PASSWORD = 6;
 const CODE_LENGTH = 6;
@@ -133,9 +133,13 @@ export default function SetPasswordForm({ mode = "reset" }) {
         <p className="subtle" style={{ marginTop: phase === "expired" ? 10 : 0 }}>
           Enter your email and the {CODE_LENGTH}-digit code from the {mode === "invite" ? "invite" : "reset"} email.
         </p>
-        <form onSubmit={verifyCode} className="stack-8" noValidate>
-          <input className="input" type="email" placeholder="email" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} aria-label="Email" />
+        <form onSubmit={verifyCode} className="stack" noValidate>
+          <Field id="setpw-email" label="Email">
+            <input id="setpw-email" className="input" type="email" placeholder="you@example.com" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} />
+          </Field>
+          <Field id="setpw-code" label="Code from the email">
           <input
+            id="setpw-code"
             className="input"
             type="text"
             inputMode="numeric"
@@ -144,9 +148,9 @@ export default function SetPasswordForm({ mode = "reset" }) {
             maxLength={CODE_LENGTH + 2}
             value={code}
             onChange={(e) => setCode(e.target.value.replace(/[^\d ]/g, ""))}
-            aria-label="Verification code"
             style={{ letterSpacing: "0.3em", fontVariantNumeric: "tabular-nums" }}
           />
+          </Field>
           <FormMessage>{msg}</FormMessage>
           <button className="btn btn-primary mt-12" style={{ width: "100%", padding: 14 }} type="submit" disabled={busy}>
             {busy ? "…" : "Continue"}
@@ -158,9 +162,13 @@ export default function SetPasswordForm({ mode = "reset" }) {
 
   return (
     <AuthCard title={mode === "invite" ? "Choose a password" : "Choose a new password"}>
-      <form onSubmit={savePassword} className="stack-8" noValidate>
-        <input className="input" type="password" placeholder={`password (min ${MIN_PASSWORD} characters)`} autoComplete="new-password" value={password} onChange={(e) => setPassword(e.target.value)} aria-label="New password" />
-        <input className="input" type="password" placeholder="confirm password" autoComplete="new-password" value={confirm} onChange={(e) => setConfirm(e.target.value)} aria-label="Confirm password" />
+      <form onSubmit={savePassword} className="stack" noValidate>
+        <Field id="setpw-new" label="New password">
+          <PasswordInput id="setpw-new" placeholder={`At least ${MIN_PASSWORD} characters`} autoComplete="new-password" value={password} onChange={(e) => setPassword(e.target.value)} />
+        </Field>
+        <Field id="setpw-confirm" label="Confirm password">
+          <PasswordInput id="setpw-confirm" autoComplete="new-password" value={confirm} onChange={(e) => setConfirm(e.target.value)} />
+        </Field>
         <FormMessage>{msg}</FormMessage>
         <button className="btn btn-primary mt-12" style={{ width: "100%", padding: 14 }} type="submit" disabled={busy}>
           {busy ? "…" : mode === "invite" ? "Save and start playing" : "Save new password"}

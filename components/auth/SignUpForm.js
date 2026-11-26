@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { isConfigured } from "@/lib/supabase";
 import { normalizeHandle, suggestHandle, validateHandle } from "@/lib/profile";
-import AuthCard, { NotConfigured, FormMessage } from "./AuthCard";
+import AuthCard, { NotConfigured, FormMessage, Field } from "./AuthCard";
 
 /**
  * Invite-only account creation. The server checks the invite code and sends
@@ -67,30 +67,34 @@ export default function SignUpForm() {
       <p className="subtle" style={{ marginTop: 0 }}>
         Blackbird is invite-only right now. Enter the code you were given and we&apos;ll email you a link to finish setting up.
       </p>
-      <form onSubmit={submit} className="stack-8" noValidate>
+      <form onSubmit={submit} className="stack" noValidate>
+        <Field id="signup-code" label="Invite code">
         <input
+          id="signup-code"
           className="input"
           type="text"
-          placeholder="invite code"
           autoCapitalize="none"
           autoCorrect="off"
           spellCheck={false}
           value={code}
           onChange={(e) => setCode(e.target.value)}
-          aria-label="Invite code"
         />
+        </Field>
+        <Field id="signup-name" label="Display name">
         <input
+          id="signup-name"
           className="input"
           type="text"
-          placeholder="display name"
+          placeholder="What friends call you"
           autoComplete="name"
           value={displayName}
           onChange={(e) => {
             setDisplayName(e.target.value);
             if (!handleTouched) setHandle(suggestHandle(e.target.value));
           }}
-          aria-label="Display name"
         />
+        </Field>
+        <Field id="signup-handle" label="Handle">
         <div style={{ position: "relative" }}>
           <span
             aria-hidden="true"
@@ -99,9 +103,9 @@ export default function SignUpForm() {
             @
           </span>
           <input
+            id="signup-handle"
             className="input"
             type="text"
-            placeholder="handle"
             autoCapitalize="none"
             autoCorrect="off"
             spellCheck={false}
@@ -111,21 +115,23 @@ export default function SignUpForm() {
               setHandleTouched(true);
               setHandle(normalizeHandle(e.target.value));
             }}
-            aria-label="Handle"
           />
         </div>
-        <p className="tag" style={{ margin: 0, textTransform: "none", letterSpacing: 0, color: handle && !handleCheck.ok ? "var(--red)" : undefined }}>
+        <p className="tag" style={{ margin: "6px 0 0", textTransform: "none", letterSpacing: 0, color: handle && !handleCheck.ok ? "var(--red)" : undefined }}>
           {handle && !handleCheck.ok ? handleCheck.reason : "Your @handle is how friends find you. Letters, numbers, underscores."}
         </p>
+        </Field>
+        <Field id="signup-email" label="Email">
         <input
+          id="signup-email"
           className="input"
           type="email"
-          placeholder="email"
+          placeholder="you@example.com"
           autoComplete="email"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
-          aria-label="Email"
         />
+        </Field>
         <FormMessage>{msg}</FormMessage>
         <button className="btn btn-primary mt-12" style={{ width: "100%", padding: 14 }} type="submit" disabled={busy}>
           {busy ? "…" : "Send my invite"}

@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { supabase, isConfigured } from "@/lib/supabase";
-import AuthCard, { NotConfigured, FormMessage } from "./AuthCard";
+import AuthCard, { NotConfigured, FormMessage, Field } from "./AuthCard";
 
 export default function ResetRequestForm() {
   const [email, setEmail] = useState("");
@@ -43,16 +43,18 @@ export default function ResetRequestForm() {
 
   return (
     <AuthCard title="Reset password" links={[{ href: "/login", label: "Back to sign in" }]}>
-      <form onSubmit={submit} className="stack-8" noValidate>
-        <input
-          className="input"
-          type="email"
-          placeholder="email"
-          autoComplete="email"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          aria-label="Email"
-        />
+      <form onSubmit={submit} className="stack" noValidate>
+        <Field id="reset-email" label="Email">
+          <input
+            id="reset-email"
+            className="input"
+            type="email"
+            placeholder="you@example.com"
+            autoComplete="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+          />
+        </Field>
         <FormMessage>{msg}</FormMessage>
         <button className="btn btn-primary mt-12" style={{ width: "100%", padding: 14 }} type="submit" disabled={busy}>
           {busy ? "…" : "Email me a reset link"}
