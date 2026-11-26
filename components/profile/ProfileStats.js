@@ -99,12 +99,12 @@ function ModePicker({ mode, onMode, practiceGames }) {
  * practice games by lib/practiceStats.js. No Elo anywhere: practice never
  * moves it. `data` is null when the chosen range holds no practice.
  */
-function PracticeStats({ data, label, onPeriod, deep = null }) {
+function PracticeStats({ data, label, lastGame = null, onPeriod, deep = null }) {
   if (!data) {
     return (
       <div className="card pf-empty-card mb-12">
         <p className="pf-empty-title">No practice in this range</p>
-        <p className="pf-empty">{label}. Pick a longer range to see more.</p>
+        <p className="pf-empty">{label}.{lastGame ? ` Last practice ${fmtDate(lastGame)}.` : ""} Pick a longer range to see more.</p>
         {onPeriod && (
           <button type="button" className="btn btn-sm" onClick={() => onPeriod("all")}>
             Show All Time
@@ -194,7 +194,7 @@ function PracticeStats({ data, label, onPeriod, deep = null }) {
  * both kinds of game) swaps every block between the two; a player with
  * only practice games lands on Practice.
  */
-export default function ProfileStats({ onAskAI = null, user, player, stats, allStats = stats, elo, timeline, career, practiceRows, practiceStats = null, deepRanked = null, deepPractice = null, practiceGames = 0, hasPractice = false, mode = "ranked", onMode = null, period = "all", bounds = {}, custom = {}, onPeriod, onCustom, onOpenPractice, openGame, playerColors, rivalryCard, empty }) {
+export default function ProfileStats({ onAskAI = null, user, player, stats, allStats = stats, elo, timeline, career, practiceRows, practiceStats = null, deepRanked = null, deepPractice = null, practiceGames = 0, hasPractice = false, mode = "ranked", onMode = null, lastGame = null, period = "all", bounds = {}, custom = {}, onPeriod, onCustom, onOpenPractice, openGame, playerColors, rivalryCard, empty }) {
   const label = periodLabel(period, bounds);
   // with an odd number of charts, Elo spans both desktop columns so the grid has no gap
   const eloWide = !!stats && (2 + (stats.x01?.games > 0 ? 1 : 0) + (stats.cricket?.games > 0 ? 1 : 0)) % 2 === 1;
@@ -206,7 +206,7 @@ export default function ProfileStats({ onAskAI = null, user, player, stats, allS
       <>
         {allStats && onMode && <ModePicker mode="practice" onMode={onMode} practiceGames={practiceGames} />}
         {onPeriod && <PeriodPicker period={period} custom={custom} onPeriod={onPeriod} onCustom={onCustom} />}
-        <PracticeStats data={practiceStats} label={label} onPeriod={onPeriod} deep={deepPractice} />
+        <PracticeStats data={practiceStats} label={label} lastGame={lastGame} onPeriod={onPeriod} deep={deepPractice} />
         {practiceCard}
       </>
     );
@@ -220,7 +220,7 @@ export default function ProfileStats({ onAskAI = null, user, player, stats, allS
       {allStats && !stats && (
         <div className="card pf-empty-card mb-12">
           <p className="pf-empty-title">No ranked games in this range</p>
-          <p className="pf-empty">{label}. Pick a longer range to see more.</p>
+          <p className="pf-empty">{label}.{lastGame ? ` Last ranked game ${fmtDate(lastGame)}.` : ""} Pick a longer range to see more.</p>
           <button type="button" className="btn btn-sm" onClick={() => onPeriod("all")}>
             Show All Time
           </button>
@@ -293,7 +293,7 @@ export default function ProfileStats({ onAskAI = null, user, player, stats, allS
   );
 }
 
-/** Range chips: 30 Days (default), 90 Days, All Time, Custom (two dates). */
+/** Range chips: 30 Days, 90 Days, All Time, Custom (two dates). */
 function PeriodPicker({ period, custom, onPeriod, onCustom }) {
   const today = toInputDate(new Date());
   return (
