@@ -28,7 +28,7 @@ function EloDelta({ elo, size = 12 }) {
  * End-of-game screen. Pure presentation of a summary from lib/summary.js;
  * the shell owns saving, rematch and navigation.
  */
-export default function GameSummary({ match = null, summary, saveState, saveError, onRetrySave, onRematch, onNewGame, onDone, onOpenReport, playerColors, newBadges = [], bot = null, onChooseBot, onPlayBot, onPracticeHub, planStep = null }) {
+export default function GameSummary({ match = null, summary, saveState, saveError, onRetrySave, onRematch, rematchFirst = "", onChangeOrder = null, onNewGame, onDone, onOpenReport, playerColors, newBadges = [], bot = null, onChooseBot, onPlayBot, onPracticeHub, planStep = null }) {
   // a haptic / sound for the win, once per game (Settings → Accessibility)
   const gameKey = `${summary?.completedAt || ""}|${summary?.winner || ""}`;
   useEffect(() => {
@@ -37,7 +37,7 @@ export default function GameSummary({ match = null, summary, saveState, saveErro
     feedback("big");
   }, [gameKey]);
   if (!summary) return null;
-  const { winner, title, rows, highlights, ranked, durationMin, totalDarts } = summary;
+  const { winner, title, rows, highlights, ranked, durationMin, totalDarts, outcome = null } = summary;
   const winRow = rows.find((r) => r.isWinner) || rows[0];
   const winName = winRow?.name || winner;
   const colorOf = (r) => playerColors?.[r.u] || r.color || undefined;
@@ -46,26 +46,84 @@ export default function GameSummary({ match = null, summary, saveState, saveErro
   if (durationMin != null) meta.push(`${durationMin} min`);
   if (totalDarts) meta.push(`${totalDarts} darts`);
 
+  // the next step sits in a bar pinned above the nav (it settles at the end
+  // of the page once you scroll there), so Rematch / Next is always one tap
+  const unlocked = bot?.unlocked || null;
+  const botName = bot ? botFor(bot.id)?.name || playerLabel(bot.id) : "";
+  const rematch = {
+    label: bot ? `Rematch ${botName}` : outcome ? "Play Again" : "Rematch",
+    sub: rematchFirst,
+    onClick: onRematch,
+  };
+  let primary;
+  let secondary;
+  if (planStep?.onNext) {
+    primary = { label: planStep.nextLabel, onClick: planStep.onNext };
+    secondary = rematch;
+  } else if (planStep) {
+    primary = planStep.onViewPlan ? { label: "View Plan", onClick: planStep.onViewPlan } : rematch;
+    secondary = { label: ranked ? "View Standings" : "Done", onClick: onDone };
+  } else if (unlocked && onPlayBot) {
+    primary = { label: `Play ${unlocked.name}`, onClick: () => onPlayBot(unlocked.id) };
+    secondary = rematch;
+  } else if (bot) {
+    primary = rematch;
+    secondary = onChooseBot ? { label: "Choose Opponent", onClick: onChooseBot } : null;
+  } else {
+    primary = rematch;
+    secondary = { label: "New Game", onClick: onNewGame };
+  }
+
   return (
     <div className="fade">
 
-      <div className="card mb-12" style={{ textAlign: "center", borderColor: "var(--accent)", background: "var(--accent-soft)" }}>
-        <div className="tag" style={{ color: "var(--accent)" }}>Winner</div>
-        <div style={{ display: "flex", justifyContent: "center", margin: "12px 0 8px" }}>
-          <PlayerBadge username={winner} color={colorOf(winRow)} size={64} showName={false} />
-        </div>
-        <div className="display" style={{ fontSize: "calc(28px * var(--fs))", lineHeight: 1.1 }}>{winName}</div>
-        {winRow?.elo && (
-          <div className="num" style={{ marginTop: 6, fontSize: "calc(15px * var(--fs))", color: "var(--ink-soft)" }}>
-            {winRow.elo.before} → {winRow.elo.after}{" "}
-            <EloDelta elo={winRow.elo} size={14} />
+      {outcome ? (
+        <div className="card mb-12 summary-hero">
+          <div className="tag" style={{ color: "var(--accent)" }}>{outcome.kicker}</div>
+          <div style={{ display: "flex", justifyContent: "center", margin: "10px 0 6px" }}>
+            <PlayerBadge username={winner} color={colorOf(winRow)} size={48} showName={false} />
           </div>
-        )}
-        <div className="tag" style={{ marginTop: 10, textTransform: "none", letterSpacing: 0 }}>
-          {title}
-          {meta.length > 0 && ` · ${meta.join(" · ")}`}
+          <div className="display summary-hero-headline">{outcome.headline}</div>
+          <div className="tag" style={{ marginTop: 8, textTransform: "none", letterSpacing: 0 }}>
+            {title}
+            {meta.length > 0 && ` · ${meta.join(" · ")}`}
+          </div>
+          {outcome.best && <div className={`summary-best${outcome.best.isBest ? " is-best" : ""}`}>{outcome.best.text}</div>}
         </div>
-      </div>
+      ) : (
+        <div className="card mb-12 summary-hero">
+          <div className="tag" style={{ color: "var(--accent)" }}>Winner</div>
+          <div style={{ display: "flex", justifyContent: "center", margin: "12px 0 8px" }}>
+            <PlayerBadge username={winner} color={colorOf(winRow)} size={64} showName={false} />
+          </div>
+          <div className="display" style={{ fontSize: "calc(28px * var(--fs))", lineHeight: 1.1 }}>{winName}</div>
+          {winRow?.elo && (
+            <div className="num" style={{ marginTop: 6, fontSize: "calc(15px * var(--fs))", color: "var(--ink-soft)" }}>
+              {winRow.elo.before} → {winRow.elo.after}{" "}
+              <EloDelta elo={winRow.elo} size={14} />
+            </div>
+          )}
+          <div className="tag" style={{ marginTop: 10, textTransform: "none", letterSpacing: 0 }}>
+            {title}
+            {meta.length > 0 && ` · ${meta.join(" · ")}`}
+          </div>
+        </div>
+      )}
+
+      {/* the payoffs of this game come straight after the result */}
+      {unlocked && (
+        <div className="card mb-12 bot-unlock">
+          <BotAvatar bot={unlocked} size={56} />
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div className="tag" style={{ color: "var(--live)" }}>New Opponent Unlocked</div>
+            <div className="bot-unlock-name">{unlocked.name}</div>
+            <div className="tag" style={{ textTransform: "none", letterSpacing: 0 }}>
+              Level {unlocked.level} · {unlocked.avg} average. {unlocked.blurb}
+            </div>
+          </div>
+        </div>
+      )}
+      {planStep && <PlanStep step={planStep} />}
 
       {newBadges.length > 0 && (
         <div className="card mb-12 badge-unlocked" style={{ borderColor: "var(--amber)" }}>
@@ -149,63 +207,49 @@ export default function GameSummary({ match = null, summary, saveState, saveErro
         </button>
       )}
 
-      {planStep && <PlanStep step={planStep} />}
-
-      {bot ? (
-        <BotActions bot={bot} onRematch={onRematch} onChooseBot={onChooseBot} onPlayBot={onPlayBot} onPracticeHub={onPracticeHub} />
-      ) : (
-        <>
-          <button className="btn btn-primary" style={{ width: "100%", fontSize: "calc(16px * var(--fs))", padding: 16, display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 8 }} onClick={onRematch}>
-            <UndoIcon /> Rematch
-          </button>
-          <div className="row" style={{ marginTop: 10 }}>
-            <button className="btn" style={{ flex: 1 }} onClick={onNewGame}>New Game</button>
-            <button className="btn" style={{ flex: 1 }} onClick={onDone}>{ranked ? "View Standings" : "Done"}</button>
-          </div>
-        </>
-      )}
-    </div>
-  );
-}
-
-/**
- * After a bot game: a newly unlocked opponent first (the natural next
- * step), then rematch, pick another bot, or back to the practice hub.
- */
-function BotActions({ bot, onRematch, onChooseBot, onPlayBot, onPracticeHub }) {
-  const b = botFor(bot.id);
-  const next = bot.unlocked;
-  return (
-    <>
-      {next && (
-        <div className="card mb-12 bot-unlock">
-          <BotAvatar bot={next} size={64} />
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div className="tag" style={{ color: "var(--live)" }}>New Opponent Unlocked</div>
-            <div className="bot-unlock-name">{next.name}</div>
-            <div className="tag" style={{ textTransform: "none", letterSpacing: 0 }}>
-              Level {next.level} · {next.avg} average. {next.blurb}
-            </div>
-          </div>
-        </div>
-      )}
-      {next && onPlayBot && (
-        <button className="btn btn-primary mb-12" style={{ width: "100%", fontSize: "calc(16px * var(--fs))", padding: 16 }} onClick={() => onPlayBot(next.id)}>
-          Play {next.name}
-        </button>
-      )}
-      <button
-        className={`btn ${next ? "" : "btn-primary"}`}
-        style={{ width: "100%", fontSize: "calc(16px * var(--fs))", padding: 16, display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 8 }}
-        onClick={onRematch}
-      >
-        <UndoIcon /> Rematch {b ? b.name : playerLabel(bot.id)}
-      </button>
-      <div className="row" style={{ marginTop: 10 }}>
-        {onChooseBot && <button className="btn" style={{ flex: 1 }} onClick={onChooseBot}>Choose Opponent</button>}
-        {onPracticeHub && <button className="btn" style={{ flex: 1 }} onClick={onPracticeHub}>Practice Hub</button>}
+      {/* the rest of the ways on, below the stats */}
+      <div className="summary-more">
+        {onChangeOrder && !planStep && (
+          <button type="button" className="btn" onClick={onChangeOrder}>Change Order</button>
+        )}
+        {(planStep?.onNext || unlocked) && secondary !== rematch && (
+          <button type="button" className="btn" onClick={onRematch}>{rematch.label}</button>
+        )}
+        {planStep?.onNext && planStep.onViewPlan && (
+          <button type="button" className="btn" onClick={planStep.onViewPlan}>View Plan</button>
+        )}
+        {bot && onChooseBot && secondary?.label !== "Choose Opponent" && (
+          <button type="button" className="btn" onClick={onChooseBot}>Choose Opponent</button>
+        )}
+        {bot && onPracticeHub && (
+          <button type="button" className="btn" onClick={onPracticeHub}>Practice Hub</button>
+        )}
+        {!bot && secondary?.label !== "New Game" && onNewGame && (
+          <button type="button" className="btn" onClick={onNewGame}>New Game</button>
+        )}
+        {!bot && secondary?.onClick !== onDone && onDone && (
+          <button type="button" className="btn" onClick={onDone}>{ranked ? "View Standings" : "Done"}</button>
+        )}
       </div>
-    </>
+
+      <div className="summary-bar" role="group" aria-label="Next">
+        <button type="button" className="btn btn-primary summary-bar-main" onClick={primary.onClick}>
+          {primary === rematch && <UndoIcon />}
+          <span className="summary-bar-text">
+            <span>{primary.label}</span>
+            {primary.sub && <span className="summary-bar-sub">{primary.sub}</span>}
+          </span>
+        </button>
+        {secondary && (
+          <button type="button" className="btn summary-bar-alt" onClick={secondary.onClick}>
+            <span className="summary-bar-text">
+              <span>{secondary.label}</span>
+              {secondary.sub && <span className="summary-bar-sub">{secondary.sub}</span>}
+            </span>
+          </button>
+        )}
+      </div>
+    </div>
   );
 }
 
@@ -239,26 +283,17 @@ function SaveLine({ ranked, saveState, saveError, onRetry }) {
 
 /**
  * After a game that was part of a training plan: where the session stands
- * and the next drill. Counts come from saved progress (lib/trainingPlans.js).
+ * and the next drill, right under the result. Its buttons live in the
+ * pinned bar (Next is the main one). Counts come from saved progress
+ * (lib/trainingPlans.js).
  */
 function PlanStep({ step }) {
   return (
     <section className="card mb-12 plan-step" aria-label="Training plan">
       <div className="plan-step-kicker">Training Plan · {step.planTitle}</div>
       <div className="plan-step-title">{step.headline}</div>
+      {step.nextLabel && <p className="plan-step-note">{step.nextLabel}</p>}
       {step.note && <p className="plan-step-note">{step.note}</p>}
-      <div className="plan-modal-actions">
-        {step.onViewPlan && (
-          <button type="button" className="btn" onClick={step.onViewPlan}>
-            View Plan
-          </button>
-        )}
-        {step.onNext && (
-          <button type="button" className="btn btn-primary" onClick={step.onNext}>
-            {step.nextLabel}
-          </button>
-        )}
-      </div>
     </section>
   );
 }

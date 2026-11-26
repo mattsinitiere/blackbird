@@ -14,7 +14,9 @@ import WelcomeCard from "./WelcomeCard";
 import MerlinCard from "./MerlinCard";
 import { BASE_ELO } from "@/lib/constants";
 import { gamesPerWeek } from "@/lib/stats";
-import { lastGameFor, playAgainLabel } from "@/lib/playAgain";
+import { lastGameFor, playAgainLabel, firstThrowLabel } from "@/lib/playAgain";
+import { rematchGame } from "@/lib/games";
+import { pendingNote } from "@/lib/pendingGames";
 
 const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
 const WEEKS = 13; // ~3 months
@@ -98,7 +100,33 @@ function HighlightIcon({ type }) {
   return <svg {...props}><circle cx="9" cy="9" r="7" /><path d="M6 6l6 6M12 6l-6 6" /></svg>;
 }
 
-export default function Home({ setView, openSetup, stats, elo, players, results, me, openProfile, playerColors, practice = [], social = null, following = [], userId = null, onPlayAgain = null, pendingCount = 0, onSyncNow = null, merlin = null, onMerlinAction = null }) {
+/** Home's lead card while a game is in progress: what it is, the score, Resume. */
+function LiveGameCard({ live, playerColors }) {
+  const scored = live.players.some((p) => p.score != null);
+  return (
+    <section className="card mb-12 live-card" aria-label="Game in progress">
+      <div className="live-card-top">
+        <span className="live-card-kicker">
+          <span className="live-card-dot" aria-hidden="true" /> Game in progress
+        </span>
+        <span className="live-card-title">{live.title}</span>
+      </div>
+      <div className="live-card-players">
+        {live.players.map((p) => (
+          <div key={p.u} className="live-card-player">
+            <PlayerBadge username={p.u} color={playerColors?.[p.u]} size={20} />
+            {scored && <span className="num live-card-score">{p.score ?? "–"}</span>}
+          </div>
+        ))}
+      </div>
+      <button type="button" className="btn btn-primary live-card-resume" onClick={live.onResume}>
+        <StartIcon /> Resume Game
+      </button>
+    </section>
+  );
+}
+
+export default function Home({ setView, openSetup, stats, elo, players, results, me, openProfile, playerColors, practice = [], social = null, following = [], userId = null, onPlayAgain = null, pendingCount = 0, onSyncNow = null, merlin = null, onMerlinAction = null, liveGame = null, onOpenFriends = null }) {
   const visible = players.filter((p) => !p.hidden);
   // the signed-in player's own ranked games, one bar per week
   const weekly = useMemo(() => gamesPerWeek((results || []).filter((r) => r.username === me)), [results, me]);
@@ -109,6 +137,13 @@ export default function Home({ setView, openSetup, stats, elo, players, results,
 
   const highlights = useMemo(() => computeHighlights(results), [results]);
   const lastGame = useMemo(() => lastGameFor([...(results || []), ...(practice || [])], me), [results, practice, me]);
+  // what Play Again starts: the last game with the throw order moved on
+  const againGame = useMemo(() => {
+    if (!lastGame) return null;
+    const { winner, ...game } = lastGame;
+    return rematchGame(game, { winner });
+  }, [lastGame]);
+  const againFirst = againGame ? firstThrowLabel(againGame.players, me) : "";
 
   const podiumOrder = ranked.length >= 3 ? [ranked[1], ranked[0], ranked[2]] : ranked.slice(0, 3);
   const podiumHeights = [100, 140, 80];
@@ -116,6 +151,18 @@ export default function Home({ setView, openSetup, stats, elo, players, results,
 
   return (
     <div className="fade">
+      {/* a game finished offline: say so before the numbers it isn't in yet */}
+      {pendingCount > 0 && (
+        <div className="sync-note" role="status">
+          <span>{pendingNote(pendingCount)}</span>
+          {onSyncNow && (
+            <button type="button" className="btn btn-sm" onClick={onSyncNow}>
+              Sync Now
+            </button>
+          )}
+        </div>
+      )}
+      {liveGame && <LiveGameCard live={liveGame} playerColors={playerColors} />}
       <WelcomeCard
         me={me}
         userId={userId}
@@ -132,9 +179,13 @@ export default function Home({ setView, openSetup, stats, elo, players, results,
         <button className="btn btn-primary home-action" onClick={() => (openSetup ? openSetup(null) : setView("setup"))}>
           <StartIcon /> Start a Game
         </button>
-        {lastGame && onPlayAgain && (
-          <button className="btn home-action is-again" onClick={() => onPlayAgain(lastGame)}>
-            <UndoIcon /> <span className="play-again-text">Play Again: {playAgainLabel(lastGame)}</span>
+        {againGame && onPlayAgain && (
+          <button className="btn home-action is-again" onClick={() => onPlayAgain(againGame)}>
+            <UndoIcon />
+            <span className="play-again-text">
+              Play Again: {playAgainLabel(lastGame)}
+              {againFirst && <span className="play-again-first">{againFirst}</span>}
+            </span>
           </button>
         )}
         <button className="btn home-action is-practice" onClick={() => setView("practice")}>
@@ -142,18 +193,6 @@ export default function Home({ setView, openSetup, stats, elo, players, results,
         </button>
       </div>
       {merlin && onMerlinAction && <MerlinCard card={merlin} onAction={onMerlinAction} />}
-      {pendingCount > 0 && (
-        <div className="sync-note" role="status">
-          <span>
-            {pendingCount} {pendingCount === 1 ? "game" : "games"} waiting to sync
-          </span>
-          {onSyncNow && (
-            <button type="button" className="btn btn-sm" onClick={onSyncNow}>
-              Sync Now
-            </button>
-          )}
-        </div>
-      )}
 
       <div className="card mb-12">
         <h3 className="section-title">Your Games · Last 3 Months</h3>
@@ -337,11 +376,25 @@ export default function Home({ setView, openSetup, stats, elo, players, results,
         </div>
       )}
 
+      {/* nobody followed yet: the board is just you, so point at Friends */}
+      {onOpenFriends && following.length === 0 && ranked.length <= 1 && (
+        <div className="card mb-12 board-empty">
+          <div className="board-empty-title">Your board is just you so far</div>
+          <p className="board-empty-text">Follow the people you play with to see their games, standings and matchups here.</p>
+          <button type="button" className="btn btn-primary" onClick={onOpenFriends}>
+            Find Friends
+          </button>
+        </div>
+      )}
+
       {highlights && highlights.length > 0 && (
         <>
           <hr className="sep" />
-          <h2 className="section-title">Highlights</h2>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 200px), 1fr))", gap: 10 }}>
+          <div className="between home-highlights-head">
+            <h2 className="section-title" style={{ margin: 0 }}>Highlights</h2>
+            <span className="tag">Last 3 months</span>
+          </div>
+          <div className="home-highlights">
             {highlights.map((h, i) => (
               <div
                 key={i}

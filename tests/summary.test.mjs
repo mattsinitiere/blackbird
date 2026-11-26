@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { buildSummary, gameTitle } from "../lib/summary.js";
+import { buildSummary, gameTitle, soloOutcome } from "../lib/summary.js";
 
 const x01Match = {
   gameType: "x01",
@@ -130,7 +130,7 @@ test("drill summaries: titles, ranking and highlights", () => {
   });
   assert.deepEqual(bobs.rows.map((r) => r.u), ["B", "A"]);
   assert.equal(bobs.ranked, false);
-  assert.ok(bobs.rows[1].stats.some((st) => st.label === "busted"));
+  assert.ok(bobs.rows[1].stats.some((st) => st.value === "busted"));
   assert.deepEqual(bobs.highlights.map((h) => [h.label, h.player]), [["Most doubles", "A"]]);
 
   // checkout drill: more hits wins, fewer darts breaks the tie
@@ -154,4 +154,35 @@ test("name tags ride on the summary rows", () => {
   assert.equal(ann.tag, "BB");
   assert.equal(ann.tagIcon, "crown");
   assert.equal(s.rows.find((r) => r.u !== "Ann").tag, null);
+});
+
+test("a solo drill leads with its outcome, not a winner", () => {
+  const bobs = { gameType: "bobs27", config: {}, players: ["Ann"], winner: "Ann", perPlayer: { Ann: { finalScore: 0, doublesHit: 1, roundsCompleted: 6, busted: true, dartsThrown: 18 } } };
+  const s = buildSummary({ match: bobs, prior: [] });
+  assert.equal(s.outcome.kicker, "Drill complete");
+  assert.equal(s.outcome.headline, "Busted out at D6");
+  assert.equal(s.outcome.best.text, "First Bob's 27 logged. This is the score to beat.");
+  // the stat chip reads "busted at D6", and darts per hit is gone with no hits
+  assert.deepEqual(s.rows[0].stats[0], { label: "at D6", value: "busted" });
+  const co = soloOutcome({ gameType: "checkoutDrill", players: ["Ann"], perPlayer: { Ann: { hit: 0, finishes: 5, dartsThrown: 45 } } });
+  assert.equal(co.headline, "0 of 5 finishes");
+  assert.equal(co.best, null); // no history passed
+  const coSum = buildSummary({ match: { gameType: "checkoutDrill", config: { count: 5 }, players: ["Ann"], winner: "Ann", perPlayer: { Ann: { hit: 0, finishes: 5, dartsThrown: 45 } } } });
+  assert.ok(!coSum.rows[0].stats.some((st) => st.label === "darts / hit"));
+  // multiplayer games keep the winner card
+  assert.equal(buildSummary({ match: x01Match }).outcome, null);
+});
+
+test("a solo drill's best line compares with earlier attempts", () => {
+  const prior = [
+    { username: "Ann", gameType: "scoringDrill", stats: { avgPerTurn: 30 }, completedAt: "2026-09-01T10:00:00Z" },
+    { username: "Ann", gameType: "scoringDrill", stats: { avgPerTurn: 41.2 }, completedAt: "2026-09-02T10:00:00Z" },
+    { username: "Bob", gameType: "scoringDrill", stats: { avgPerTurn: 90 }, completedAt: "2026-09-02T10:00:00Z" },
+  ];
+  const run = (avg) => soloOutcome({ gameType: "scoringDrill", players: ["Ann"], perPlayer: { Ann: { total: 300, avgPerTurn: avg } } }, prior);
+  assert.equal(run(50).best.text, "New best! Previous best 41.2 per visit.");
+  assert.equal(run(50).best.isBest, true);
+  assert.equal(run(41.2).best.text, "Equals your best of 41.2 per visit.");
+  assert.equal(run(20).best.text, "Your best: 41.2 per visit.");
+  assert.equal(run(20).headline, "300 points");
 });

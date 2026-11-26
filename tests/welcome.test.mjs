@@ -30,6 +30,17 @@ test("insights come only from real data, with the rival and since-last-visit lin
   assert.deepEqual(welcomeInsights({ me: "Nobody", stats: {}, results: [], badges: [] }), []);
 });
 
+test("a visit-day streak badge is worded in days, a win streak in wins", () => {
+  const day = [{ id: "days_3", category: "Dedication", title: "Warming Up", unlocked: false, progress: { value: 1, target: 3, kind: "streak" } }];
+  const [d] = welcomeInsights({ me: "Jordan", stats: {}, results: [], badges: day });
+  assert.equal(d.text, "Day 1 of 3 in a row. 2 more days for Warming Up.");
+  assert.ok(!/win/.test(d.text));
+  const day2 = [{ ...day[0], progress: { value: 2, target: 3, kind: "streak" } }];
+  assert.equal(welcomeInsights({ me: "Jordan", stats: {}, results: [], badges: day2 })[0].text, "Day 2 of 3 in a row. Come back tomorrow for Warming Up.");
+  const win = [{ id: "streak_3", category: "Streaks", title: "Hat-trick", unlocked: false, progress: { value: 1, target: 3, kind: "streak" } }];
+  assert.equal(welcomeInsights({ me: "Jordan", stats: {}, results: [], badges: win })[0].text, "1 win in a row. 2 more for Hat-trick.");
+});
+
 test("the pick never repeats the last kind when there is a choice", () => {
   const list = [{ kind: "form" }, { kind: "rival" }];
   for (let i = 0; i < 20; i++) assert.equal(pickInsight(list, "form", () => i / 20).kind, "rival");
