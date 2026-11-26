@@ -61,8 +61,8 @@ function TVCricket({ game, snapshot, showBoard }) {
               {X01_TARGETS.map((t) => (
                 <th key={t}>{t}</th>
               ))}
-              {variant !== "noscore" && <th>Pts</th>}
-              <th>MPR</th>
+              {variant !== "noscore" && <th className="tv-col-total">Pts</th>}
+              <th className="tv-col-total">MPR</th>
             </tr>
           </thead>
           <tbody>
@@ -72,7 +72,7 @@ function TVCricket({ game, snapshot, showBoard }) {
                 {X01_TARGETS.map((t) => (
                   <td
                     key={t}
-                    className="tv-num"
+                    className="tv-num tv-mark"
                     style={{ color: state[u].marks[t] >= 3 ? "var(--accent)" : "var(--ink)" }}
                   >
                     {markSymbol(Math.min(state[u].marks[t], 3))}
@@ -175,7 +175,7 @@ function TVBaseball({ game, snapshot, showBoard }) {
                   {c > innings ? "E" : c}
                 </th>
               ))}
-              <th>R</th>
+              <th className="tv-col-total">R</th>
             </tr>
           </thead>
           <tbody>

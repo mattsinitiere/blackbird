@@ -1599,7 +1599,24 @@ label.check input {
 .tv-table {
   width: 100%;
   border-collapse: collapse;
-  font-size: clamp(20px, 3.4vw, 64px);
+  /* fixed columns: marks filling in must never widen the table into the
+     dartboard (the first row's widths below decide every column) */
+  table-layout: fixed;
+  font-size: clamp(18px, min(2.6vw, 4.6vh), 52px);
+}
+.tv-table th:first-child {
+  width: 21%;
+}
+.tv-table th.tv-col-total {
+  width: 12%;
+}
+.tv-table td {
+  overflow: hidden;
+  white-space: nowrap;
+}
+/* cricket marks sit a little smaller than the numbers so a full circle fits its column */
+.tv-table td.tv-mark {
+  font-size: 0.82em;
 }
 .tv-table th {
   font-size: clamp(12px, 1.7vw, 30px);
@@ -1929,7 +1946,8 @@ label.check input {
   text-align: center;
 }
 .tv-summary-hero .tv-winner-name {
-  font-size: clamp(44px, 7vw, 150px);
+  /* capped by height too, so an extra line (a tiebreak) still leaves the footer on screen */
+  font-size: clamp(40px, min(7vw, 10vh), 150px);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1959,7 +1977,7 @@ label.check input {
 }
 .tv-summary-primary {
   font-weight: 800;
-  font-size: clamp(40px, 6.5vw, 130px);
+  font-size: clamp(36px, min(6.5vw, 9vh), 130px);
   line-height: 1.05;
   font-variant-numeric: tabular-nums;
 }
